@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
+import { Route as TrainerAlertsRouteImport } from './routes/trainer.alerts'
 import { Route as TrainerHorsesRouteImport } from './routes/trainer.horses'
+import { Route as TrainerTrainingRouteImport } from './routes/trainer.training'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,39 +25,73 @@ const TrainerIndexRoute = TrainerIndexRouteImport.update({
   path: '/trainer/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainerAlertsRoute = TrainerAlertsRouteImport.update({
+  id: '/trainer/alerts',
+  path: '/trainer/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrainerHorsesRoute = TrainerHorsesRouteImport.update({
   id: '/trainer/horses',
   path: '/trainer/horses',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainerTrainingRoute = TrainerTrainingRouteImport.update({
+  id: '/trainer/training',
+  path: '/trainer/training',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
+  '/trainer/training': typeof TrainerTrainingRoute
   '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
+  '/trainer/training': typeof TrainerTrainingRoute
   '/trainer': typeof TrainerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
+  '/trainer/training': typeof TrainerTrainingRoute
   '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/trainer/horses' | '/trainer/'
+  fullPaths:
+    | '/'
+    | '/trainer/alerts'
+    | '/trainer/horses'
+    | '/trainer/training'
+    | '/trainer/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/trainer/horses' | '/trainer'
-  id: '__root__' | '/' | '/trainer/horses' | '/trainer/'
+  to:
+    | '/'
+    | '/trainer/alerts'
+    | '/trainer/horses'
+    | '/trainer/training'
+    | '/trainer'
+  id:
+    | '__root__'
+    | '/'
+    | '/trainer/alerts'
+    | '/trainer/horses'
+    | '/trainer/training'
+    | '/trainer/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  TrainerAlertsRoute: typeof TrainerAlertsRoute
   TrainerHorsesRoute: typeof TrainerHorsesRoute
+  TrainerTrainingRoute: typeof TrainerTrainingRoute
   TrainerIndexRoute: typeof TrainerIndexRoute
 }
 
@@ -75,6 +111,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trainer/alerts': {
+      id: '/trainer/alerts'
+      path: '/trainer/alerts'
+      fullPath: '/trainer/alerts'
+      preLoaderRoute: typeof TrainerAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trainer/horses': {
       id: '/trainer/horses'
       path: '/trainer/horses'
@@ -82,12 +125,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerHorsesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trainer/training': {
+      id: '/trainer/training'
+      path: '/trainer/training'
+      fullPath: '/trainer/training'
+      preLoaderRoute: typeof TrainerTrainingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  TrainerAlertsRoute: TrainerAlertsRoute,
   TrainerHorsesRoute: TrainerHorsesRoute,
+  TrainerTrainingRoute: TrainerTrainingRoute,
   TrainerIndexRoute: TrainerIndexRoute,
 }
 export const routeTree = rootRouteImport
