@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
+import { Route as TrainerHorsesRouteImport } from './routes/trainer.horses'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainerIndexRoute = TrainerIndexRouteImport.update({
+  id: '/trainer/',
+  path: '/trainer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrainerHorsesRoute = TrainerHorsesRouteImport.update({
+  id: '/trainer/horses',
+  path: '/trainer/horses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/trainer/horses': typeof TrainerHorsesRoute
+  '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/trainer/horses': typeof TrainerHorsesRoute
+  '/trainer': typeof TrainerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/trainer/horses': typeof TrainerHorsesRoute
+  '/trainer/': typeof TrainerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/trainer/horses' | '/trainer/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/trainer/horses' | '/trainer'
+  id: '__root__' | '/' | '/trainer/horses' | '/trainer/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  TrainerHorsesRoute: typeof TrainerHorsesRoute
+  TrainerIndexRoute: typeof TrainerIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/trainer/': {
+      id: '/trainer/'
+      path: '/trainer'
+      fullPath: '/trainer/'
+      preLoaderRoute: typeof TrainerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trainer/horses': {
+      id: '/trainer/horses'
+      path: '/trainer/horses'
+      fullPath: '/trainer/horses'
+      preLoaderRoute: typeof TrainerHorsesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  TrainerHorsesRoute: TrainerHorsesRoute,
+  TrainerIndexRoute: TrainerIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
