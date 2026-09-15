@@ -72,7 +72,8 @@ export function AppShell({
             </div>
             {action ?? (
               <Link
-                to="/profile"
+                to="/profile/$role"
+                params={{ role }}
                 className="num grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border bg-surface text-[11px] font-semibold"
               >
                 {cfg.initials}
@@ -101,7 +102,7 @@ export function BottomNav({ role }: { role: RoleId }) {
           return (
             <li key={item.to} className="flex-1">
               <Link
-                to={item.to}
+                to={item.to as never}
                 className={cn(
                   "flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
                   active ? "text-primary" : "text-muted-foreground",

@@ -151,7 +151,7 @@ export function HorseAvatar({
 export function HorseCard({ horse, to }: { horse: Horse; to: string }) {
   return (
     <Link
-      to={to}
+      to={to as never}
       className="panel flex items-center gap-3 p-3 transition-colors hover:bg-elevated active:bg-elevated"
     >
       <HorseAvatar horse={horse} size={52} />
@@ -274,7 +274,7 @@ export function AlertCard({ alert, to }: { alert: AlertItem; to?: string }) {
     </>
   );
   return to ? (
-    <Link to={to} className={cn("block rounded-xl border p-4 transition-colors", tone)}>
+    <Link to={to as never} className={cn("block rounded-xl border p-4 transition-colors", tone)}>
       {body}
     </Link>
   ) : (
@@ -345,13 +345,34 @@ export function ActionButton({
   onClick,
   className,
   type = "button",
+  to,
+  params,
 }: {
   children: ReactNode;
   variant?: "primary" | "secondary" | "danger" | "ghost";
   onClick?: () => void;
   className?: string;
   type?: "button" | "submit";
+  to?: string;
+  params?: Record<string, string>;
 }) {
+  const styles = cn(
+    "grid h-12 w-full place-items-center rounded-xl text-sm font-semibold transition-all active:scale-[0.99]",
+    variant === "primary" && "bg-primary text-primary-foreground hover:brightness-110",
+    variant === "secondary" && "border border-border-strong bg-surface text-foreground hover:bg-elevated",
+    variant === "danger" && "bg-injured text-destructive-foreground hover:brightness-110",
+    variant === "ghost" && "text-muted-foreground hover:text-foreground",
+    className,
+  );
+
+  if (to) {
+    return (
+      <Link to={to as never} params={params as never} className={styles}>
+        {children}
+      </Link>
+    );
+  }
+
   return (
     <button
       type={type}
