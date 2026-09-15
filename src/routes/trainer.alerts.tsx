@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/raceos/shell";
 import { ActionButton, AlertCard, Panel, SectionTitle } from "@/components/raceos/primitives";
 import { alerts } from "@/lib/raceos-data";
@@ -46,12 +46,10 @@ function TrainerAlerts() {
             ))}
           </dl>
           <div className="mt-4 space-y-2">
-            <Link to="/horse/$role/$id" params={{ role: "trainer", id: "thunder-king" }}>
-              <ActionButton variant="secondary">View health report</ActionButton>
-            </Link>
-            <Link to="/trainer/plan/$id" params={{ id: "thunder-king" }}>
-              <ActionButton>Adjust training plan</ActionButton>
-            </Link>
+            <ActionButton variant="secondary" to="/horse/trainer/thunder-king">
+              View health report
+            </ActionButton>
+            <ActionButton to="/trainer/plan/thunder-king">Adjust training plan</ActionButton>
           </div>
         </Panel>
       </section>
