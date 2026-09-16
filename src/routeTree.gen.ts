@@ -10,10 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GroomIndexRouteImport } from './routes/groom.index'
+import { Route as GroomReportRouteImport } from './routes/groom.report'
+import { Route as GroomStableRouteImport } from './routes/groom.stable'
+import { Route as GroomTasksRouteImport } from './routes/groom.tasks'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
 import { Route as TrainerAlertsRouteImport } from './routes/trainer.alerts'
 import { Route as TrainerHorsesRouteImport } from './routes/trainer.horses'
 import { Route as TrainerTrainingRouteImport } from './routes/trainer.training'
+import { Route as VetIndexRouteImport } from './routes/vet.index'
+import { Route as VetAlertsRouteImport } from './routes/vet.alerts'
+import { Route as VetHorsesRouteImport } from './routes/vet.horses'
+import { Route as VetMedicalRouteImport } from './routes/vet.medical'
 import { Route as HorseRoleIdRouteImport } from './routes/horse.$role.$id'
 import { Route as LiveRoleHorseIdRouteImport } from './routes/live.$role.$horseId'
 import { Route as TrainerPlanIdRouteImport } from './routes/trainer.plan.$id'
@@ -21,6 +29,26 @@ import { Route as TrainerPlanIdRouteImport } from './routes/trainer.plan.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomIndexRoute = GroomIndexRouteImport.update({
+  id: '/groom/',
+  path: '/groom/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomReportRoute = GroomReportRouteImport.update({
+  id: '/groom/report',
+  path: '/groom/report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomStableRoute = GroomStableRouteImport.update({
+  id: '/groom/stable',
+  path: '/groom/stable',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomTasksRoute = GroomTasksRouteImport.update({
+  id: '/groom/tasks',
+  path: '/groom/tasks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrainerIndexRoute = TrainerIndexRouteImport.update({
@@ -43,6 +71,26 @@ const TrainerTrainingRoute = TrainerTrainingRouteImport.update({
   path: '/trainer/training',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VetIndexRoute = VetIndexRouteImport.update({
+  id: '/vet/',
+  path: '/vet/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VetAlertsRoute = VetAlertsRouteImport.update({
+  id: '/vet/alerts',
+  path: '/vet/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VetHorsesRoute = VetHorsesRouteImport.update({
+  id: '/vet/horses',
+  path: '/vet/horses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VetMedicalRoute = VetMedicalRouteImport.update({
+  id: '/vet/medical',
+  path: '/vet/medical',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HorseRoleIdRoute = HorseRoleIdRouteImport.update({
   id: '/horse/$role/$id',
   path: '/horse/$role/$id',
@@ -61,20 +109,36 @@ const TrainerPlanIdRoute = TrainerPlanIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/groom/report': typeof GroomReportRoute
+  '/groom/stable': typeof GroomStableRoute
+  '/groom/tasks': typeof GroomTasksRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
+  '/vet/alerts': typeof VetAlertsRoute
+  '/vet/horses': typeof VetHorsesRoute
+  '/vet/medical': typeof VetMedicalRoute
+  '/groom/': typeof GroomIndexRoute
   '/trainer/': typeof TrainerIndexRoute
+  '/vet/': typeof VetIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
   '/trainer/plan/$id': typeof TrainerPlanIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/groom/report': typeof GroomReportRoute
+  '/groom/stable': typeof GroomStableRoute
+  '/groom/tasks': typeof GroomTasksRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
+  '/vet/alerts': typeof VetAlertsRoute
+  '/vet/horses': typeof VetHorsesRoute
+  '/vet/medical': typeof VetMedicalRoute
+  '/groom': typeof GroomIndexRoute
   '/trainer': typeof TrainerIndexRoute
+  '/vet': typeof VetIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
   '/trainer/plan/$id': typeof TrainerPlanIdRoute
@@ -82,10 +146,18 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/groom/report': typeof GroomReportRoute
+  '/groom/stable': typeof GroomStableRoute
+  '/groom/tasks': typeof GroomTasksRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
+  '/vet/alerts': typeof VetAlertsRoute
+  '/vet/horses': typeof VetHorsesRoute
+  '/vet/medical': typeof VetMedicalRoute
+  '/groom/': typeof GroomIndexRoute
   '/trainer/': typeof TrainerIndexRoute
+  '/vet/': typeof VetIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
   '/trainer/plan/$id': typeof TrainerPlanIdRoute
@@ -94,30 +166,54 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/groom/report'
+    | '/groom/stable'
+    | '/groom/tasks'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
+    | '/vet/alerts'
+    | '/vet/horses'
+    | '/vet/medical'
+    | '/groom/'
     | '/trainer/'
+    | '/vet/'
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
     | '/trainer/plan/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/groom/report'
+    | '/groom/stable'
+    | '/groom/tasks'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
+    | '/vet/alerts'
+    | '/vet/horses'
+    | '/vet/medical'
+    | '/groom'
     | '/trainer'
+    | '/vet'
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
     | '/trainer/plan/$id'
   id:
     | '__root__'
     | '/'
+    | '/groom/report'
+    | '/groom/stable'
+    | '/groom/tasks'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
+    | '/vet/alerts'
+    | '/vet/horses'
+    | '/vet/medical'
+    | '/groom/'
     | '/trainer/'
+    | '/vet/'
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
     | '/trainer/plan/$id'
@@ -125,10 +221,18 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GroomReportRoute: typeof GroomReportRoute
+  GroomStableRoute: typeof GroomStableRoute
+  GroomTasksRoute: typeof GroomTasksRoute
   TrainerAlertsRoute: typeof TrainerAlertsRoute
   TrainerHorsesRoute: typeof TrainerHorsesRoute
   TrainerTrainingRoute: typeof TrainerTrainingRoute
+  VetAlertsRoute: typeof VetAlertsRoute
+  VetHorsesRoute: typeof VetHorsesRoute
+  VetMedicalRoute: typeof VetMedicalRoute
+  GroomIndexRoute: typeof GroomIndexRoute
   TrainerIndexRoute: typeof TrainerIndexRoute
+  VetIndexRoute: typeof VetIndexRoute
   HorseRoleIdRoute: typeof HorseRoleIdRoute
   LiveRoleHorseIdRoute: typeof LiveRoleHorseIdRoute
   TrainerPlanIdRoute: typeof TrainerPlanIdRoute
@@ -141,6 +245,34 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/': {
+      id: '/groom/'
+      path: '/groom'
+      fullPath: '/groom/'
+      preLoaderRoute: typeof GroomIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/report': {
+      id: '/groom/report'
+      path: '/groom/report'
+      fullPath: '/groom/report'
+      preLoaderRoute: typeof GroomReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/stable': {
+      id: '/groom/stable'
+      path: '/groom/stable'
+      fullPath: '/groom/stable'
+      preLoaderRoute: typeof GroomStableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/tasks': {
+      id: '/groom/tasks'
+      path: '/groom/tasks'
+      fullPath: '/groom/tasks'
+      preLoaderRoute: typeof GroomTasksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/trainer/': {
@@ -171,6 +303,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerTrainingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vet/': {
+      id: '/vet/'
+      path: '/vet'
+      fullPath: '/vet/'
+      preLoaderRoute: typeof VetIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vet/alerts': {
+      id: '/vet/alerts'
+      path: '/vet/alerts'
+      fullPath: '/vet/alerts'
+      preLoaderRoute: typeof VetAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vet/horses': {
+      id: '/vet/horses'
+      path: '/vet/horses'
+      fullPath: '/vet/horses'
+      preLoaderRoute: typeof VetHorsesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vet/medical': {
+      id: '/vet/medical'
+      path: '/vet/medical'
+      fullPath: '/vet/medical'
+      preLoaderRoute: typeof VetMedicalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/horse/$role/$id': {
       id: '/horse/$role/$id'
       path: '/horse/$role/$id'
@@ -197,10 +357,18 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GroomReportRoute: GroomReportRoute,
+  GroomStableRoute: GroomStableRoute,
+  GroomTasksRoute: GroomTasksRoute,
   TrainerAlertsRoute: TrainerAlertsRoute,
   TrainerHorsesRoute: TrainerHorsesRoute,
   TrainerTrainingRoute: TrainerTrainingRoute,
+  VetAlertsRoute: VetAlertsRoute,
+  VetHorsesRoute: VetHorsesRoute,
+  VetMedicalRoute: VetMedicalRoute,
+  GroomIndexRoute: GroomIndexRoute,
   TrainerIndexRoute: TrainerIndexRoute,
+  VetIndexRoute: VetIndexRoute,
   HorseRoleIdRoute: HorseRoleIdRoute,
   LiveRoleHorseIdRoute: LiveRoleHorseIdRoute,
   TrainerPlanIdRoute: TrainerPlanIdRoute,
