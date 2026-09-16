@@ -10,6 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GroomIndexRouteImport } from './routes/groom.index'
+import { Route as GroomReportRouteImport } from './routes/groom.report'
+import { Route as GroomStableRouteImport } from './routes/groom.stable'
+import { Route as GroomTasksRouteImport } from './routes/groom.tasks'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
 import { Route as TrainerAlertsRouteImport } from './routes/trainer.alerts'
 import { Route as TrainerHorsesRouteImport } from './routes/trainer.horses'
@@ -21,6 +25,26 @@ import { Route as TrainerPlanIdRouteImport } from './routes/trainer.plan.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomIndexRoute = GroomIndexRouteImport.update({
+  id: '/groom/',
+  path: '/groom/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomReportRoute = GroomReportRouteImport.update({
+  id: '/groom/report',
+  path: '/groom/report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomStableRoute = GroomStableRouteImport.update({
+  id: '/groom/stable',
+  path: '/groom/stable',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GroomTasksRoute = GroomTasksRouteImport.update({
+  id: '/groom/tasks',
+  path: '/groom/tasks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrainerIndexRoute = TrainerIndexRouteImport.update({
@@ -61,9 +85,13 @@ const TrainerPlanIdRoute = TrainerPlanIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/groom/report': typeof GroomReportRoute
+  '/groom/stable': typeof GroomStableRoute
+  '/groom/tasks': typeof GroomTasksRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
+  '/groom/': typeof GroomIndexRoute
   '/trainer/': typeof TrainerIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
@@ -71,9 +99,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/groom/report': typeof GroomReportRoute
+  '/groom/stable': typeof GroomStableRoute
+  '/groom/tasks': typeof GroomTasksRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
+  '/groom': typeof GroomIndexRoute
   '/trainer': typeof TrainerIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
@@ -82,9 +114,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/groom/report': typeof GroomReportRoute
+  '/groom/stable': typeof GroomStableRoute
+  '/groom/tasks': typeof GroomTasksRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
+  '/groom/': typeof GroomIndexRoute
   '/trainer/': typeof TrainerIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
@@ -94,9 +130,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/groom/report'
+    | '/groom/stable'
+    | '/groom/tasks'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
+    | '/groom/'
     | '/trainer/'
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
@@ -104,9 +144,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/groom/report'
+    | '/groom/stable'
+    | '/groom/tasks'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
+    | '/groom'
     | '/trainer'
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
@@ -114,9 +158,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/groom/report'
+    | '/groom/stable'
+    | '/groom/tasks'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
+    | '/groom/'
     | '/trainer/'
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
@@ -125,9 +173,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GroomReportRoute: typeof GroomReportRoute
+  GroomStableRoute: typeof GroomStableRoute
+  GroomTasksRoute: typeof GroomTasksRoute
   TrainerAlertsRoute: typeof TrainerAlertsRoute
   TrainerHorsesRoute: typeof TrainerHorsesRoute
   TrainerTrainingRoute: typeof TrainerTrainingRoute
+  GroomIndexRoute: typeof GroomIndexRoute
   TrainerIndexRoute: typeof TrainerIndexRoute
   HorseRoleIdRoute: typeof HorseRoleIdRoute
   LiveRoleHorseIdRoute: typeof LiveRoleHorseIdRoute
@@ -141,6 +193,34 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/': {
+      id: '/groom/'
+      path: '/groom'
+      fullPath: '/groom/'
+      preLoaderRoute: typeof GroomIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/report': {
+      id: '/groom/report'
+      path: '/groom/report'
+      fullPath: '/groom/report'
+      preLoaderRoute: typeof GroomReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/stable': {
+      id: '/groom/stable'
+      path: '/groom/stable'
+      fullPath: '/groom/stable'
+      preLoaderRoute: typeof GroomStableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/groom/tasks': {
+      id: '/groom/tasks'
+      path: '/groom/tasks'
+      fullPath: '/groom/tasks'
+      preLoaderRoute: typeof GroomTasksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/trainer/': {
@@ -197,9 +277,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GroomReportRoute: GroomReportRoute,
+  GroomStableRoute: GroomStableRoute,
+  GroomTasksRoute: GroomTasksRoute,
   TrainerAlertsRoute: TrainerAlertsRoute,
   TrainerHorsesRoute: TrainerHorsesRoute,
   TrainerTrainingRoute: TrainerTrainingRoute,
+  GroomIndexRoute: GroomIndexRoute,
   TrainerIndexRoute: TrainerIndexRoute,
   HorseRoleIdRoute: HorseRoleIdRoute,
   LiveRoleHorseIdRoute: LiveRoleHorseIdRoute,
