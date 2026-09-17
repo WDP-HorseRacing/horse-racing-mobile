@@ -25,6 +25,9 @@ import { Route as VetMedicalRouteImport } from './routes/vet.medical'
 import { Route as HorseRoleIdRouteImport } from './routes/horse.$role.$id'
 import { Route as LiveRoleHorseIdRouteImport } from './routes/live.$role.$horseId'
 import { Route as TrainerPlanIdRouteImport } from './routes/trainer.plan.$id'
+import { Route as VetExamIdRouteImport } from './routes/vet.exam.$id'
+import { Route as VetInjuryIdRouteImport } from './routes/vet.injury.$id'
+import { Route as VetLockIdRouteImport } from './routes/vet.lock.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -106,6 +109,21 @@ const TrainerPlanIdRoute = TrainerPlanIdRouteImport.update({
   path: '/trainer/plan/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VetExamIdRoute = VetExamIdRouteImport.update({
+  id: '/vet/exam/$id',
+  path: '/vet/exam/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VetInjuryIdRoute = VetInjuryIdRouteImport.update({
+  id: '/vet/injury/$id',
+  path: '/vet/injury/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VetLockIdRoute = VetLockIdRouteImport.update({
+  id: '/vet/lock/$id',
+  path: '/vet/lock/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +142,9 @@ export interface FileRoutesByFullPath {
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
   '/trainer/plan/$id': typeof TrainerPlanIdRoute
+  '/vet/exam/$id': typeof VetExamIdRoute
+  '/vet/injury/$id': typeof VetInjuryIdRoute
+  '/vet/lock/$id': typeof VetLockIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,6 +163,9 @@ export interface FileRoutesByTo {
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
   '/trainer/plan/$id': typeof TrainerPlanIdRoute
+  '/vet/exam/$id': typeof VetExamIdRoute
+  '/vet/injury/$id': typeof VetInjuryIdRoute
+  '/vet/lock/$id': typeof VetLockIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +185,9 @@ export interface FileRoutesById {
   '/horse/$role/$id': typeof HorseRoleIdRoute
   '/live/$role/$horseId': typeof LiveRoleHorseIdRoute
   '/trainer/plan/$id': typeof TrainerPlanIdRoute
+  '/vet/exam/$id': typeof VetExamIdRoute
+  '/vet/injury/$id': typeof VetInjuryIdRoute
+  '/vet/lock/$id': typeof VetLockIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +208,9 @@ export interface FileRouteTypes {
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
     | '/trainer/plan/$id'
+    | '/vet/exam/$id'
+    | '/vet/injury/$id'
+    | '/vet/lock/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,6 +229,9 @@ export interface FileRouteTypes {
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
     | '/trainer/plan/$id'
+    | '/vet/exam/$id'
+    | '/vet/injury/$id'
+    | '/vet/lock/$id'
   id:
     | '__root__'
     | '/'
@@ -217,6 +250,9 @@ export interface FileRouteTypes {
     | '/horse/$role/$id'
     | '/live/$role/$horseId'
     | '/trainer/plan/$id'
+    | '/vet/exam/$id'
+    | '/vet/injury/$id'
+    | '/vet/lock/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -236,6 +272,9 @@ export interface RootRouteChildren {
   HorseRoleIdRoute: typeof HorseRoleIdRoute
   LiveRoleHorseIdRoute: typeof LiveRoleHorseIdRoute
   TrainerPlanIdRoute: typeof TrainerPlanIdRoute
+  VetExamIdRoute: typeof VetExamIdRoute
+  VetInjuryIdRoute: typeof VetInjuryIdRoute
+  VetLockIdRoute: typeof VetLockIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -352,6 +391,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainerPlanIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/vet/exam/$id': {
+      id: '/vet/exam/$id'
+      path: '/vet/exam/$id'
+      fullPath: '/vet/exam/$id'
+      preLoaderRoute: typeof VetExamIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vet/injury/$id': {
+      id: '/vet/injury/$id'
+      path: '/vet/injury/$id'
+      fullPath: '/vet/injury/$id'
+      preLoaderRoute: typeof VetInjuryIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vet/lock/$id': {
+      id: '/vet/lock/$id'
+      path: '/vet/lock/$id'
+      fullPath: '/vet/lock/$id'
+      preLoaderRoute: typeof VetLockIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -372,6 +432,9 @@ const rootRouteChildren: RootRouteChildren = {
   HorseRoleIdRoute: HorseRoleIdRoute,
   LiveRoleHorseIdRoute: LiveRoleHorseIdRoute,
   TrainerPlanIdRoute: TrainerPlanIdRoute,
+  VetExamIdRoute: VetExamIdRoute,
+  VetInjuryIdRoute: VetInjuryIdRoute,
+  VetLockIdRoute: VetLockIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
