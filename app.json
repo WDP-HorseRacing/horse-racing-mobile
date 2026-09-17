@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "RACEOS",
+    "slug": "raceos-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "raceos",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.raceos.mobile"
+    },
+    "android": {
+      "package": "com.raceos.mobile",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

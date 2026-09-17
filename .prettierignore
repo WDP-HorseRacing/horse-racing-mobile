@@ -1,8 +1,9 @@
 node_modules
 dist
-.output
-.vinxi
+.expo
+.pnpm-store
+coverage
 pnpm-lock.yaml
-package-lock.json
-bun.lock
-routeTree.gen.ts
+expo-env.d.ts
+AGENTS.md
+.lovable

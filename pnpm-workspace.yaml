@@ -1,0 +1,11 @@
+packages:
+  - "."
+
+verifyDepsBeforeRun: false
+
+allowBuilds:
+  unrs-resolver: false
+
+onlyBuiltDependencies:
+  - "@swc/core"
+  - "esbuild"
