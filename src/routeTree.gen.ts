@@ -14,6 +14,10 @@ import { Route as GroomIndexRouteImport } from './routes/groom.index'
 import { Route as GroomReportRouteImport } from './routes/groom.report'
 import { Route as GroomStableRouteImport } from './routes/groom.stable'
 import { Route as GroomTasksRouteImport } from './routes/groom.tasks'
+import { Route as OwnerIndexRouteImport } from './routes/owner.index'
+import { Route as OwnerHorsesRouteImport } from './routes/owner.horses'
+import { Route as OwnerRacingRouteImport } from './routes/owner.racing'
+import { Route as OwnerReportsRouteImport } from './routes/owner.reports'
 import { Route as TrainerIndexRouteImport } from './routes/trainer.index'
 import { Route as TrainerAlertsRouteImport } from './routes/trainer.alerts'
 import { Route as TrainerHorsesRouteImport } from './routes/trainer.horses'
@@ -52,6 +56,26 @@ const GroomStableRoute = GroomStableRouteImport.update({
 const GroomTasksRoute = GroomTasksRouteImport.update({
   id: '/groom/tasks',
   path: '/groom/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerIndexRoute = OwnerIndexRouteImport.update({
+  id: '/owner/',
+  path: '/owner/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerHorsesRoute = OwnerHorsesRouteImport.update({
+  id: '/owner/horses',
+  path: '/owner/horses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerRacingRoute = OwnerRacingRouteImport.update({
+  id: '/owner/racing',
+  path: '/owner/racing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OwnerReportsRoute = OwnerReportsRouteImport.update({
+  id: '/owner/reports',
+  path: '/owner/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrainerIndexRoute = TrainerIndexRouteImport.update({
@@ -130,6 +154,9 @@ export interface FileRoutesByFullPath {
   '/groom/report': typeof GroomReportRoute
   '/groom/stable': typeof GroomStableRoute
   '/groom/tasks': typeof GroomTasksRoute
+  '/owner/horses': typeof OwnerHorsesRoute
+  '/owner/racing': typeof OwnerRacingRoute
+  '/owner/reports': typeof OwnerReportsRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
@@ -137,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/vet/horses': typeof VetHorsesRoute
   '/vet/medical': typeof VetMedicalRoute
   '/groom/': typeof GroomIndexRoute
+  '/owner/': typeof OwnerIndexRoute
   '/trainer/': typeof TrainerIndexRoute
   '/vet/': typeof VetIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
@@ -151,6 +179,9 @@ export interface FileRoutesByTo {
   '/groom/report': typeof GroomReportRoute
   '/groom/stable': typeof GroomStableRoute
   '/groom/tasks': typeof GroomTasksRoute
+  '/owner/horses': typeof OwnerHorsesRoute
+  '/owner/racing': typeof OwnerRacingRoute
+  '/owner/reports': typeof OwnerReportsRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
@@ -158,6 +189,7 @@ export interface FileRoutesByTo {
   '/vet/horses': typeof VetHorsesRoute
   '/vet/medical': typeof VetMedicalRoute
   '/groom': typeof GroomIndexRoute
+  '/owner': typeof OwnerIndexRoute
   '/trainer': typeof TrainerIndexRoute
   '/vet': typeof VetIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
@@ -173,6 +205,9 @@ export interface FileRoutesById {
   '/groom/report': typeof GroomReportRoute
   '/groom/stable': typeof GroomStableRoute
   '/groom/tasks': typeof GroomTasksRoute
+  '/owner/horses': typeof OwnerHorsesRoute
+  '/owner/racing': typeof OwnerRacingRoute
+  '/owner/reports': typeof OwnerReportsRoute
   '/trainer/alerts': typeof TrainerAlertsRoute
   '/trainer/horses': typeof TrainerHorsesRoute
   '/trainer/training': typeof TrainerTrainingRoute
@@ -180,6 +215,7 @@ export interface FileRoutesById {
   '/vet/horses': typeof VetHorsesRoute
   '/vet/medical': typeof VetMedicalRoute
   '/groom/': typeof GroomIndexRoute
+  '/owner/': typeof OwnerIndexRoute
   '/trainer/': typeof TrainerIndexRoute
   '/vet/': typeof VetIndexRoute
   '/horse/$role/$id': typeof HorseRoleIdRoute
@@ -196,6 +232,9 @@ export interface FileRouteTypes {
     | '/groom/report'
     | '/groom/stable'
     | '/groom/tasks'
+    | '/owner/horses'
+    | '/owner/racing'
+    | '/owner/reports'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
@@ -203,6 +242,7 @@ export interface FileRouteTypes {
     | '/vet/horses'
     | '/vet/medical'
     | '/groom/'
+    | '/owner/'
     | '/trainer/'
     | '/vet/'
     | '/horse/$role/$id'
@@ -217,6 +257,9 @@ export interface FileRouteTypes {
     | '/groom/report'
     | '/groom/stable'
     | '/groom/tasks'
+    | '/owner/horses'
+    | '/owner/racing'
+    | '/owner/reports'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
@@ -224,6 +267,7 @@ export interface FileRouteTypes {
     | '/vet/horses'
     | '/vet/medical'
     | '/groom'
+    | '/owner'
     | '/trainer'
     | '/vet'
     | '/horse/$role/$id'
@@ -238,6 +282,9 @@ export interface FileRouteTypes {
     | '/groom/report'
     | '/groom/stable'
     | '/groom/tasks'
+    | '/owner/horses'
+    | '/owner/racing'
+    | '/owner/reports'
     | '/trainer/alerts'
     | '/trainer/horses'
     | '/trainer/training'
@@ -245,6 +292,7 @@ export interface FileRouteTypes {
     | '/vet/horses'
     | '/vet/medical'
     | '/groom/'
+    | '/owner/'
     | '/trainer/'
     | '/vet/'
     | '/horse/$role/$id'
@@ -260,6 +308,9 @@ export interface RootRouteChildren {
   GroomReportRoute: typeof GroomReportRoute
   GroomStableRoute: typeof GroomStableRoute
   GroomTasksRoute: typeof GroomTasksRoute
+  OwnerHorsesRoute: typeof OwnerHorsesRoute
+  OwnerRacingRoute: typeof OwnerRacingRoute
+  OwnerReportsRoute: typeof OwnerReportsRoute
   TrainerAlertsRoute: typeof TrainerAlertsRoute
   TrainerHorsesRoute: typeof TrainerHorsesRoute
   TrainerTrainingRoute: typeof TrainerTrainingRoute
@@ -267,6 +318,7 @@ export interface RootRouteChildren {
   VetHorsesRoute: typeof VetHorsesRoute
   VetMedicalRoute: typeof VetMedicalRoute
   GroomIndexRoute: typeof GroomIndexRoute
+  OwnerIndexRoute: typeof OwnerIndexRoute
   TrainerIndexRoute: typeof TrainerIndexRoute
   VetIndexRoute: typeof VetIndexRoute
   HorseRoleIdRoute: typeof HorseRoleIdRoute
@@ -312,6 +364,34 @@ declare module '@tanstack/react-router' {
       path: '/groom/tasks'
       fullPath: '/groom/tasks'
       preLoaderRoute: typeof GroomTasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner/': {
+      id: '/owner/'
+      path: '/owner'
+      fullPath: '/owner/'
+      preLoaderRoute: typeof OwnerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner/horses': {
+      id: '/owner/horses'
+      path: '/owner/horses'
+      fullPath: '/owner/horses'
+      preLoaderRoute: typeof OwnerHorsesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner/racing': {
+      id: '/owner/racing'
+      path: '/owner/racing'
+      fullPath: '/owner/racing'
+      preLoaderRoute: typeof OwnerRacingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/owner/reports': {
+      id: '/owner/reports'
+      path: '/owner/reports'
+      fullPath: '/owner/reports'
+      preLoaderRoute: typeof OwnerReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/trainer/': {
@@ -420,6 +500,9 @@ const rootRouteChildren: RootRouteChildren = {
   GroomReportRoute: GroomReportRoute,
   GroomStableRoute: GroomStableRoute,
   GroomTasksRoute: GroomTasksRoute,
+  OwnerHorsesRoute: OwnerHorsesRoute,
+  OwnerRacingRoute: OwnerRacingRoute,
+  OwnerReportsRoute: OwnerReportsRoute,
   TrainerAlertsRoute: TrainerAlertsRoute,
   TrainerHorsesRoute: TrainerHorsesRoute,
   TrainerTrainingRoute: TrainerTrainingRoute,
@@ -427,6 +510,7 @@ const rootRouteChildren: RootRouteChildren = {
   VetHorsesRoute: VetHorsesRoute,
   VetMedicalRoute: VetMedicalRoute,
   GroomIndexRoute: GroomIndexRoute,
+  OwnerIndexRoute: OwnerIndexRoute,
   TrainerIndexRoute: TrainerIndexRoute,
   VetIndexRoute: VetIndexRoute,
   HorseRoleIdRoute: HorseRoleIdRoute,
