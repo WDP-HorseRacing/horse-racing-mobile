@@ -1,10 +1,10 @@
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { getHorse } from "@/lib/raceos-data";
-import { Chips, Field, NativeInput } from "@/native/components";
-import { Panel, PrimaryButton, Screen, uiStyles } from "@/native/ui";
+import { Chips, Field, NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Screen } from "@/components/common";
 
 export default function SessionEvaluation() {
   const { id } = useLocalSearchParams<{ id: string }>();

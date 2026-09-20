@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
 import type { TrainingSession } from "@/lib/raceos-data";
-import { Chips, Field, NativeInput } from "@/native/components";
-import { Panel, PrimaryButton, Screen, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { Chips, Field, NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Screen } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 import { useI18n } from "@/context/I18nContext";
 
 export default function SessionEditor() {

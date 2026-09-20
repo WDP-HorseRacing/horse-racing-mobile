@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, ProgressBar, TaskCard } from "@/native/components";
-import { Panel, Screen, SectionTitle, uiStyles } from "@/native/ui";
+import { Chips, ProgressBar , Panel, uiStyles } from "@/components/ui";
+import { TaskCard } from "@/features/tasks/components/TaskCard";
+import { Screen, SectionTitle } from "@/components/common";
 
 export default function GroomTasks() {
   const { tasks, completeTask } = useRaceOS();

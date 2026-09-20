@@ -1,9 +1,10 @@
 import { router } from "expo-router";
 import { View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { raceResults, races } from "@/lib/raceos-data";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors } from "@/native/theme";
+import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Screen, SectionTitle } from "@/components/common";
+import { colors } from "@/config/theme";
 
 export default function OwnerRacing() {
   return (

@@ -1,9 +1,9 @@
 import { router } from "expo-router";
 import { StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { PrimaryButton } from "@/native/ui";
-import { colors, space } from "@/native/theme";
+import { PrimaryButton } from "@/components/ui";
+import { colors, space } from "@/config/theme";
 
 export default function NotFound() {
   return (

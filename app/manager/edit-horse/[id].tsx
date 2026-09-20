@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Alert, View } from "react-native";
 import { getHorse } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Field, NativeInput } from "@/native/components";
-import { Panel, PrimaryButton, Screen } from "@/native/ui";
+import { Field, NativeInput , Panel, PrimaryButton } from "@/components/ui";
+import { Screen } from "@/components/common";
 
 export default function EditHorse() {
   const { id } = useLocalSearchParams<{ id: string }>();

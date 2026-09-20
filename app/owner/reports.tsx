@@ -1,9 +1,9 @@
 import { View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { clubFinance, fitnessTrend, speedTrend } from "@/lib/raceos-data";
-import { MiniChart } from "@/native/components";
-import { Metric, Panel, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors } from "@/native/theme";
+import { MiniChart , Metric, Panel, uiStyles } from "@/components/ui";
+import { Screen, SectionTitle } from "@/components/common";
+import { colors } from "@/config/theme";
 
 export default function OwnerReports() {
   return (

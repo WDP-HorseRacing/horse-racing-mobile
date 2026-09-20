@@ -1,9 +1,10 @@
 import { router } from "expo-router";
 import { View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { alerts } from "@/lib/raceos-data";
-import { AlertCard, KeyValue } from "@/native/components";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
+import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { AlertCard } from "@/features/alerts/components/AlertCard";
+import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
 
 export default function TrainerAlerts() {
   return (

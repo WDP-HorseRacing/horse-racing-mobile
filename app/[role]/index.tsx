@@ -1,7 +1,7 @@
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { isRole, roles } from "@/native/roles";
-import { RoleDashboard } from "@/native/home-screens";
-import { Screen } from "@/native/ui";
+import { isRole, roles } from "@/features/auth/roles";
+import { RoleDashboard } from "@/features/dashboard/components/RoleDashboard";
+import { Screen } from "@/components/common";
 
 export default function RoleHome() {
   const { role } = useLocalSearchParams<{ role: string }>();

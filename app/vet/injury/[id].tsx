@@ -1,11 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { getHorse, recoveryTrend } from "@/lib/raceos-data";
-import { MiniChart, ProgressBar } from "@/native/components";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { MiniChart, ProgressBar , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Screen, SectionTitle } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 
 type Region = { id: string; label: string; finding?: string; recovery?: number };
 const regions: Region[] = [

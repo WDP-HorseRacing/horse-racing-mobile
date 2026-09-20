@@ -1,10 +1,11 @@
 import { type Href, Redirect, router, useLocalSearchParams } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { alerts } from "@/lib/raceos-data";
-import { isRole } from "@/native/roles";
-import { Screen, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { isRole } from "@/features/auth/roles";
+import { uiStyles } from "@/components/ui";
+import { Screen } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 
 export default function Alerts() {
   const { role } = useLocalSearchParams<{ role: string }>();

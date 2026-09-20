@@ -1,12 +1,13 @@
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { TextInput, View, StyleSheet } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { useMemo, useState } from "react";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { isRole } from "@/native/roles";
-import { HorseRow, Screen, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
-import { Chips } from "@/native/components";
+import { isRole } from "@/features/auth/roles";
+import { uiStyles , Chips } from "@/components/ui";
+import { Screen } from "@/components/common";
+import { HorseRow } from "@/features/horses/components/HorseRow";
+import { colors, radius, space } from "@/config/theme";
 
 export default function Horses() {
   const { role } = useLocalSearchParams<{ role: string }>();

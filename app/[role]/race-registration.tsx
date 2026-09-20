@@ -1,14 +1,14 @@
 import { type Href, Redirect, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
 import { useI18n } from "@/context/I18nContext";
 import { races, type RaceAptitude, type RoleId } from "@/lib/raceos-data";
-import { Chips, KeyValue } from "@/native/components";
-import { isRole, roles } from "@/native/roles";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors } from "@/native/theme";
+import { Chips , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { isRole, roles } from "@/features/auth/roles";
+import { colors } from "@/config/theme";
 
 const allowedRoles: RoleId[] = ["trainer", "manager", "owner"];
 

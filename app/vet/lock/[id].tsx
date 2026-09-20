@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { getHorse, trainingLockReasons } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, TimelineItem } from "@/native/components";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors } from "@/native/theme";
+import { Chips , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { TimelineItem , Screen, SectionTitle } from "@/components/common";
+import { colors } from "@/config/theme";
 
 export default function LockTraining() {
   const { id } = useLocalSearchParams<{ id: string }>();

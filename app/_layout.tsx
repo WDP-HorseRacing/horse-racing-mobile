@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { colors } from "@/native/theme";
+import { colors } from "@/config/theme";
 import { RaceOSProvider } from "@/context/RaceOSContext";
 import { I18nProvider } from "@/context/I18nContext";
 

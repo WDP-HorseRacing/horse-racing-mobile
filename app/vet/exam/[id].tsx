@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { examSymptoms, getHorse } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, Field, KeyValue, NativeInput } from "@/native/components";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { Chips, Field, NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 
 export default function Examination() {
   const { id } = useLocalSearchParams<{ id: string }>();

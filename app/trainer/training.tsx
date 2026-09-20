@@ -1,12 +1,12 @@
 import { type Href, router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
 import type { TrainingPlan, TrainingSession } from "@/lib/raceos-data";
-import { Chips, ProgressBar } from "@/native/components";
-import { Metric, Panel, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { Chips, ProgressBar , Metric, Panel, uiStyles } from "@/components/ui";
+import { Screen, SectionTitle } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 import { useI18n } from "@/context/I18nContext";
 
 export default function TrainerTraining() {

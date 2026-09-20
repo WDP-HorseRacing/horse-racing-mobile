@@ -1,9 +1,10 @@
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { getHorse } from "@/lib/raceos-data";
-import { isRole } from "@/native/roles";
-import { Panel, Screen, SectionTitle, uiStyles } from "@/native/ui";
+import { isRole } from "@/features/auth/roles";
+import { Panel, uiStyles } from "@/components/ui";
+import { Screen, SectionTitle } from "@/components/common";
 
 export default function Pedigree() {
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();

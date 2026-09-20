@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import { LanguageToggle, Text } from "@/native/LocalizedText";
+import { LanguageToggle, Text } from "@/components/common/LocalizedText";
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { roleOrder, roles } from "@/native/roles";
-import { colors, radius, space } from "@/native/theme";
+import { roleOrder, roles } from "@/features/auth/roles";
+import { colors, radius, space } from "@/config/theme";
 
 export default function RoleSelection() {
   const [stableId, setStableId] = useState("meadowline");

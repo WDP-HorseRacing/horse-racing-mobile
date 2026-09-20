@@ -1,10 +1,11 @@
 import { router } from "expo-router";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { LanguageToggle, Text } from "@/native/LocalizedText";
+import { LanguageToggle, Text } from "@/components/common/LocalizedText";
 import { flowSteps } from "@/lib/raceos-data";
-import { Panel, PrimaryButton, SectionTitle, uiStyles } from "@/native/ui";
+import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { SectionTitle } from "@/components/common";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, space } from "@/native/theme";
+import { colors, space } from "@/config/theme";
 
 export default function Flow() {
   return (

@@ -1,9 +1,10 @@
 import { type Href, router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { horses } from "@/lib/raceos-data";
-import { Panel, Screen, SectionTitle, StatusBadge, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { Panel, StatusBadge, uiStyles } from "@/components/ui";
+import { Screen, SectionTitle } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 
 export default function Stable() {
   const wings = ["A", "B"];

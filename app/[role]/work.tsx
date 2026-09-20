@@ -1,11 +1,12 @@
 import { type Href, Redirect, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { groomTasks, horses, races } from "@/lib/raceos-data";
-import { isRole, roles } from "@/native/roles";
-import { Panel, PrimaryButton, Screen, SectionTitle, StatusBadge, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { isRole, roles } from "@/features/auth/roles";
+import { Panel, PrimaryButton, StatusBadge, uiStyles } from "@/components/ui";
+import { Screen, SectionTitle } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 
 export default function Work() {
   const { role } = useLocalSearchParams<{ role: string }>();

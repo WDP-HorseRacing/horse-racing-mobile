@@ -1,12 +1,12 @@
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { getHorse, liveSeries } from "@/lib/raceos-data";
-import { isRole } from "@/native/roles";
-import { KeyValue, MiniChart } from "@/native/components";
-import { Metric, Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors, radius, space } from "@/native/theme";
+import { isRole } from "@/features/auth/roles";
+import { MiniChart , Metric, Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { colors, radius, space } from "@/config/theme";
 
 export default function LiveTraining() {
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();

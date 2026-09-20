@@ -1,22 +1,14 @@
 import { type Href, Redirect, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Text } from "@/native/LocalizedText";
+import { Text } from "@/components/common/LocalizedText";
 import { fitnessTrend, getHorse, raceResults, recoveryTrend, speedTrend } from "@/lib/raceos-data";
 import type { RoleId } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, KeyValue, MiniChart, ProgressBar, TimelineItem } from "@/native/components";
-import { isRole } from "@/native/roles";
-import {
-  Metric,
-  Panel,
-  PrimaryButton,
-  Screen,
-  SectionTitle,
-  StatusBadge,
-  uiStyles,
-} from "@/native/ui";
-import { colors, space } from "@/native/theme";
+import { Chips, MiniChart, ProgressBar , Metric, Panel, PrimaryButton, StatusBadge, uiStyles } from "@/components/ui";
+import { KeyValue, TimelineItem , Screen, SectionTitle } from "@/components/common";
+import { isRole } from "@/features/auth/roles";
+import { colors, space } from "@/config/theme";
 
 const tabsByRole: Record<RoleId, string[]> = {
   trainer: ["Overview", "Training", "Health", "Performance", "Racing", "Timeline"],

@@ -1,9 +1,9 @@
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { View } from "react-native";
-import { Text } from "@/native/LocalizedText";
-import { isRole, roles } from "@/native/roles";
-import { KeyValue } from "@/native/components";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
+import { Text } from "@/components/common/LocalizedText";
+import { isRole, roles } from "@/features/auth/roles";
+import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
 
 export default function Profile() {
   const { role } = useLocalSearchParams<{ role: string }>();

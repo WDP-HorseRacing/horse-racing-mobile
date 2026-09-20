@@ -1,10 +1,10 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import { Text } from "@/native/LocalizedText";
-import { Chips, ProgressBar, TimelineItem } from "@/native/components";
-import { Panel, PrimaryButton, Screen, SectionTitle, uiStyles } from "@/native/ui";
-import { colors } from "@/native/theme";
+import { Text } from "@/components/common/LocalizedText";
+import { Chips, ProgressBar , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { TimelineItem , Screen, SectionTitle } from "@/components/common";
+import { colors } from "@/config/theme";
 
 export default function Medical() {
   const [tab, setTab] = useState("Records");
