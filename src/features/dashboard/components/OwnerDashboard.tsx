@@ -1,13 +1,12 @@
 import { View } from "react-native";
+import { router } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
 import { horses, fitnessTrend } from "@/mocks/raceos";
 import { MiniChart } from "@/components/ui/MiniChart";
 import { TimelineItem } from "@/components/common/TimelineItem";
 import { HorseRow } from "@/features/horses/components/HorseRow";
-import { Metric } from "@/components/ui/Metric";
-import { Panel } from "@/components/ui/Panel";
+import { Metric, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { SectionTitle } from "@/components/common/SectionTitle";
-import { getUiStyles } from "@/components/ui/styles";
 import { useTheme } from "@/hooks/useTheme";
 
 export function OwnerDashboard() {
@@ -56,6 +55,11 @@ export function OwnerDashboard() {
             last
           />
         </Panel>
+        <PrimaryButton
+          label="View Trainer Remarks"
+          icon="document-text-outline"
+          onPress={() => router.push("/owner/remarks")}
+        />
       </View>
     </>
   );

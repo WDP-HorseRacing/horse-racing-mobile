@@ -173,6 +173,33 @@ export type TrainingPlan = {
   publishedAt: string;
 };
 
+export type Trial = {
+  id: string;
+  horseId: string;
+  date: string;
+  type: string;
+  distanceM: number;
+  surface: string;
+  status: string;
+  duration: string;
+  result: string;
+  videoUrl?: string;
+};
+
+export type TrainerRemark = {
+  id: string;
+  horseId: string;
+  date: string;
+  sessionId?: string;
+  trialId?: string;
+  sessionTitle?: string;
+  trainerName: string;
+  context: string;
+  performanceSummary: string;
+  observation: string;
+  recommendation?: string;
+};
+
 export type RaceOSFixture = {
   horses: Horse[];
   fitnessTrend: FitnessPoint[];
@@ -194,4 +221,6 @@ export type RaceOSFixture = {
   examSymptoms: string[];
   trainingLockReasons: string[];
   trainingPlans: TrainingPlan[];
+  trials: Trial[];
+  trainerRemarks: TrainerRemark[];
 };

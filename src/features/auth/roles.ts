@@ -63,9 +63,9 @@ export const roles: Record<RoleId, RoleConfig> = {
     nav: [
       { label: "Home", icon: "home-outline", path: "/owner" },
       { label: "Horses", icon: "grid-outline", path: "/owner/horses" },
+      { label: "Training", icon: "calendar-outline", path: "/owner/training" },
       { label: "Racing", icon: "trophy-outline", path: "/owner/racing" },
       { label: "Reports", icon: "bar-chart-outline", path: "/owner/reports" },
-      { label: "Profile", icon: "person-outline", path: "/profile/owner" },
     ],
   },
   manager: {

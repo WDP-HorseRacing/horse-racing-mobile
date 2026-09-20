@@ -4,11 +4,15 @@ import {
   horses as initialHorses,
   raceRegistrations as initialRaceRegistrations,
   trainingPlans as initialTrainingPlans,
+  trials as initialTrials,
+  trainerRemarks as initialTrainerRemarks,
   type Horse,
   type RaceRegistration,
   type Task,
   type TrainingPlan,
   type TrainingSession,
+  type Trial,
+  type TrainerRemark,
 } from "@/lib/raceos-data";
 
 export type Incident = {
@@ -33,6 +37,8 @@ type RaceOSState = {
   horses: Horse[];
   tasks: Task[];
   plans: TrainingPlan[];
+  trials: Trial[];
+  trainerRemarks: TrainerRemark[];
   raceRegistrations: RaceRegistration[];
   incidents: Incident[];
   examinations: Record<string, Examination>;
@@ -54,6 +60,8 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
   const [horses, setHorses] = useState(initialHorses);
   const [tasks, setTasks] = useState(groomTasks);
   const [plans, setPlans] = useState<TrainingPlan[]>(initialTrainingPlans);
+  const [trials, setTrials] = useState<Trial[]>(initialTrials);
+  const [trainerRemarks, setTrainerRemarks] = useState<TrainerRemark[]>(initialTrainerRemarks);
   const [raceRegistrations, setRaceRegistrations] =
     useState<RaceRegistration[]>(initialRaceRegistrations);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -65,6 +73,8 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
       horses,
       tasks,
       plans,
+      trials,
+      trainerRemarks,
       raceRegistrations,
       incidents,
       examinations,

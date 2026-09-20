@@ -25,5 +25,7 @@ export const incidentKinds = fixture.incidentKinds;
 export const examSymptoms = fixture.examSymptoms;
 export const trainingLockReasons = fixture.trainingLockReasons;
 export const trainingPlans = fixture.trainingPlans;
+export const trials = fixture.trials;
+export const trainerRemarks = fixture.trainerRemarks;
 
 export const getHorse = (id: string) => horses.find((horse) => horse.id === id) ?? horses[0];
