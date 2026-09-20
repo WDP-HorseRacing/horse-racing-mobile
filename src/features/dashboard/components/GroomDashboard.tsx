@@ -8,9 +8,12 @@ import { HorseRow } from "@/features/horses/components/HorseRow";
 import { Metric } from "@/components/ui/Metric";
 import { PrimaryButton } from "@/components/ui/Button";
 import { SectionTitle } from "@/components/common/SectionTitle";
-import { uiStyles } from "@/components/ui/styles";
+import { getUiStyles } from "@/components/ui/styles";
+import { useTheme } from "@/hooks/useTheme";
 
 export function GroomDashboard() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { tasks, completeTask } = useRaceOS();
   const done = tasks.filter((task) => task.done).length;
   const next = tasks.find((task) => !task.done);

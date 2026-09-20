@@ -3,10 +3,13 @@ import { useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { getHorse } from "@/lib/raceos-data";
-import { Chips, Field, NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips, Field, NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { Screen } from "@/components/common";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function SessionEvaluation() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const horse = getHorse(id);
   const [effort, setEffort] = useState("On target");

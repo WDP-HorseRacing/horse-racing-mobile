@@ -4,11 +4,13 @@ import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { getHorse, trainingLockReasons } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { TimelineItem , Screen, SectionTitle } from "@/components/common";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function LockTraining() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const horse = getHorse(id);
   const { lockHorse, lockedHorseIds } = useRaceOS();
@@ -44,25 +46,25 @@ export default function LockTraining() {
               time="Now"
               title="Horse status set to LOCKED"
               detail={`Reason: ${reason}`}
-              tone={colors.danger}
+              tone={colors.destructive}
             />
             <TimelineItem
               time="Now"
               title="Current session stopped"
               detail="Groom instructed to walk in hand only"
-              tone={colors.info}
+              tone={colors.training}
             />
             <TimelineItem
               time="Now"
               title="Head trainer alerted"
               detail="Training plan adjustment required"
-              tone={colors.info}
+              tone={colors.training}
             />
             <TimelineItem
               time="Now"
               title="Owner notified"
               detail="Health update issued"
-              tone={colors.info}
+              tone={colors.training}
               last
             />
           </Panel>

@@ -4,9 +4,12 @@ import { Text } from "@/components/common/LocalizedText";
 import { alerts } from "@/lib/raceos-data";
 import { KeyValue , Screen, SectionTitle } from "@/components/common";
 import { AlertCard } from "@/features/alerts/components/AlertCard";
-import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function TrainerAlerts() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   return (
     <Screen role="trainer" title="Alerts" subtitle="2 critical · 1 warning · 1 info">
       <View style={uiStyles.section}>

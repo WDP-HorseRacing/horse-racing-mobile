@@ -1,19 +1,24 @@
 import { View, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import type { HorseStatus } from "@/lib/raceos-data";
-import { colors, radius } from "@/config/theme";
+import { radius } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
-const statusPalette: Record<HorseStatus, { color: string; background: string }> = {
-  FIT: { color: colors.primary, background: colors.primarySoft },
-  "RACE READY": { color: colors.primary, background: colors.primarySoft },
-  TRAINING: { color: colors.info, background: colors.infoSoft },
-  MONITOR: { color: colors.warning, background: colors.warningSoft },
-  INJURED: { color: colors.danger, background: colors.dangerSoft },
-  LOCKED: { color: colors.danger, background: colors.dangerSoft },
-};
+import type { ThemeColors } from "@/config/theme";
+
+const getStatusPalette = (colors: ThemeColors): Record<HorseStatus, { color: string; background: string }> => ({
+  FIT: { color: colors.fit, background: colors.fitSoft },
+  "RACE READY": { color: colors.raceReady, background: colors.raceReadySoft },
+  TRAINING: { color: colors.training, background: colors.trainingSoft },
+  MONITOR: { color: colors.monitor, background: colors.monitorSoft },
+  INJURED: { color: colors.injured, background: colors.injuredSoft },
+  LOCKED: { color: colors.locked, background: colors.lockedSoft },
+});
 
 export function StatusBadge({ status }: { status: HorseStatus }) {
-  const palette = statusPalette[status];
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+  const palette = getStatusPalette(colors)[status];
   return (
     <View style={[styles.badge, { backgroundColor: palette.background }]}>
       <Text style={[styles.badgeText, { color: palette.color }]}>{status}</Text>
@@ -21,7 +26,7 @@ export function StatusBadge({ status }: { status: HorseStatus }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   badge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.4 },
 });

@@ -4,11 +4,15 @@ import { StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { getHorse, liveSeries } from "@/lib/raceos-data";
 import { isRole } from "@/features/auth/roles";
-import { MiniChart , Metric, Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { MiniChart , Metric, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { KeyValue , Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function LiveTraining() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -65,7 +69,7 @@ export default function LiveTraining() {
         title="Heart rate · last 4 minutes"
         data={window}
         valueKey="hr"
-        color={abnormal ? colors.danger : colors.info}
+        color={abnormal ? colors.destructive : colors.training}
         caption="Safety threshold 180 bpm · updating every 1.6 s"
       />
       <Chart
@@ -112,6 +116,9 @@ function Chart({
   color: string;
   caption: string;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   return (
     <View style={uiStyles.section}>
       <SectionTitle>{title}</SectionTitle>
@@ -122,7 +129,7 @@ function Chart({
     </View>
   );
 }
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   live: {
     alignSelf: "flex-start",
     flexDirection: "row",
@@ -131,9 +138,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.fitSoft,
   },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
   liveText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
-  alertTitle: { color: colors.text, fontSize: 22, fontWeight: "800" },
+  alertTitle: { color: colors.foreground, fontSize: 22, fontWeight: "800" },
 });

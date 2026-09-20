@@ -1,11 +1,13 @@
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { clubFinance, fitnessTrend, speedTrend } from "@/lib/raceos-data";
-import { MiniChart , Metric, Panel, uiStyles } from "@/components/ui";
+import { MiniChart , Metric, Panel, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function OwnerReports() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   return (
     <Screen role="owner" title="Reports" subtitle="September summary">
       <View style={uiStyles.metricGrid}>
@@ -18,7 +20,7 @@ export default function OwnerReports() {
         title="Costs"
         data={clubFinance}
         valueKey="cost"
-        color={colors.warning}
+        color={colors.monitor}
         caption="Monthly costs ($k)"
       />
       <ReportChart
@@ -32,7 +34,7 @@ export default function OwnerReports() {
         title="Training progress"
         data={fitnessTrend}
         valueKey="v"
-        color={colors.info}
+        color={colors.training}
         caption="Fitness index"
       />
       <ReportChart
@@ -74,6 +76,8 @@ function ReportChart({
   color: string;
   caption: string;
 }) {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   return (
     <View style={uiStyles.section}>
       <SectionTitle>{title}</SectionTitle>

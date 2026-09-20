@@ -3,11 +3,15 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { alerts } from "@/lib/raceos-data";
 import { isRole } from "@/features/auth/roles";
-import { uiStyles } from "@/components/ui";
+import { getUiStyles } from "@/components/ui";
 import { Screen } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Alerts() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { role } = useLocalSearchParams<{ role: string }>();
   if (!isRole(role)) return <Redirect href="/" />;
   return (
@@ -41,11 +45,11 @@ export default function Alerts() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   list: { gap: space.sm },
   alert: { borderRadius: radius.md, borderWidth: 1, padding: space.lg, gap: space.sm },
-  critical: { backgroundColor: colors.dangerSoft, borderColor: "#68342F" },
-  warning: { backgroundColor: colors.warningSoft, borderColor: "#614A25" },
+  critical: { backgroundColor: colors.injuredSoft, borderColor: "#68342F" },
+  warning: { backgroundColor: colors.monitorSoft, borderColor: "#614A25" },
   info: { backgroundColor: colors.surface, borderColor: colors.border },
-  severity: { color: colors.text, fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
+  severity: { color: colors.foreground, fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
 });

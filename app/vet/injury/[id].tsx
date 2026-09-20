@@ -3,9 +3,10 @@ import { useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { getHorse, recoveryTrend } from "@/lib/raceos-data";
-import { MiniChart, ProgressBar , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { MiniChart, ProgressBar , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 type Region = { id: string; label: string; finding?: string; recovery?: number };
 const regions: Region[] = [
@@ -20,6 +21,9 @@ const regions: Region[] = [
 ];
 
 export default function InjuryMap() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const horse = getHorse(id);
   const [active, setActive] = useState(regions[3]);
@@ -62,8 +66,8 @@ export default function InjuryMap() {
                 <Text style={uiStyles.muted}>Recovery</Text>
                 <Text style={uiStyles.value}>{active.recovery}%</Text>
               </View>
-              <ProgressBar value={active.recovery ?? 0} tone={colors.warning} />
-              <MiniChart data={recoveryTrend} valueKey="v" color={colors.warning} />
+              <ProgressBar value={active.recovery ?? 0} tone={colors.monitor} />
+              <MiniChart data={recoveryTrend} valueKey="v" color={colors.monitor} />
             </>
           ) : (
             <Text style={uiStyles.muted}>No findings recorded for this region.</Text>
@@ -83,10 +87,10 @@ export default function InjuryMap() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   body: { gap: space.lg, paddingVertical: space.md },
   horse: {
-    color: colors.muted,
+    color: colors.mutedForeground,
     textAlign: "center",
     fontSize: 18,
     fontWeight: "900",
@@ -104,8 +108,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.elevated,
     padding: space.sm,
   },
-  injured: { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
+  injured: { backgroundColor: colors.injuredSoft, borderColor: colors.destructive },
   active: { borderWidth: 2, borderColor: colors.primary },
-  regionText: { color: colors.muted, fontSize: 12, fontWeight: "600" },
-  injuredText: { color: colors.danger },
+  regionText: { color: colors.mutedForeground, fontSize: 12, fontWeight: "600" },
+  injuredText: { color: colors.destructive },
 });

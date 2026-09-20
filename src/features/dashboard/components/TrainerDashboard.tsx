@@ -12,10 +12,14 @@ import { Panel } from "@/components/ui/Panel";
 import { PrimaryButton } from "@/components/ui/Button";
 import { SectionTitle } from "@/components/common/SectionTitle";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { uiStyles } from "@/components/ui/styles";
-import { colors, space } from "@/config/theme";
+import { getUiStyles } from "@/components/ui/styles";
+import { space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export function TrainerDashboard() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const attention = horses.filter((horse) =>
     ["MONITOR", "INJURED", "LOCKED"].includes(horse.status),
   );
@@ -86,7 +90,7 @@ export function TrainerDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   flex: { flex: 1 },
   live: {
     flexDirection: "row",
@@ -95,9 +99,9 @@ const styles = StyleSheet.create({
     padding: space.lg,
     borderWidth: 1,
     borderColor: "#A7F3D0",
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.fitSoft,
     borderRadius: 16,
   },
   liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary },
-  liveValue: { color: colors.info, fontSize: 15, fontWeight: "800" },
+  liveValue: { color: colors.training, fontSize: 15, fontWeight: "800" },
 });

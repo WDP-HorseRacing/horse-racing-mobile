@@ -3,9 +3,12 @@ import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { isRole, roles } from "@/features/auth/roles";
 import { KeyValue , Screen, SectionTitle } from "@/components/common";
-import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Profile() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { role } = useLocalSearchParams<{ role: string }>();
   if (!isRole(role)) return <Redirect href="/" />;
   const profile = roles[role];

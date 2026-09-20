@@ -3,10 +3,13 @@ import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { getHorse } from "@/lib/raceos-data";
 import { isRole } from "@/features/auth/roles";
-import { Panel, uiStyles } from "@/components/ui";
+import { Panel, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Pedigree() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
   if (!isRole(role)) return <Redirect href="/" />;
   const horse = getHorse(id);
@@ -34,6 +37,8 @@ export default function Pedigree() {
 }
 
 function Lineage({ title, entries }: { title: string; entries: [string, string][] }) {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   return (
     <View style={uiStyles.section}>
       <SectionTitle>{title}</SectionTitle>

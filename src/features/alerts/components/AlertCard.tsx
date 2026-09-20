@@ -1,16 +1,20 @@
 import { Pressable, View, StyleSheet } from "react-native";
 import { router, type Href } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
-import { uiStyles } from "@/components/ui/styles";
-import { colors, radius, space } from "@/config/theme";
+import { getUiStyles } from "@/components/ui/styles";
+import { radius, space } from "@/config/theme";
 import type { AlertItem } from "@/lib/raceos-data";
+import { useTheme } from "@/hooks/useTheme";
 
 export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const palette =
     alert.severity === "critical"
-      ? { backgroundColor: colors.dangerSoft, borderColor: "#FECACA" }
+      ? { backgroundColor: colors.injuredSoft, borderColor: "#FECACA" }
       : alert.severity === "warning"
-        ? { backgroundColor: colors.warningSoft, borderColor: "#FDE68A" }
+        ? { backgroundColor: colors.monitorSoft, borderColor: "#FDE68A" }
         : { backgroundColor: colors.surface, borderColor: colors.border };
   return (
     <Pressable
@@ -24,10 +28,10 @@ export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
             {
               color:
                 alert.severity === "critical"
-                  ? colors.danger
+                  ? colors.destructive
                   : alert.severity === "warning"
-                    ? colors.warning
-                    : colors.info,
+                    ? colors.monitor
+                    : colors.training,
             },
           ]}
         >
@@ -43,7 +47,7 @@ export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   alert: { borderRadius: radius.md, borderWidth: 1, padding: space.lg, gap: space.sm },
   alertSeverity: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
 });

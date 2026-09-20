@@ -2,11 +2,15 @@ import { type Href, router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { horses } from "@/lib/raceos-data";
-import { Panel, StatusBadge, uiStyles } from "@/components/ui";
+import { Panel, StatusBadge, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Stable() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const wings = ["A", "B"];
   return (
     <Screen role="groom" title="Stable" subtitle="16 stalls · 8 in your care">
@@ -51,7 +55,7 @@ export default function Stable() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   stall: {
     width: "48%",

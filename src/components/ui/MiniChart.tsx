@@ -1,10 +1,10 @@
 import { View, StyleSheet } from "react-native";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export function MiniChart({
   data,
   valueKey,
-  color = colors.primary,
+  color,
   height = 110,
 }: {
   data: Record<string, unknown>[];
@@ -12,6 +12,9 @@ export function MiniChart({
   color?: string;
   height?: number;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const activeColor = color || colors.primary;
   const values = data.map((item) => Number(item[valueKey] ?? 0));
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -24,7 +27,7 @@ export function MiniChart({
             key={`${valueKey}-${index}`}
             style={[
               styles.chartBar,
-              { height: Math.max(8, normalized * (height - 12) + 8), backgroundColor: color },
+              { height: Math.max(8, normalized * (height - 12) + 8), backgroundColor: activeColor },
             ]}
           />
         );
@@ -33,7 +36,7 @@ export function MiniChart({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   chart: { flexDirection: "row", alignItems: "flex-end", gap: 5 },
   chartBar: { flex: 1, minWidth: 3, borderRadius: 4, opacity: 0.9 },
 });

@@ -4,11 +4,14 @@ import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { examSymptoms, getHorse } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, Field, NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips, Field, NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { KeyValue , Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Examination() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const horse = getHorse(id);
   const { saveExamination, examinations } = useRaceOS();
@@ -41,7 +44,7 @@ export default function Examination() {
       {saved ? (
         <View
           style={{
-            backgroundColor: colors.primarySoft,
+            backgroundColor: colors.fitSoft,
             borderRadius: radius.md,
             padding: space.lg,
           }}

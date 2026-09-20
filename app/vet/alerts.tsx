@@ -2,12 +2,14 @@ import { router } from "expo-router";
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { alerts, liveSeries } from "@/lib/raceos-data";
-import { MiniChart , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { MiniChart , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { KeyValue , Screen, SectionTitle } from "@/components/common";
 import { AlertCard } from "@/features/alerts/components/AlertCard";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function VetAlerts() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   return (
     <Screen role="vet" title="Alerts" subtitle="1 awaiting decision">
       <View style={uiStyles.alert}>
@@ -24,7 +26,7 @@ export default function VetAlerts() {
             ["Session", "14 min 20 s"],
           ]}
         />
-        <MiniChart data={liveSeries} valueKey="hr" color={colors.danger} />
+        <MiniChart data={liveSeries} valueKey="hr" color={colors.destructive} />
         <PrimaryButton
           label="Open live session"
           onPress={() => router.push("/vet/live/thunder-king")}

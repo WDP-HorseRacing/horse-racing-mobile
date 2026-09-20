@@ -2,11 +2,13 @@ import { router } from "expo-router";
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { raceResults, races } from "@/lib/raceos-data";
-import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function OwnerRacing() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   return (
     <Screen role="owner" title="Racing">
       <PrimaryButton
@@ -47,7 +49,7 @@ export default function OwnerRacing() {
                 <Text
                   style={{
                     ...uiStyles.value,
-                    color: result.place === "1st" ? colors.primary : colors.text,
+                    color: result.place === "1st" ? colors.primary : colors.foreground,
                   }}
                 >
                   {result.place}

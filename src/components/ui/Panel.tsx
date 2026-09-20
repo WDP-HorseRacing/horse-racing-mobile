@@ -1,12 +1,15 @@
 import { View, type StyleProp, type ViewStyle, StyleSheet } from "react-native";
 import type { PropsWithChildren } from "react";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export function Panel({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   return <View style={[styles.panel, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   panel: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,

@@ -1,7 +1,8 @@
 import { View, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export function Chips({
   options,
@@ -12,6 +13,8 @@ export function Chips({
   value: string;
   onChange: (value: string) => void;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   const { t } = useI18n();
   return (
     <View style={styles.chips}>
@@ -30,7 +33,7 @@ export function Chips({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   chip: {
     borderRadius: radius.pill,
@@ -41,6 +44,6 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.muted, fontSize: 12, fontWeight: "600" },
+  chipText: { color: colors.mutedForeground, fontSize: 12, fontWeight: "600" },
   chipTextActive: { color: "#FFFFFF" },
 });

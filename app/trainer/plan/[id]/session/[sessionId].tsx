@@ -4,12 +4,16 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
 import type { TrainingSession } from "@/lib/raceos-data";
-import { Chips, Field, NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips, Field, NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { Screen } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
 import { useI18n } from "@/context/I18nContext";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function SessionEditor() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { id, sessionId, phaseId } = useLocalSearchParams<{
     id: string;
     sessionId: string;
@@ -183,6 +187,9 @@ function Stepper({
   max: number;
   onChange: (value: number) => void;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   return (
     <Field label={label}>
       <View style={styles.stepper}>
@@ -200,7 +207,7 @@ function Stepper({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   form: { gap: space.xl },
   two: { flexDirection: "row", gap: space.md },
   flex: { flex: 1 },
@@ -223,6 +230,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   stepText: { color: colors.primary, fontSize: 24, fontWeight: "700" },
-  stepValue: { color: colors.text, fontSize: 16, fontWeight: "800" },
-  energy: { color: colors.warning, fontSize: 30, fontWeight: "800", marginVertical: space.sm },
+  stepValue: { color: colors.foreground, fontSize: 16, fontWeight: "800" },
+  energy: { color: colors.monitor, fontSize: 30, fontWeight: "800", marginVertical: space.sm },
 });

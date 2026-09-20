@@ -3,10 +3,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
 import type { Horse, RoleId } from "@/lib/raceos-data";
+import { useTheme } from "@/hooks/useTheme";
 
 export function HorseRow({ horse, role }: { horse: Horse; role: RoleId }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   return (
     <Pressable
       style={({ pressed }) => [styles.horseRow, pressed && styles.pressed]}
@@ -18,8 +21,8 @@ export function HorseRow({ horse, role }: { horse: Horse; role: RoleId }) {
           {
             backgroundColor:
               horse.status === "LOCKED" || horse.status === "INJURED"
-                ? colors.dangerSoft
-                : colors.primarySoft,
+                ? colors.injuredSoft
+                : colors.fitSoft,
           },
         ]}
       >
@@ -27,7 +30,7 @@ export function HorseRow({ horse, role }: { horse: Horse; role: RoleId }) {
           name="fitness-outline"
           size={22}
           color={
-            horse.status === "LOCKED" || horse.status === "INJURED" ? colors.danger : colors.primary
+            horse.status === "LOCKED" || horse.status === "INJURED" ? colors.destructive : colors.primary
           }
         />
       </View>
@@ -43,12 +46,12 @@ export function HorseRow({ horse, role }: { horse: Horse; role: RoleId }) {
           {horse.lastSession}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+      <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   horseRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -68,7 +71,7 @@ const styles = StyleSheet.create({
   },
   horseCopy: { flex: 1, gap: 3 },
   rowTitle: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  horseName: { flexShrink: 1, color: colors.text, fontSize: 15, fontWeight: "700" },
-  rowMeta: { color: colors.muted, fontSize: 11 },
+  horseName: { flexShrink: 1, color: colors.foreground, fontSize: 15, fontWeight: "700" },
+  rowMeta: { color: colors.mutedForeground, fontSize: 11 },
   pressed: { opacity: 0.7 },
 });

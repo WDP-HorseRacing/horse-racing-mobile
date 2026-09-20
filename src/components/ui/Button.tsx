@@ -2,7 +2,8 @@ import { Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -17,6 +18,8 @@ export function PrimaryButton({
   icon?: IconName;
   disabled?: boolean;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   const { t } = useI18n();
   return (
     <Pressable
@@ -35,7 +38,7 @@ export function PrimaryButton({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   button: {
     minHeight: 52,
     borderRadius: radius.md,

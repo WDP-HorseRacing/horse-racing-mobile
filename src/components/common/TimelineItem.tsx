@@ -1,13 +1,14 @@
 import { View, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { uiStyles } from "@/components/ui/styles";
-import { colors, space } from "@/config/theme";
+import { getUiStyles } from "@/components/ui/styles";
+import { space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export function TimelineItem({
   time,
   title,
   detail,
-  tone = colors.muted,
+  tone,
   last,
 }: {
   time: string;
@@ -16,10 +17,14 @@ export function TimelineItem({
   tone?: string;
   last?: boolean;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
+    const activeTone = tone || colors.mutedForeground;
   return (
     <View style={styles.timeline}>
       <View style={styles.timelineRail}>
-        <View style={[styles.timelineDot, { backgroundColor: tone }]} />
+        <View style={[styles.timelineDot, { backgroundColor: activeTone }]} />
         {!last ? <View style={styles.timelineLine} /> : null}
       </View>
       <View style={styles.timelineCopy}>
@@ -33,7 +38,7 @@ export function TimelineItem({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   timeline: { flexDirection: "row", gap: space.md },
   timelineRail: { alignItems: "center", width: 12 },
   timelineDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },

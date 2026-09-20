@@ -1,11 +1,13 @@
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { clubFinance, fitnessTrend } from "@/lib/raceos-data";
-import { MiniChart , Metric, Panel, uiStyles } from "@/components/ui";
+import { MiniChart , Metric, Panel, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function ManagerReports() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   return (
     <Screen role="manager" title="Club reports" subtitle="September performance">
       <View style={uiStyles.metricGrid}>
@@ -24,14 +26,14 @@ export default function ManagerReports() {
       <View style={uiStyles.section}>
         <SectionTitle>Cost trend</SectionTitle>
         <Panel>
-          <MiniChart data={clubFinance} valueKey="cost" color={colors.warning} />
+          <MiniChart data={clubFinance} valueKey="cost" color={colors.monitor} />
           <Text style={uiStyles.muted}>April–September · $k</Text>
         </Panel>
       </View>
       <View style={uiStyles.section}>
         <SectionTitle>Stable fitness</SectionTitle>
         <Panel>
-          <MiniChart data={fitnessTrend} valueKey="v" color={colors.info} />
+          <MiniChart data={fitnessTrend} valueKey="v" color={colors.training} />
           <Text style={uiStyles.muted}>Seven-day performance indicator</Text>
         </Panel>
       </View>

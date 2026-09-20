@@ -1,13 +1,14 @@
 import { StyleSheet } from "react-native";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
-export const uiStyles = StyleSheet.create({
+export const getUiStyles = (colors: any) => StyleSheet.create({
   section: { gap: space.md },
   metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  body: { color: colors.text, fontSize: 15, lineHeight: 22 },
-  muted: { color: colors.muted, fontSize: 13, lineHeight: 19 },
-  label: { color: colors.muted, fontSize: 11, letterSpacing: 0.7 },
-  value: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  body: { color: colors.foreground, fontSize: 15, lineHeight: 22 },
+  muted: { color: colors.mutedForeground, fontSize: 13, lineHeight: 19 },
+  label: { color: colors.mutedForeground, fontSize: 11, letterSpacing: 0.7 },
+  value: { color: colors.foreground, fontSize: 15, fontWeight: "600" },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -16,7 +17,7 @@ export const uiStyles = StyleSheet.create({
   },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   alert: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: colors.injuredSoft,
     borderColor: "#FECACA",
     borderWidth: 1,
     borderRadius: radius.md,
@@ -24,7 +25,7 @@ export const uiStyles = StyleSheet.create({
     gap: space.xs,
   },
   warning: {
-    backgroundColor: colors.warningSoft,
+    backgroundColor: colors.monitorSoft,
     borderColor: "#FDE68A",
     borderWidth: 1,
     borderRadius: radius.md,

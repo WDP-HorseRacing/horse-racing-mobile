@@ -2,12 +2,16 @@ import { router } from "expo-router";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { LanguageToggle, Text } from "@/components/common/LocalizedText";
 import { flowSteps } from "@/lib/raceos-data";
-import { Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { SectionTitle } from "@/components/common";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, space } from "@/config/theme";
+import { space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Flow() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   return (
     <SafeAreaView style={styles.safe}>
       <View style={{ position: "absolute", right: 18, top: 54, zIndex: 10 }}>
@@ -32,7 +36,7 @@ export default function Flow() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: {
     padding: space.lg,
@@ -42,5 +46,5 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-  title: { color: colors.text, fontSize: 28, fontWeight: "800" },
+  title: { color: colors.foreground, fontSize: 28, fontWeight: "800" },
 });

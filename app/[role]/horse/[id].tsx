@@ -5,10 +5,11 @@ import { Text } from "@/components/common/LocalizedText";
 import { fitnessTrend, getHorse, raceResults, recoveryTrend, speedTrend } from "@/lib/raceos-data";
 import type { RoleId } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, MiniChart, ProgressBar , Metric, Panel, PrimaryButton, StatusBadge, uiStyles } from "@/components/ui";
+import { Chips, MiniChart, ProgressBar , Metric, Panel, PrimaryButton, StatusBadge, getUiStyles } from "@/components/ui";
 import { KeyValue, TimelineItem , Screen, SectionTitle } from "@/components/common";
 import { isRole } from "@/features/auth/roles";
-import { colors, space } from "@/config/theme";
+import { space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 const tabsByRole: Record<RoleId, string[]> = {
   trainer: ["Overview", "Training", "Health", "Performance", "Racing", "Timeline"],
@@ -19,6 +20,9 @@ const tabsByRole: Record<RoleId, string[]> = {
 };
 
 export default function HorseProfile() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
   const roleId: RoleId = isRole(role) ? role : "trainer";
   const raceOS = useRaceOS();
@@ -131,7 +135,7 @@ export default function HorseProfile() {
             title="Training load"
             data={fitnessTrend}
             valueKey="load"
-            color={colors.info}
+            color={colors.training}
           />
         </>
       ) : null}
@@ -156,8 +160,8 @@ export default function HorseProfile() {
                 <Text style={uiStyles.value}>{horse.recovery ?? 100}%</Text>
               </View>
               <View style={{ height: space.md }} />
-              <ProgressBar value={horse.recovery ?? 100} tone={colors.warning} />
-              <MiniChart data={recoveryTrend} valueKey="v" color={colors.warning} />
+              <ProgressBar value={horse.recovery ?? 100} tone={colors.monitor} />
+              <MiniChart data={recoveryTrend} valueKey="v" color={colors.monitor} />
             </Panel>
           </View>
           {roleId === "vet" ? (
@@ -191,13 +195,13 @@ export default function HorseProfile() {
             title="Peak heart rate"
             data={speedTrend}
             valueKey="hr"
-            color={colors.danger}
+            color={colors.destructive}
           />
           <ChartSection
             title="Weekly distance"
             data={fitnessTrend}
             valueKey="load"
-            color={colors.info}
+            color={colors.training}
           />
         </>
       ) : null}
@@ -250,13 +254,13 @@ export default function HorseProfile() {
               time="10:24"
               title="Training locked by veterinarian"
               detail="Abnormal heart-rate response"
-              tone={colors.danger}
+              tone={colors.destructive}
             />
             <TimelineItem
               time="10:06"
               title="System raised HR alert"
               detail="188 bpm sustained 42 s"
-              tone={colors.info}
+              tone={colors.training}
             />
             <TimelineItem
               time="06:20"
@@ -277,6 +281,9 @@ export default function HorseProfile() {
 }
 
 function Info({ title, items }: { title: string; items: [string, string][] }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   return (
     <View style={uiStyles.section}>
       <SectionTitle>{title}</SectionTitle>
@@ -297,6 +304,9 @@ function ChartSection({
   valueKey: string;
   color: string;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   return (
     <View style={uiStyles.section}>
       <SectionTitle>{title}</SectionTitle>
@@ -306,8 +316,8 @@ function ChartSection({
     </View>
   );
 }
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   hero: { gap: space.lg },
   flex: { flex: 1, gap: 4 },
-  name: { color: colors.text, fontSize: 25, fontWeight: "800" },
+  name: { color: colors.foreground, fontSize: 25, fontWeight: "800" },
 });

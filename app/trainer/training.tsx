@@ -4,12 +4,16 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
 import type { TrainingPlan, TrainingSession } from "@/lib/raceos-data";
-import { Chips, ProgressBar , Metric, Panel, uiStyles } from "@/components/ui";
+import { Chips, ProgressBar , Metric, Panel, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
 import { useI18n } from "@/context/I18nContext";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function TrainerTraining() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { plans, horses } = useRaceOS();
   const { t } = useI18n();
   const [tab, setTab] = useState("Schedule");
@@ -140,6 +144,9 @@ function SessionRow({
   phaseName: string;
   session: TrainingSession;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { t } = useI18n();
   return (
     <Pressable
@@ -172,7 +179,7 @@ function SessionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   flex: { flex: 1, gap: 4 },
   plan: {
     padding: space.lg,
@@ -182,8 +189,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  planName: { color: colors.text, fontSize: 17, fontWeight: "800" },
-  objective: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+  planName: { color: colors.foreground, fontSize: 17, fontWeight: "800" },
+  objective: { color: colors.mutedForeground, fontSize: 13, lineHeight: 19 },
   progress: { color: colors.primary, fontSize: 20, fontWeight: "800" },
   session: {
     flexDirection: "row",
@@ -198,19 +205,19 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: radius.sm,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.fitSoft,
     alignItems: "center",
     justifyContent: "center",
   },
   day: { color: colors.primary, fontSize: 18, fontWeight: "800" },
   status: {
-    color: colors.warning,
-    backgroundColor: colors.warningSoft,
+    color: colors.monitor,
+    backgroundColor: colors.monitorSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 4,
     fontSize: 9,
     fontWeight: "800",
   },
-  complete: { color: colors.primary, backgroundColor: colors.primarySoft },
+  complete: { color: colors.primary, backgroundColor: colors.fitSoft },
 });

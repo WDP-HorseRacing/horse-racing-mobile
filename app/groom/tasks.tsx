@@ -2,11 +2,14 @@ import { useState } from "react";
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, ProgressBar , Panel, uiStyles } from "@/components/ui";
+import { Chips, ProgressBar , Panel, getUiStyles } from "@/components/ui";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { Screen, SectionTitle } from "@/components/common";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function GroomTasks() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { tasks, completeTask } = useRaceOS();
   const [filter, setFilter] = useState("All");
   const list = tasks.filter((task) =>

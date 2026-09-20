@@ -8,9 +8,12 @@ import { Metric } from "@/components/ui/Metric";
 import { Panel } from "@/components/ui/Panel";
 import { PrimaryButton } from "@/components/ui/Button";
 import { SectionTitle } from "@/components/common/SectionTitle";
-import { uiStyles } from "@/components/ui/styles";
+import { getUiStyles } from "@/components/ui/styles";
+import { useTheme } from "@/hooks/useTheme";
 
 export function VetDashboard() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const critical = horses.filter((horse) => ["LOCKED", "INJURED"].includes(horse.status));
   return (
     <>

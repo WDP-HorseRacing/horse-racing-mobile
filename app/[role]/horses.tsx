@@ -4,12 +4,16 @@ import { Text } from "@/components/common/LocalizedText";
 import { useMemo, useState } from "react";
 import { useRaceOS } from "@/context/RaceOSContext";
 import { isRole } from "@/features/auth/roles";
-import { uiStyles , Chips } from "@/components/ui";
+import { getUiStyles , Chips } from "@/components/ui";
 import { Screen } from "@/components/common";
 import { HorseRow } from "@/features/horses/components/HorseRow";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Horses() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { role } = useLocalSearchParams<{ role: string }>();
   const { horses } = useRaceOS();
   const [query, setQuery] = useState("");
@@ -33,7 +37,7 @@ export default function Horses() {
           value={query}
           onChangeText={setQuery}
           placeholder="Search horses"
-          placeholderTextColor={colors.muted}
+          placeholderTextColor={colors.mutedForeground}
           style={styles.search}
           autoCapitalize="none"
         />
@@ -53,13 +57,13 @@ export default function Horses() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   searchWrap: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  search: { minHeight: 50, color: colors.text, paddingHorizontal: space.lg, fontSize: 15 },
+  search: { minHeight: 50, color: colors.foreground, paddingHorizontal: space.lg, fontSize: 15 },
   list: { gap: space.sm },
 });

@@ -4,11 +4,15 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { groomTasks, horses, races } from "@/lib/raceos-data";
 import { isRole, roles } from "@/features/auth/roles";
-import { Panel, PrimaryButton, StatusBadge, uiStyles } from "@/components/ui";
+import { Panel, PrimaryButton, StatusBadge, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Work() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { role } = useLocalSearchParams<{ role: string }>();
   const [completed, setCompleted] = useState<string[]>(
     groomTasks.filter((task) => task.done).map((task) => task.id),
@@ -144,7 +148,7 @@ export default function Work() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   task: {
     minHeight: 74,
     flexDirection: "row",
@@ -157,11 +161,11 @@ const styles = StyleSheet.create({
     padding: space.md,
   },
   taskDone: { opacity: 0.55 },
-  time: { color: colors.muted, width: 42, fontSize: 13, fontVariant: ["tabular-nums"] },
+  time: { color: colors.mutedForeground, width: 42, fontSize: 13, fontVariant: ["tabular-nums"] },
   taskCopy: { flex: 1, gap: 3 },
-  check: { color: colors.muted, fontSize: 24 },
+  check: { color: colors.mutedForeground, fontSize: 24 },
   checkDone: { color: colors.primary },
   doneText: { textDecorationLine: "line-through" },
   operation: { flexGrow: 1, flexBasis: "45%", gap: space.sm },
-  big: { color: colors.text, fontSize: 28, fontWeight: "800" },
+  big: { color: colors.foreground, fontSize: 28, fontWeight: "800" },
 });

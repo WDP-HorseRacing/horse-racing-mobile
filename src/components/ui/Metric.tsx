@@ -1,7 +1,8 @@
 import { View, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export function Metric({
   label,
@@ -14,15 +15,17 @@ export function Metric({
   hint?: string;
   tone?: "default" | "good" | "warning" | "danger";
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   const { t } = useI18n();
   const toneColor =
     tone === "good"
       ? colors.primary
       : tone === "warning"
-        ? colors.warning
+        ? colors.monitor
         : tone === "danger"
-          ? colors.danger
-          : colors.text;
+          ? colors.destructive
+          : colors.foreground;
   return (
     <View style={styles.metric}>
       <Text style={styles.metricLabel}>{t(label)}</Text>
@@ -32,7 +35,7 @@ export function Metric({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   metric: {
     flexGrow: 1,
     flexBasis: "45%",
@@ -44,7 +47,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  metricLabel: { color: colors.muted, fontSize: 11 },
+  metricLabel: { color: colors.mutedForeground, fontSize: 11 },
   metricValue: { fontSize: 26, fontWeight: "700", letterSpacing: -0.7 },
-  metricHint: { color: colors.muted, fontSize: 10 },
+  metricHint: { color: colors.mutedForeground, fontSize: 10 },
 });

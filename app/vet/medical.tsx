@@ -2,11 +2,13 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { Chips, ProgressBar , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips, ProgressBar , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { TimelineItem , Screen, SectionTitle } from "@/components/common";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Medical() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const [tab, setTab] = useState("Records");
   return (
     <Screen role="vet" title="Medical">
@@ -19,13 +21,13 @@ export default function Medical() {
               time="Today"
               title="Thunder King · cardiac review"
               detail="Exercise intolerance · ECG follow-up in 72 h"
-              tone={colors.danger}
+              tone={colors.destructive}
             />
             <TimelineItem
               time="Yesterday"
               title="Silver Arrow · appetite"
               detail="Under observation · bloodwork clear"
-              tone={colors.warning}
+              tone={colors.monitor}
             />
             <TimelineItem
               time="Sep 10"
@@ -55,7 +57,7 @@ export default function Medical() {
               </View>
               <Text style={uiStyles.muted}>{plan}</Text>
               <View style={{ height: 10 }} />
-              <ProgressBar value={Number(progress)} tone={colors.warning} />
+              <ProgressBar value={Number(progress)} tone={colors.monitor} />
             </Panel>
           ))}
         </View>

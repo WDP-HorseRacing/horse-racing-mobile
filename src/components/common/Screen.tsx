@@ -6,12 +6,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
 import { roles } from "@/features/auth/roles";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/lib/raceos-data";
+import { useTheme } from "@/hooks/useTheme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 function BottomNav({ role }: { role: RoleId }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   const pathname = usePathname();
   const items = roles[role].nav;
   const { t } = useI18n();
@@ -28,7 +31,7 @@ function BottomNav({ role }: { role: RoleId }) {
             <Ionicons
               name={item.icon as IconName}
               size={21}
-              color={active ? colors.primary : colors.muted}
+              color={active ? colors.primary : colors.mutedForeground}
             />
             <Text style={[styles.navLabel, active && styles.navLabelActive]} numberOfLines={1}>
               {t(item.label)}
@@ -47,6 +50,8 @@ export function Screen({
   children,
   back,
 }: PropsWithChildren<{ role: RoleId; title: string; subtitle?: string; back?: boolean }>) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   const cfg = roles[role];
   const { language, toggleLanguage, t } = useI18n();
   return (
@@ -58,7 +63,7 @@ export function Screen({
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
+            <Ionicons name="chevron-back" size={22} color={colors.foreground} />
           </Pressable>
         ) : null}
         <View style={styles.headerCopy}>
@@ -93,7 +98,7 @@ export function Screen({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   header: {
     minHeight: 68,
@@ -114,8 +119,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.elevated,
   },
   headerCopy: { flex: 1 },
-  title: { color: colors.text, fontSize: 21, fontWeight: "700", letterSpacing: -0.4 },
-  subtitle: { color: colors.muted, fontSize: 11, marginTop: 3 },
+  title: { color: colors.foreground, fontSize: 21, fontWeight: "700", letterSpacing: -0.4 },
+  subtitle: { color: colors.mutedForeground, fontSize: 11, marginTop: 3 },
   avatar: {
     width: 38,
     height: 38,
@@ -126,13 +131,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: colors.text, fontSize: 11, fontWeight: "700" },
+  avatarText: { color: colors.foreground, fontSize: 11, fontWeight: "700" },
   language: {
     minWidth: 38,
     height: 34,
     paddingHorizontal: 8,
     borderRadius: radius.sm,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.fitSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -161,6 +166,6 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingTop: space.sm,
   },
-  navLabel: { color: colors.muted, fontSize: 10, fontWeight: "600" },
+  navLabel: { color: colors.mutedForeground, fontSize: 10, fontWeight: "600" },
   navLabelActive: { color: colors.primary },
 });

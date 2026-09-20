@@ -7,10 +7,12 @@ import { HorseRow } from "@/features/horses/components/HorseRow";
 import { Metric } from "@/components/ui/Metric";
 import { Panel } from "@/components/ui/Panel";
 import { SectionTitle } from "@/components/common/SectionTitle";
-import { uiStyles } from "@/components/ui/styles";
-import { colors } from "@/config/theme";
+import { getUiStyles } from "@/components/ui/styles";
+import { useTheme } from "@/hooks/useTheme";
 
 export function OwnerDashboard() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const mine = horses.filter((horse) => horse.owner === "Marlow Bloodstock");
   return (
     <>
@@ -38,13 +40,13 @@ export function OwnerDashboard() {
             time="Today"
             title="Thunder King"
             detail="Training paused by veterinarian — recovery plan started"
-            tone={colors.danger}
+            tone={colors.destructive}
           />
           <TimelineItem
             time="Yesterday"
             title="Red Storm"
             detail="Rehabilitation week 3 · recovery 38%"
-            tone={colors.warning}
+            tone={colors.monitor}
           />
           <TimelineItem
             time="Saturday"

@@ -5,9 +5,12 @@ import { LanguageToggle, Text } from "@/components/common/LocalizedText";
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { roleOrder, roles } from "@/features/auth/roles";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function RoleSelection() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
   const [stableId, setStableId] = useState("meadowline");
   const [passcode, setPasscode] = useState("password");
   return (
@@ -76,7 +79,7 @@ export default function RoleSelection() {
                     {item.person} · {item.scope}
                   </Text>
                 </View>
-                <Ionicons name="arrow-forward" size={18} color={colors.muted} />
+                <Ionicons name="arrow-forward" size={18} color={colors.mutedForeground} />
               </Pressable>
             );
           })}
@@ -91,7 +94,7 @@ export default function RoleSelection() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: {
     flexGrow: 1,
@@ -101,27 +104,27 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-  brand: { color: colors.text, fontSize: 20, fontWeight: "900", letterSpacing: -0.8 },
+  brand: { color: colors.foreground, fontSize: 20, fontWeight: "900", letterSpacing: -0.8 },
   brandAccent: { color: colors.primary },
-  kicker: { color: colors.muted, fontSize: 11, marginTop: 4 },
+  kicker: { color: colors.mutedForeground, fontSize: 11, marginTop: 4 },
   hero: { marginTop: space.xl, gap: space.md },
   title: {
-    color: colors.text,
+    color: colors.foreground,
     fontSize: 34,
     lineHeight: 38,
     fontWeight: "800",
     letterSpacing: -1.2,
   },
-  copy: { color: colors.muted, fontSize: 15, lineHeight: 22, maxWidth: 440 },
+  copy: { color: colors.mutedForeground, fontSize: 15, lineHeight: 22, maxWidth: 440 },
   credentials: { gap: space.sm },
-  inputLabel: { color: colors.muted, fontSize: 11 },
+  inputLabel: { color: colors.mutedForeground, fontSize: 11 },
   input: {
     minHeight: 50,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    color: colors.text,
+    color: colors.foreground,
     paddingHorizontal: space.md,
   },
   roles: { gap: space.sm },
@@ -142,11 +145,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.fitSoft,
   },
   roleCopy: { flex: 1, gap: 4 },
-  roleName: { color: colors.text, fontSize: 16, fontWeight: "700" },
-  roleScope: { color: colors.muted, fontSize: 11 },
+  roleName: { color: colors.foreground, fontSize: 16, fontWeight: "700" },
+  roleScope: { color: colors.mutedForeground, fontSize: 11 },
   flow: {
     minHeight: 50,
     borderRadius: radius.md,
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  flowText: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  flowText: { color: colors.foreground, fontSize: 13, fontWeight: "600" },
   pressed: { opacity: 0.7 },
-  demo: { color: colors.muted, fontSize: 11, textAlign: "center" },
+  demo: { color: colors.mutedForeground, fontSize: 11, textAlign: "center" },
 });

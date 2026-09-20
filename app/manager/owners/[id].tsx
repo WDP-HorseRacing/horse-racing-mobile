@@ -3,10 +3,13 @@ import { useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { getHorse } from "@/lib/raceos-data";
-import { NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function HorseOwners() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const horse = getHorse(id);
   const [primary, setPrimary] = useState("60");

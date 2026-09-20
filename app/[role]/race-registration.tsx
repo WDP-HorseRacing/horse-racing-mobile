@@ -5,14 +5,16 @@ import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
 import { useI18n } from "@/context/I18nContext";
 import { races, type RaceAptitude, type RoleId } from "@/lib/raceos-data";
-import { Chips , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { KeyValue , Screen, SectionTitle } from "@/components/common";
 import { isRole, roles } from "@/features/auth/roles";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 const allowedRoles: RoleId[] = ["trainer", "manager", "owner"];
 
 export default function RaceRegistration() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const { role } = useLocalSearchParams<{ role: string }>();
   const { horses, raceRegistrations, registerRace } = useRaceOS();
   const { t } = useI18n();
@@ -114,14 +116,14 @@ export default function RaceRegistration() {
       </Panel>
       {horse && race && !matches ? (
         <Panel>
-          <Text style={{ ...uiStyles.muted, color: colors.warning }}>
+          <Text style={{ ...uiStyles.muted, color: colors.monitor }}>
             {t("Performance may be suboptimal.")} {horse.raceAptitude} → {expectedAptitude}
           </Text>
         </Panel>
       ) : null}
       {duplicate ? (
         <Panel>
-          <Text style={{ ...uiStyles.muted, color: colors.warning }}>
+          <Text style={{ ...uiStyles.muted, color: colors.monitor }}>
             {t("This horse is already registered for this race.")}
           </Text>
         </Panel>

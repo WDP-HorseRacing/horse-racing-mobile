@@ -3,11 +3,13 @@ import { router } from "expo-router";
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { auditLog, inventory, staff } from "@/lib/raceos-data";
-import { Chips , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { TimelineItem , Screen, SectionTitle } from "@/components/common";
-import { colors } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Operations() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const [tab, setTab] = useState("Inventory");
   return (
     <Screen role="manager" title="Operations">
@@ -28,13 +30,13 @@ export default function Operations() {
                   <Text style={uiStyles.muted}>{item.category}</Text>
                 </View>
                 <Text
-                  style={{ ...uiStyles.value, color: item.low ? colors.warning : colors.primary }}
+                  style={{ ...uiStyles.value, color: item.low ? colors.monitor : colors.primary }}
                 >
                   {item.stock} {item.unit}
                 </Text>
               </View>
               {item.low ? (
-                <Text style={{ ...uiStyles.muted, color: colors.warning }}>Reorder required</Text>
+                <Text style={{ ...uiStyles.muted, color: colors.monitor }}>Reorder required</Text>
               ) : null}
             </Panel>
           ))}
@@ -55,7 +57,7 @@ export default function Operations() {
                 <Text
                   style={{
                     ...uiStyles.muted,
-                    color: person.status === "Off shift" ? colors.muted : colors.primary,
+                    color: person.status === "Off shift" ? colors.mutedForeground : colors.primary,
                   }}
                 >
                   {person.status}
@@ -75,7 +77,7 @@ export default function Operations() {
                 time={entry.time}
                 title={entry.action}
                 detail={`${entry.who} · ${entry.object} · ${entry.result}`}
-                tone={index < 2 ? colors.danger : colors.info}
+                tone={index < 2 ? colors.destructive : colors.training}
                 last={index === auditLog.length - 1}
               />
             ))}

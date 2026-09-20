@@ -6,10 +6,12 @@ import { TimelineItem } from "@/components/common/TimelineItem";
 import { Metric } from "@/components/ui/Metric";
 import { Panel } from "@/components/ui/Panel";
 import { SectionTitle } from "@/components/common/SectionTitle";
-import { uiStyles } from "@/components/ui/styles";
-import { colors } from "@/config/theme";
+import { getUiStyles } from "@/components/ui/styles";
+import { useTheme } from "@/hooks/useTheme";
 
 export function ManagerDashboard() {
+    const { colors } = useTheme();
+    const uiStyles = getUiStyles(colors);
   const lowStock = inventory.filter((item) => item.low);
   return (
     <>
@@ -51,7 +53,7 @@ export function ManagerDashboard() {
               time={entry.time}
               title={entry.action}
               detail={`${entry.who} · ${entry.object}`}
-              tone={index === 0 ? colors.danger : colors.info}
+              tone={index === 0 ? colors.destructive : colors.training}
               last={index === 2}
             />
           ))}

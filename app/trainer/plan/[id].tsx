@@ -4,12 +4,16 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useRaceOS } from "@/context/RaceOSContext";
 import { getHorse, type TrainingPhase, type TrainingPlan } from "@/lib/raceos-data";
-import { Field, NativeInput, ProgressBar , Metric, Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Field, NativeInput, ProgressBar , Metric, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
 import { useI18n } from "@/context/I18nContext";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function TrainingPlanDetail() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { horses, plans, saveTrainingPlan } = useRaceOS();
   const { t } = useI18n();
@@ -106,6 +110,9 @@ function PhaseCard({
   phase: TrainingPhase;
   index: number;
 }) {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { t } = useI18n();
   const done = phase.sessions.filter((session) => session.status === "completed").length;
   return (
@@ -197,17 +204,17 @@ function createEmptyPlan(horseId: string): TrainingPlan {
   };
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   hero: {
     padding: space.xl,
     gap: space.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.fitSoft,
     borderWidth: 1,
     borderColor: "#A7F3D0",
   },
   kicker: { color: colors.primary, fontSize: 11, fontWeight: "800" },
-  objective: { color: colors.text, fontSize: 22, lineHeight: 29, fontWeight: "800" },
+  objective: { color: colors.foreground, fontSize: 22, lineHeight: 29, fontWeight: "800" },
   target: { gap: 3 },
   form: { gap: space.lg },
   phase: { flexDirection: "row", gap: space.md },
@@ -224,9 +231,9 @@ const styles = StyleSheet.create({
   line: { flex: 1, width: 1, minHeight: 40, backgroundColor: colors.border },
   phaseBody: { flex: 1, gap: space.md, paddingBottom: space.xl },
   flex: { flex: 1, gap: 3 },
-  phaseName: { color: colors.text, fontSize: 17, fontWeight: "800" },
+  phaseName: { color: colors.foreground, fontSize: 17, fontWeight: "800" },
   phaseProgress: { color: colors.primary, fontWeight: "800" },
-  phaseObjective: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+  phaseObjective: { color: colors.mutedForeground, fontSize: 13, lineHeight: 19 },
   session: {
     gap: 5,
     padding: space.md,
@@ -241,17 +248,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space.sm,
   },
-  sessionTitle: { flex: 1, color: colors.text, fontSize: 14, fontWeight: "700" },
+  sessionTitle: { flex: 1, color: colors.foreground, fontSize: 14, fontWeight: "700" },
   sessionStatus: {
-    color: colors.warning,
+    color: colors.monitor,
     fontSize: 9,
     fontWeight: "800",
-    backgroundColor: colors.warningSoft,
+    backgroundColor: colors.monitorSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  sessionDone: { color: colors.primary, backgroundColor: colors.primarySoft },
+  sessionDone: { color: colors.primary, backgroundColor: colors.fitSoft },
   add: {
     alignItems: "center",
     padding: space.md,

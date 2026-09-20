@@ -4,11 +4,15 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { horses, incidentKinds } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, Field, NativeInput , Panel, PrimaryButton, uiStyles } from "@/components/ui";
+import { Chips, Field, NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { colors, radius, space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function GroomReport() {
+    const { colors } = useTheme();
+    const styles = getStyles(colors);
+    const uiStyles = getUiStyles(colors);
   const { reportIncident } = useRaceOS();
   const [horse, setHorse] = useState("");
   const [kind, setKind] = useState("");
@@ -84,7 +88,7 @@ export default function GroomReport() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   horseGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   horse: {
     width: "48%",
@@ -95,7 +99,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  selected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  selected: { borderColor: colors.primary, backgroundColor: colors.fitSoft },
   photo: {
     minHeight: 54,
     alignItems: "center",
@@ -110,9 +114,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space.sm,
     borderRadius: radius.md,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.fitSoft,
     padding: space.xl,
   },
   successIcon: { color: colors.primary, fontSize: 34, fontWeight: "900" },
-  title: { color: colors.text, fontSize: 20, fontWeight: "800" },
+  title: { color: colors.foreground, fontSize: 20, fontWeight: "800" },
 });
