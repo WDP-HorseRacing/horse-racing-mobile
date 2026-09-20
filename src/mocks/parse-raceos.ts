@@ -36,5 +36,25 @@ export function parseRaceOSFixture(value: unknown): RaceOSFixture {
       throw new Error("Invalid RaceOS payload: every horse requires string id and name");
     }
   }
-  return value as RaceOSFixture;
+  const parsed = value as RaceOSFixture;
+  
+  // Inject mock dietaryRation for feeding tasks
+  parsed.groomTasks = parsed.groomTasks.map((task) => {
+    if (task.kind === "Feeding") {
+      return {
+        ...task,
+        dietaryRation: {
+          feedingTime: task.time,
+          items: [
+            { name: "Grain", quantity: 2.5, unit: "kg" },
+            { name: "Hay", quantity: 5, unit: "kg" },
+            { name: "Vitamin Supplement", quantity: 20, unit: "g" },
+          ],
+        },
+      };
+    }
+    return task;
+  });
+
+  return parsed;
 }

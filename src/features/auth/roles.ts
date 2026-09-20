@@ -37,7 +37,7 @@ export const roles: Record<RoleId, RoleConfig> = {
       { label: "Tasks", icon: "checkmark-circle-outline", path: "/groom/tasks" },
       { label: "Stable", icon: "map-outline", path: "/groom/stable" },
       { label: "Report", icon: "camera-outline", path: "/groom/report" },
-      { label: "Profile", icon: "person-outline", path: "/profile/groom" },
+      { label: "Inventory", icon: "cube-outline", path: "/groom/inventory" },
     ],
   },
   vet: {

@@ -1,4 +1,6 @@
 import { View, Pressable, Alert, StyleSheet } from "react-native";
+import { useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { Panel } from "@/components/ui/Panel";
 import { getUiStyles } from "@/components/ui/styles";
@@ -10,6 +12,8 @@ export function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: st
     const { colors } = useTheme();
     const styles = getStyles(colors);
     const uiStyles = getUiStyles(colors);
+    const [expanded, setExpanded] = useState(false);
+
   return (
     <Panel style={[styles.task, task.done && styles.done]}>
       <View style={styles.taskTop}>
@@ -20,7 +24,29 @@ export function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: st
             {task.title} · {task.detail}
           </Text>
         </View>
+        {task.dietaryRation ? (
+          <Pressable onPress={() => setExpanded(!expanded)} style={styles.rationToggle}>
+            <Text style={styles.rationToggleText}>Dietary Ration</Text>
+            <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={14} color={colors.primary} />
+          </Pressable>
+        ) : null}
       </View>
+
+      {expanded && task.dietaryRation ? (
+        <View style={styles.rationContainer}>
+          <Text style={uiStyles.value}>Dietary Ration</Text>
+          <Text style={uiStyles.muted}>{task.dietaryRation.feedingTime} · {task.time}</Text>
+          <View style={styles.rationItems}>
+            {task.dietaryRation.items.map((item, index) => (
+              <View key={index} style={uiStyles.row}>
+                <Text style={uiStyles.muted}>{item.name}</Text>
+                <Text style={uiStyles.value}>{item.quantity} {item.unit}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       <Pressable
         disabled={task.done}
         onPress={() => {
@@ -53,4 +79,24 @@ const getStyles = (colors: any) => StyleSheet.create({
   completeDone: { backgroundColor: colors.fitSoft },
   completeText: { color: "#FFFFFF", fontWeight: "800" },
   completeTextDone: { color: colors.primary },
+  rationToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  rationToggleText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  rationContainer: {
+    gap: space.sm,
+    paddingTop: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  rationItems: {
+    gap: 6,
+    paddingTop: 4,
+  },
 });

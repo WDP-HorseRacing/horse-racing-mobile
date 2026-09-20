@@ -28,6 +28,15 @@ export type Horse = {
   note?: string;
 };
 
+export type DietaryRation = {
+  feedingTime: string;
+  items: {
+    name: string;
+    quantity: number;
+    unit: string;
+  }[];
+};
+
 export type Task = {
   id: string;
   time: string;
@@ -38,6 +47,7 @@ export type Task = {
   kind: "Feeding" | "Training" | "Grooming" | "Recovery" | "Cleaning" | "Bathing";
   done: boolean;
   priority?: boolean;
+  dietaryRation?: DietaryRation;
 };
 
 export type AlertItem = {
