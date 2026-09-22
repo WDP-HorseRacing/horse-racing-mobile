@@ -1,4 +1,4 @@
-import { View, Pressable, StyleSheet } from "react-native";
+import { ScrollView, Pressable, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
@@ -13,11 +13,15 @@ export function Chips({
   value: string;
   onChange: (value: string) => void;
 }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { t } = useI18n();
   return (
-    <View style={styles.chips}>
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false} 
+      contentContainerStyle={styles.chips}
+    >
       {options.map((option) => (
         <Pressable
           key={option}
@@ -29,12 +33,12 @@ export function Chips({
           </Text>
         </Pressable>
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  chips: { flexDirection: "row", gap: space.sm, paddingRight: space.md },
   chip: {
     borderRadius: radius.pill,
     borderWidth: 1,
