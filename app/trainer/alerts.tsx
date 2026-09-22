@@ -2,21 +2,21 @@ import { router } from "expo-router";
 import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { alerts } from "@/lib/raceos-data";
-import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { KeyValue, Screen, SectionTitle } from "@/components/common";
 import { AlertCard } from "@/features/alerts/components/AlertCard";
 import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 
 export default function TrainerAlerts() {
-    const { colors } = useTheme();
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   return (
     <Screen role="trainer" title="Alerts" subtitle="2 critical · 1 warning · 1 info">
       <View style={uiStyles.section}>
         <SectionTitle>Critical — action required</SectionTitle>
         <Panel style={uiStyles.alert}>
           <Text style={uiStyles.label}>Training locked by veterinarian</Text>
-          <Text style={{ ...uiStyles.value, fontSize: 22 }}>Thunder King</Text>
+          <Text style={{ ...uiStyles.value, fontSize: 20 }}>Thunder King</Text>
           <Text style={uiStyles.muted}>
             Abnormal heart-rate response during 1,600 m moderate work.
           </Text>
@@ -32,6 +32,7 @@ export default function TrainerAlerts() {
             label="View health report"
             onPress={() => router.push("/trainer/horse/thunder-king")}
           />
+          <View style={{ gap: 8 }}></View>
           <PrimaryButton
             label="Adjust training plan"
             icon="create-outline"

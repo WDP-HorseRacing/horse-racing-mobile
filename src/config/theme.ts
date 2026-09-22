@@ -62,66 +62,84 @@ export const lightColors = {
 } as const;
 
 export const darkColors = {
-  background: "#000101ff",
-  foreground: "#F5F7F6",
+  background: "#0D1013",
 
-  surface: "#22262B",
-  surfaceForeground: "#F5F7F6",
+  foreground: "#F1F4F6",
 
-  elevated: "#2A3035",
+  surface: "#16191D",
 
-  card: "#22262B",
-  cardForeground: "#F5F7F6",
+  surfaceForeground: "#F1F4F6",
 
-  popover: "#252A2F",
-  popoverForeground: "#F5F7F6",
+  elevated: "#1E2226",
 
-  primary: "#5FD6A8",
-  primaryForeground: "#10251C",
+  card: "#16191D",
 
-  secondary: "#30353A",
-  secondaryForeground: "#ffffffff",
+  cardForeground: "#F1F4F6",
 
-  muted: "#2F3439",
-  mutedForeground: "#ffffffff",
+  popover: "#191D22",
 
-  accent: "#343A3F",
-  accentForeground: "#F5F7F6",
+  popoverForeground: "#F1F4F6",
 
-  destructive: "#F87171",
-  destructiveForeground: "#FFF7F7",
+  primary: "#47C682",
+
+  primaryForeground: "#04130A",
+
+  secondary: "#202429",
+
+  secondaryForeground: "#E6E8EA",
+
+  muted: "#1D2125",
+
+  mutedForeground: "#9399A0",
+
+  accent: "#25292F",
+
+  accentForeground: "#F1F4F6",
+
+  destructive: "#E64343",
+
+  destructiveForeground: "#FCF7F7",
 
   border: "#FFFFFF17",
+
   borderStrong: "#FFFFFF29",
 
   input: "#FFFFFF1F",
-  ring: "#5FD6A899",
+
+  ring: "#47C68299",
 
   // Semantic status colors
-  fit: "#63D9A8",
-  fitSoft: "#63D9A824",
 
-  monitor: "#F3C969",
-  monitorSoft: "#F3C96924",
+  fit: "#4FCD88",
 
-  injured: "#F27668",
-  injuredSoft: "#F2766826",
+  fitSoft: "#4FCD8824",
 
-  locked: "#A7ADB3",
-  lockedSoft: "#7379804D",
+  monitor: "#F4B93C",
 
-  training: "#69AEEA",
-  trainingSoft: "#69AEEA26",
+  monitorSoft: "#F4B93C24",
 
-  raceReady: "#B88BE8",
-  raceReadySoft: "#B88BE826",
+  injured: "#F45152",
+
+  injuredSoft: "#F4515226",
+
+  locked: "#9FA5AC",
+
+  lockedSoft: "#80858A4D",
+
+  training: "#46A6EF",
+
+  trainingSoft: "#46A6EF26",
+
+  raceReady: "#B08AF0",
+
+  raceReadySoft: "#B08AF026",
 
   // Chart colors
-  chart1: "#63D9A8",
-  chart2: "#69AEEA",
-  chart3: "#F3C969",
-  chart4: "#B88BE8",
-  chart5: "#F27668",
+  chart1: "#4FCD88",
+  chart2: "#46A6EF",
+  chart3: "#F4B93C",
+  chart4: "#B08AF0",
+  chart5: "#F45152",
 } as const;
 
 export type ThemeColors = Record<keyof typeof lightColors, string>;

@@ -6,8 +6,14 @@ export const getUiStyles = (colors: any) => StyleSheet.create({
   section: { gap: space.md },
   metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   body: { color: colors.foreground, fontSize: 15, lineHeight: 22 },
-  muted: { color: colors.mutedForeground, fontSize: 13, lineHeight: 19 },
-  label: { color: colors.mutedForeground, fontSize: 11, letterSpacing: 0.7 },
+  muted: { color: colors.foreground, opacity: 0.85, fontSize: 13, lineHeight: 19 },
+  label: {
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 1.6,
+    color: colors.injured,
+    textTransform: "uppercase",
+  },
   value: { color: colors.foreground, fontSize: 15, fontWeight: "600" },
   row: {
     flexDirection: "row",
@@ -18,7 +24,7 @@ export const getUiStyles = (colors: any) => StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   alert: {
     backgroundColor: colors.injuredSoft,
-    borderColor: "#FECACA",
+    borderColor: colors.injured,
     borderWidth: 1,
     borderRadius: radius.md,
     padding: space.lg,
