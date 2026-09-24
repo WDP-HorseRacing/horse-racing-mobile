@@ -61,11 +61,53 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  dangerButton: {
+    minHeight: 52,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    backgroundColor: colors.destructive,
+  },
   buttonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
   secondaryButtonText: { color: colors.foreground, fontSize: 15, fontWeight: "800" },
+  dangerButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
   buttonDisabled: { opacity: 0.4 },
   pressed: { opacity: 0.7 },
 });
+
+export function DangerButton({
+  label,
+  onPress,
+  icon,
+  disabled = false,
+}: {
+  label: string;
+  onPress: () => void;
+  icon?: IconName;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const { t } = useI18n();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.dangerButton,
+        disabled && styles.buttonDisabled,
+        pressed && !disabled && styles.pressed,
+      ]}
+    >
+      <Text style={styles.dangerButtonText}>{t(label)}</Text>
+      {icon && <Ionicons name={icon} size={18} color="#FFFFFF" />}
+    </Pressable>
+  );
+}
 
 export function SecondaryButton({
   label,
