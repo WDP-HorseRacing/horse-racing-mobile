@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, usePathname, type Href } from "expo-router";
-import { ScrollView, StyleSheet, View, Pressable } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View, Pressable } from "react-native";
 import type { PropsWithChildren } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
+import { useAuth } from "@/context/AuthContext";
 import { roles } from "@/features/auth/roles";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/lib/raceos-data";
@@ -49,11 +50,22 @@ export function Screen({
   subtitle,
   children,
   back,
-}: PropsWithChildren<{ role: RoleId; title: string; subtitle?: string; back?: boolean }>) {
+  refreshing = false,
+  onRefresh,
+}: PropsWithChildren<{
+  role: RoleId;
+  title: string;
+  subtitle?: string;
+  back?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+}>) {
     const { colors } = useTheme();
     const styles = getStyles(colors);
   const cfg = roles[role];
   const { language, toggleLanguage, t } = useI18n();
+  const auth = useAuth();
+  const displayName = auth.user?.fullName ?? cfg.person;
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
@@ -82,15 +94,31 @@ export function Screen({
         </Pressable>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
-            {cfg.person
+            {displayName
               .split(" ")
               .map((part: string) => part[0])
               .slice(-2)
               .join("")}
           </Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("Sign out")}
+          onPress={() => void auth.signOut()}
+          style={styles.signOut}
+        >
+          <Ionicons name="log-out-outline" size={20} color={colors.mutedForeground} />
+        </Pressable>
       </View>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          ) : undefined
+        }
+      >
         {children}
       </ScrollView>
       {!back ? <BottomNav role={role} /> : null}
@@ -132,6 +160,14 @@ const getStyles = (colors: any) => StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: colors.foreground, fontSize: 11, fontWeight: "700" },
+  signOut: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    backgroundColor: colors.elevated,
+  },
   language: {
     minWidth: 38,
     height: 34,

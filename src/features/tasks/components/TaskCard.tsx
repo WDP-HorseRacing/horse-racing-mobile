@@ -7,8 +7,15 @@ import { getUiStyles } from "@/components/ui/styles";
 import { radius, space } from "@/config/theme";
 import type { Task } from "@/lib/raceos-data";
 import { useTheme } from "@/hooks/useTheme";
+import { formatQuantity } from "@/utils/formatters";
 
-export function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) => void }) {
+export function TaskCard({
+  task,
+  onComplete,
+}: {
+  task: Task;
+  onComplete: (id: string) => void | Promise<void>;
+}) {
     const { colors } = useTheme();
     const styles = getStyles(colors);
     const uiStyles = getUiStyles(colors);
@@ -40,7 +47,7 @@ export function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: st
             {task.dietaryRation.items.map((item, index) => (
               <View key={index} style={uiStyles.row}>
                 <Text style={uiStyles.muted}>{item.name}</Text>
-                <Text style={uiStyles.value}>{item.quantity} {item.unit}</Text>
+                <Text style={uiStyles.value}>{formatQuantity(item.quantity, item.unit)}</Text>
               </View>
             ))}
           </View>
@@ -48,15 +55,19 @@ export function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: st
       ) : null}
 
       <Pressable
-        disabled={task.done}
-        onPress={() => {
-          onComplete(task.id);
-          Alert.alert("Task completed", "Logged to the horse timeline.");
+        disabled={task.done || task.actionable === false}
+        onPress={async () => {
+          try {
+            await onComplete(task.id);
+            Alert.alert("Task updated", "The task status has been refreshed.");
+          } catch (error) {
+            Alert.alert("Could not update task", error instanceof Error ? error.message : "Please try again.");
+          }
         }}
-        style={[styles.complete, task.done && styles.completeDone]}
+        style={[styles.complete, (task.done || task.actionable === false) && styles.completeDone]}
       >
         <Text style={[styles.completeText, task.done && styles.completeTextDone]}>
-          {task.done ? "Completed" : "Complete"}
+          {task.done ? "Completed" : task.actionable === false ? "Plan only" : task.actionLabel ?? "Complete"}
         </Text>
       </Pressable>
     </Panel>

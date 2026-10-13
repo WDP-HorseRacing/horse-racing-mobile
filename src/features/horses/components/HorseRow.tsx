@@ -40,7 +40,7 @@ export function HorseRow({ horse, role }: { horse: Horse; role: RoleId }) {
           <StatusBadge status={horse.status} />
         </View>
         <Text style={styles.rowMeta}>
-          {horse.age} yo {horse.sex} · Stall {horse.stall}
+          {horse.age ? `${horse.age} yo ` : ""}{horse.sex} · Stall {horse.stall}
         </Text>
         <Text style={styles.rowMeta} numberOfLines={1}>
           {horse.lastSession}

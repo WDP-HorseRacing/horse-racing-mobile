@@ -48,7 +48,14 @@ export type Task = {
   done: boolean;
   priority?: boolean;
   dietaryRation?: DietaryRation;
+  actionable?: boolean;
+  sourceType?: TaskSourceType;
+  sourceId?: string | null;
+  sourceAction?: "check-in" | "ready" | "complete" | null;
+  actionLabel?: string;
 };
+
+export type TaskSourceType = "checklist" | "feeding" | "training" | "care" | "mock";
 
 export type AlertItem = {
   id: string;

@@ -1,5 +1,5 @@
 import { type Href, Redirect, router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { fitnessTrend, getHorse, raceResults, recoveryTrend, speedTrend } from "@/lib/raceos-data";
@@ -10,12 +10,19 @@ import { KeyValue, TimelineItem , Screen, SectionTitle } from "@/components/comm
 import { isRole } from "@/features/auth/roles";
 import { space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
+import { trainingService } from "@/services/training.service";
+import { formatDistance, formatDurationMs, formatWeight } from "@/utils/formatters";
+import { horseService } from "@/services/horse.service";
+import { mapHorseDetailToPrototype } from "@/adapters/horse.adapter";
 
 const tabsByRole: Record<RoleId, string[]> = {
   trainer: ["Overview", "Training", "Health", "Performance", "Racing", "Timeline"],
-  vet: ["Overview", "Health", "Injuries", "Treatment", "Timeline"],
+  vet: ["Overview", "Training", "Health", "Injuries", "Treatment", "Timeline"],
   groom: ["Overview", "Care", "Timeline"],
-  owner: ["Overview", "Health", "Performance", "Racing", "Timeline"],
+  owner: ["Overview", "Training", "Health", "Performance", "Racing", "Timeline"],
   manager: ["Overview", "Health", "Performance", "Costs", "Timeline"],
 };
 
@@ -26,10 +33,22 @@ export default function HorseProfile() {
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
   const roleId: RoleId = isRole(role) ? role : "trainer";
   const raceOS = useRaceOS();
-  const horse = raceOS.horses.find((item) => item.id === id) ?? getHorse(id);
   const tabs = tabsByRole[roleId];
   const [tab, setTab] = useState(tabs[0]);
   const { plans, lockedHorseIds } = raceOS;
+  const { token } = useAuth();
+  const loadHorse = useCallback(() => horseService.get(token!, id), [id, token]);
+  const horseResource = useApiResource(loadHorse, Boolean(token) && isUuid(id));
+  const loadHorseSessions = useCallback(
+    () => trainingService.listHorseSessions(token!, id),
+    [id, token],
+  );
+  const trainingResource = useApiResource(
+    loadHorseSessions,
+    Boolean(token) && roleId !== "groom" && isUuid(id),
+  );
+  const mockHorse = raceOS.horses.find((item) => item.id === id) ?? getHorse(id);
+  const horse = horseResource.data ? mapHorseDetailToPrototype(horseResource.data) : mockHorse;
   const plan = plans.find((item) => item.horseId === horse.id && item.status === "active");
   const currentPhase =
     plan?.phases.find((phase) =>
@@ -38,19 +57,48 @@ export default function HorseProfile() {
   const nextSession = currentPhase?.sessions.find((session) =>
     ["planned", "scheduled", "in_progress"].includes(session.status),
   );
-  const locked = lockedHorseIds.includes(horse.id);
+  const locked = lockedHorseIds.includes(horse.id) || Boolean(horseResource.data?.activeTrainingLock);
   if (!isRole(role)) return <Redirect href="/" />;
+  if (isUuid(id) && !horseResource.data) {
+    return (
+      <Screen
+        role={roleId}
+        title="Horse profile"
+        back
+        refreshing={horseResource.isRefreshing || trainingResource.isRefreshing}
+        onRefresh={() => void Promise.all([horseResource.refresh(), trainingResource.refresh()])}
+      >
+        <AsyncStateView
+          isLoading={horseResource.isLoading}
+          error={horseResource.error}
+          onRetry={() => void horseResource.retry()}
+        />
+      </Screen>
+    );
+  }
   return (
-    <Screen role={roleId} title={horse.name} subtitle={`${roleId} view · role-scoped data`} back>
+    <Screen
+      role={roleId}
+      title={horse.name}
+      subtitle={`${roleId} view · ${horseResource.data ? "backend profile" : "demo profile"}`}
+      back
+      refreshing={horseResource.isRefreshing || trainingResource.isRefreshing}
+      onRefresh={() => void Promise.all([horseResource.refresh(), trainingResource.refresh()])}
+    >
+      <AsyncStateView
+        isLoading={false}
+        error={horseResource.error}
+        onRetry={() => void horseResource.retry()}
+      />
       <Panel style={styles.hero}>
         <View style={uiStyles.row}>
           <View style={styles.flex}>
             <Text style={styles.name}>{horse.name}</Text>
             <Text style={uiStyles.muted}>
-              {horse.age} yo {horse.sex} · {horse.breed} · {horse.color}
+              {horse.age ? `${horse.age} yo ` : ""}{horse.sex} · {horse.breed} · {horse.color}
             </Text>
             <Text style={uiStyles.muted}>
-              Stall {horse.stall} · {horse.weight} kg · {horse.owner}
+              Stall {horse.stall} · {horse.weight ? formatWeight(horse.weight) : "Weight not recorded"} · {horse.owner}
             </Text>
           </View>
           <StatusBadge status={locked ? "LOCKED" : horse.status} />
@@ -63,39 +111,65 @@ export default function HorseProfile() {
         <View style={uiStyles.metricGrid}>
           <Metric
             label="Fitness"
-            value={`${horse.fitness}%`}
+            value={horseResource.data ? "—" : `${horse.fitness}%`}
             tone={horse.fitness >= 80 ? "good" : "warning"}
           />
-          <Metric label="Readiness" value={horse.readiness} />
-          <Metric label="Resting HR" value={horse.hr} hint="bpm" />
+          <Metric
+            label="Readiness"
+            value={horseResource.data
+              ? horseResource.data.eligibility.trainingEligible ? "Eligible" : "Restricted"
+              : horse.readiness}
+          />
+          <Metric
+            label="Resting HR"
+            value={horseResource.data || !horse.hr ? "—" : horse.hr}
+            hint={horseResource.data || !horse.hr ? undefined : "bpm"}
+          />
         </View>
       </Panel>
       <Chips options={tabs} value={tab} onChange={setTab} />
       {tab === "Overview" ? (
         <>
-          <Info
-            title="Identity & pedigree"
-            items={[
-              ["Sire", horse.sire],
-              ["Dam", horse.dam],
-              ["Age", `${horse.age} years`],
-              ["Weight", `${horse.weight} kg`],
-              ["Breed", horse.breed],
-              ["Stall", horse.stall],
-            ]}
-          />
-          <ChartSection
-            title="Fitness trend"
-            data={fitnessTrend}
-            valueKey="v"
-            color={colors.primary}
-          />
-          <PrimaryButton
-            label="View full pedigree"
-            icon="git-network-outline"
-            onPress={() => router.push(`/${roleId}/pedigree/${horse.id}` as Href)}
-          />
-          {roleId === "manager" ? (
+          {horseResource.data ? (
+            <Info
+              title="Horse profile"
+              items={[
+                ["Health status", horseResource.data.healthStatus.replaceAll("_", " ")],
+                ["Lifecycle", horseResource.data.lifecycleStatus.replaceAll("_", " ")],
+                ["Eligibility", horseResource.data.eligibility.trainingEligible ? "Eligible for training" : "Training restricted"],
+                ["Owner", horseResource.data.owner?.fullName ?? "Unassigned"],
+                ["Barn", horseResource.data.location?.barn?.name ?? "Not assigned"],
+                ["Stall", horseResource.data.location?.stall?.code ?? "Not assigned"],
+                ["Latest weight", horse.weight ? formatWeight(horse.weight) : "Not recorded"],
+              ]}
+            />
+          ) : (
+            <>
+              <Info
+                title="Identity & pedigree"
+                items={[
+                  ["Sire", horse.sire],
+                  ["Dam", horse.dam],
+                  ["Age", `${horse.age} years`],
+                  ["Weight", horse.weight ? formatWeight(horse.weight) : "—"],
+                  ["Breed", horse.breed],
+                  ["Stall", horse.stall],
+                ]}
+              />
+              <ChartSection
+                title="Fitness trend"
+                data={fitnessTrend}
+                valueKey="v"
+                color={colors.primary}
+              />
+              <PrimaryButton
+                label="View full pedigree"
+                icon="git-network-outline"
+                onPress={() => router.push(`/${roleId}/pedigree/${horse.id}` as Href)}
+              />
+            </>
+          )}
+          {!horseResource.data && roleId === "manager" ? (
             <>
               <PrimaryButton
                 label="Edit horse profile"
@@ -111,35 +185,89 @@ export default function HorseProfile() {
           ) : null}
         </>
       ) : null}
-      {tab === "Training" || tab === "Care" ? (
+      {tab === "Training" ? (
         <>
-          <Info
-            title="Current plan"
-            items={[
-              ["Plan objective", plan?.objective ?? "No active plan"],
-              ["Current phase", currentPhase?.name ?? horse.phase],
-              ["Next session", nextSession?.title ?? "Not scheduled"],
-              ["Distance", nextSession ? `${nextSession.distanceM} m` : "—"],
-              ["Intensity", nextSession?.intensity ?? "—"],
-              ["Assigned groom", nextSession?.assignedGroom ?? "—"],
-            ]}
+          <AsyncStateView
+            isLoading={trainingResource.isLoading}
+            error={trainingResource.error}
+            onRetry={() => void trainingResource.retry()}
           />
-          {roleId === "trainer" ? (
+          {trainingResource.data?.length ? (
+            <View style={uiStyles.section}>
+              <SectionTitle>Class sessions</SectionTitle>
+              {trainingResource.data.map((session) => (
+                <Panel key={session.id}>
+                  <View style={uiStyles.row}>
+                    <View style={styles.flex}>
+                      <Text style={uiStyles.value}>{session.title}</Text>
+                      <Text style={uiStyles.muted}>{session.className} · {session.planName}</Text>
+                    </View>
+                    <Text style={uiStyles.label}>{session.status.replaceAll("_", " ")}</Text>
+                  </View>
+                  <Text style={uiStyles.muted}>
+                    {session.scheduledStartLabel}
+                    {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
+                    {session.surface ? ` · ${session.surface}` : ""}
+                  </Text>
+                  {session.trials.length ? (
+                    <Text style={uiStyles.label}>
+                      Trial: {session.trials.map((trial) => trial.elapsedLabel).join(" · ")}
+                    </Text>
+                  ) : null}
+                  {session.targetTimeMs != null ? (
+                    <Text style={uiStyles.label}>Target {formatDurationMs(session.targetTimeMs)}</Text>
+                  ) : null}
+                  {session.evaluation?.comment ? (
+                    <Text style={uiStyles.muted}>{session.evaluation.comment}</Text>
+                  ) : null}
+                </Panel>
+              ))}
+            </View>
+          ) : trainingResource.data ? (
+            <AsyncStateView
+              isLoading={false}
+              error={null}
+              onRetry={() => undefined}
+              empty
+              emptyLabel="This horse has no class sessions."
+            />
+          ) : !trainingResource.isLoading && !trainingResource.error && !isUuid(id) ? (
+            <AsyncStateView
+              isLoading={false}
+              error={null}
+              onRetry={() => undefined}
+              empty
+              emptyLabel="Training sessions are loaded for horse profiles returned by the backend."
+            />
+          ) : null}
+          {roleId === "trainer" && !horseResource.data ? (
             <PrimaryButton
               label="Edit training plan"
               icon="create-outline"
               onPress={() => router.push(`/trainer/plan/${horse.id}` as Href)}
             />
           ) : null}
+        </>
+      ) : null}
+      {tab === "Care" && !horseResource.data ? (
+        <>
+          <Info
+            title="Current care plan"
+            items={[
+              ["Plan objective", plan?.objective ?? "No active care plan"],
+              ["Next care task", nextSession?.title ?? "Not scheduled"],
+              ["Assigned groom", nextSession?.assignedGroom ?? "—"],
+            ]}
+          />
           <ChartSection
-            title="Training load"
+            title="Care trend"
             data={fitnessTrend}
             valueKey="load"
             color={colors.training}
           />
         </>
       ) : null}
-      {(["Health", "Injuries", "Treatment"] as string[]).includes(tab) ? (
+      {!horseResource.data && (["Health", "Injuries", "Treatment"] as string[]).includes(tab) ? (
         <>
           <Info
             title="Vitals & status"
@@ -183,7 +311,7 @@ export default function HorseProfile() {
           ) : null}
         </>
       ) : null}
-      {tab === "Performance" ? (
+      {tab === "Performance" && !horseResource.data ? (
         <>
           <ChartSection
             title="Top speed"
@@ -205,7 +333,7 @@ export default function HorseProfile() {
           />
         </>
       ) : null}
-      {tab === "Racing" ? (
+      {tab === "Racing" && !horseResource.data ? (
         <View style={uiStyles.section}>
           <SectionTitle>Racing</SectionTitle>
           <Panel>
@@ -229,7 +357,7 @@ export default function HorseProfile() {
           ))}
         </View>
       ) : null}
-      {tab === "Costs" ? (
+      {tab === "Costs" && !horseResource.data ? (
         <Info
           title="Cost of ownership"
           items={[
@@ -240,7 +368,7 @@ export default function HorseProfile() {
           ]}
         />
       ) : null}
-      {tab === "Timeline" ? (
+      {tab === "Timeline" && !horseResource.data ? (
         <View style={uiStyles.section}>
           <SectionTitle>Timeline</SectionTitle>
           <Panel>
@@ -276,13 +404,21 @@ export default function HorseProfile() {
           </Panel>
         </View>
       ) : null}
+      {horseResource.data && !["Overview", "Training"].includes(tab) ? (
+        <AsyncStateView
+          isLoading={false}
+          error={null}
+          onRetry={() => undefined}
+          empty
+          emptyLabel="This profile section is not connected to the backend yet."
+        />
+      ) : null}
     </Screen>
   );
 }
 
 function Info({ title, items }: { title: string; items: [string, string][] }) {
     const { colors } = useTheme();
-    const styles = getStyles(colors);
     const uiStyles = getUiStyles(colors);
   return (
     <View style={uiStyles.section}>
@@ -305,7 +441,6 @@ function ChartSection({
   color: string;
 }) {
     const { colors } = useTheme();
-    const styles = getStyles(colors);
     const uiStyles = getUiStyles(colors);
   return (
     <View style={uiStyles.section}>
@@ -315,6 +450,11 @@ function ChartSection({
       </Panel>
     </View>
   );
+}
+
+function isUuid(value: string | string[] | undefined): value is string {
+  return typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 const getStyles = (colors: any) => StyleSheet.create({
   hero: { gap: space.lg },

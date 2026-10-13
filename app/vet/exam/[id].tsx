@@ -1,18 +1,38 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { examSymptoms, getHorse } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
 import { Chips, Field, NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
-import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { KeyValue, Screen, SectionTitle, TimelineItem } from "@/components/common";
 import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
+import { medicalService } from "@/services/medical.service";
+import { mapMedicalCase } from "@/adapters/medical.adapter";
+import { formatWeight } from "@/utils/formatters";
 
 export default function Examination() {
     const { colors } = useTheme();
     const uiStyles = getUiStyles(colors);
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, view, horseName } = useLocalSearchParams<{
+    id: string;
+    view?: string;
+    horseName?: string;
+  }>();
+  const { token } = useAuth();
+  const loadCase = useCallback(() => medicalService.getCase(token!, id), [id, token]);
+  const caseResource = useApiResource(loadCase, view === "case" && Boolean(token));
+  const medicalCase = useMemo(
+    () =>
+      view === "case" && caseResource.data
+        ? mapMedicalCase(caseResource.data, horseName || undefined)
+        : null,
+    [caseResource.data, horseName, view],
+  );
   const horse = getHorse(id);
   const { saveExamination, examinations } = useRaceOS();
   const savedExam = examinations[horse.id];
@@ -39,6 +59,73 @@ export default function Examination() {
     setSaved(true);
     Alert.alert("Examination recorded", "Trainer has been notified.");
   };
+
+  if (view === "case") {
+    return (
+      <Screen
+        role="vet"
+        title="Medical case"
+        subtitle={medicalCase ? `${medicalCase.horseName} · ${medicalCase.status}` : "Case details"}
+        back
+        refreshing={caseResource.isRefreshing}
+        onRefresh={() => void caseResource.refresh()}
+      >
+        <AsyncStateView
+          isLoading={caseResource.isLoading}
+          error={caseResource.error}
+          onRetry={() => void caseResource.retry()}
+        />
+        {medicalCase ? (
+          <>
+            <Panel>
+              <KeyValue
+                items={[
+                  ["Horse", medicalCase.horseName],
+                  ["Status", medicalCase.status],
+                  ["Opened", medicalCase.openedAtLabel],
+                  ["Initial diagnosis", medicalCase.diagnosis],
+                  ["Final conclusion", medicalCase.finalConclusion ?? "—"],
+                  ["Total cost", medicalCase.totalCost == null ? "—" : `${medicalCase.totalCost} VND`],
+                ]}
+              />
+            </Panel>
+            <View style={uiStyles.section}>
+              <SectionTitle>Examinations and follow-ups</SectionTitle>
+              {medicalCase.visits.length ? (
+                <Panel>
+                  {medicalCase.visits.map((visit, index) => (
+                    <TimelineItem
+                      key={visit.id}
+                      time={visit.examDateLabel}
+                      title={`${visit.kind.replaceAll("_", " ")} · ${visit.diagnosis}`}
+                      detail={[
+                        visit.resultingStatus.replaceAll("_", " "),
+                        visit.careInstructions,
+                        visit.isVoided ? `Voided: ${visit.voidReason ?? "No reason provided"}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      tone={visit.isVoided ? colors.mutedForeground : colors.primary}
+                      last={index === medicalCase.visits.length - 1}
+                    />
+                  ))}
+                </Panel>
+              ) : (
+                <AsyncStateView
+                  isLoading={false}
+                  error={null}
+                  onRetry={() => undefined}
+                  empty
+                  emptyLabel="No examination visits are recorded for this case."
+                />
+              )}
+            </View>
+          </>
+        ) : null}
+      </Screen>
+    );
+  }
+
   return (
     <Screen role="vet" title="Examination" subtitle={`${horse.name} · stall ${horse.stall}`} back>
       {saved ? (
@@ -61,7 +148,7 @@ export default function Examination() {
               ["Heart rate", "48 bpm resting"],
               ["Temperature", "38.4 °C"],
               ["Respiration", "18 /min"],
-              ["Weight", `${horse.weight} kg`],
+              ["Weight", formatWeight(horse.weight)],
             ]}
           />
         </Panel>

@@ -1,28 +1,30 @@
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { isRole, roles, roleOrder } from "@/features/auth/roles";
+import { isRole, roles } from "@/features/auth/roles";
 import { Screen, SectionTitle } from "@/components/common";
 import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { space, radius } from "@/config/theme";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Profile() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
   const { role } = useLocalSearchParams<{ role: string }>();
-  
-  if (!isRole(role)) return <Redirect href="/" />;
+  const auth = useAuth();
+  if (!isRole(role) || !auth.role || role !== auth.role) {
+    return <Redirect href={(auth.role ? `/${auth.role}` : "/login") as Href} />;
+  }
   const profile = roles[role];
-  
-  // Calculate initials from the person's name
-  const initials = profile.person
+
+  const initials = auth.user?.fullName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .substring(0, 2)
-    .toUpperCase();
+    .toUpperCase() ?? "R";
 
   // Modules they can access based on nav array
   const modules = profile.nav.map((item) => item.label);
@@ -36,15 +38,14 @@ export default function Profile() {
   return (
     <Screen role={role} title="Profile" subtitle="Profile & permissions" back>
       
-      {/* Hero Section */}
       <Panel style={[uiStyles.row, { justifyContent: "flex-start", gap: space.md }]}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initials}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.personName}>{profile.person}</Text>
+          <Text style={styles.personName}>{auth.user?.fullName ?? profile.person}</Text>
           <Text style={styles.roleLabel}>{profile.label}</Text>
-          <Text style={styles.scopeLabel}>{profile.scope}</Text>
+          <Text style={styles.scopeLabel}>{auth.user?.email ?? profile.scope}</Text>
         </View>
       </Panel>
 
@@ -60,41 +61,6 @@ export default function Profile() {
         </Panel>
       </View>
 
-      {/* Switch Role */}
-      <View style={uiStyles.section}>
-        <SectionTitle>Switch role</SectionTitle>
-        <View style={{ gap: space.sm }}>
-          {roleOrder
-            .filter((r) => r !== role)
-            .map((r) => {
-              const rCfg = roles[r];
-              const rInitials = rCfg.person
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .substring(0, 2)
-                .toUpperCase();
-
-              return (
-                <Pressable
-                  key={r}
-                  style={styles.roleCard}
-                  onPress={() => router.replace(rCfg.nav[0].path as any)}
-                >
-                  <View style={styles.roleAvatar}>
-                    <Text style={styles.roleAvatarText}>{rInitials}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.roleTitle}>{rCfg.label}</Text>
-                    <Text style={styles.roleScope}>{rCfg.scope}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-        </View>
-      </View>
-
-      {/* System */}
       <View style={uiStyles.section}>
         <SectionTitle>System</SectionTitle>
         <Panel style={{ padding: 0 }}>
@@ -113,7 +79,6 @@ export default function Profile() {
         </Panel>
       </View>
 
-      {/* Action Buttons */}
       <View style={[uiStyles.section, { gap: space.sm, marginTop: space.sm }]}>
         <PrimaryButton
           label="End-to-end workflow"
@@ -122,7 +87,7 @@ export default function Profile() {
         />
         <Pressable
           style={styles.signOutBtn}
-          onPress={() => router.replace("/")}
+          onPress={() => void auth.signOut()}
         >
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>

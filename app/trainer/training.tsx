@@ -1,50 +1,57 @@
-import { type Href, router } from "expo-router";
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { useRaceOS } from "@/context/RaceOSContext";
-import type { TrainingPlan, TrainingSession } from "@/lib/raceos-data";
-import { Chips, ProgressBar , Metric, Panel, getUiStyles } from "@/components/ui";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { Screen, SectionTitle } from "@/components/common";
-import { radius, space } from "@/config/theme";
+import { Chips, Metric, Panel, getUiStyles } from "@/components/ui";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
 import { useI18n } from "@/context/I18nContext";
 import { useTheme } from "@/hooks/useTheme";
+import { trainingService } from "@/services/training.service";
+import type { TrainingSessionView } from "@/adapters/training.adapter";
+import { formatDistance, formatDurationMs } from "@/utils/formatters";
 
 export default function TrainerTraining() {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
-  const { plans, horses } = useRaceOS();
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
+  const { token } = useAuth();
   const { t } = useI18n();
+  const loadSessions = useCallback(() => trainingService.listAllVisibleSessions(token!), [token]);
+  const resource = useApiResource(loadSessions, Boolean(token));
+  const sessions = resource.data ?? [];
   const [tab, setTab] = useState("Schedule");
-  const sessions = useMemo(
-    () =>
-      plans
-        .flatMap((plan) =>
-          plan.phases.flatMap((phase) =>
-            phase.sessions.map((session) => ({ plan, phase, session })),
-          ),
-        )
-        .sort((a, b) =>
-          `${a.session.date}${a.session.time}`.localeCompare(`${b.session.date}${b.session.time}`),
-        ),
-    [plans],
+  const upcoming = sessions.filter(
+    (session) => session.status !== "completed" && session.status !== "cancelled",
   );
-  const completed = sessions.filter(({ session }) => session.status === "completed").length;
-  const live = sessions.filter(({ session }) => session.status === "in_progress");
+  const live = sessions.filter((session) => session.status === "in_progress");
+  const completed = sessions.filter((session) => session.status === "completed").length;
+  const classes = useMemo(() => {
+    const grouped = new Map<string, { name: string; planName: string; sessions: TrainingSessionView[]; horses: Set<string> }>();
+    for (const session of sessions) {
+      const item = grouped.get(session.classId) ?? {
+        name: session.className,
+        planName: session.planName,
+        sessions: [],
+        horses: new Set<string>(),
+      };
+      item.sessions.push(session);
+      item.horses.add(session.horseId);
+      grouped.set(session.classId, item);
+    }
+    return [...grouped.entries()].map(([id, item]) => ({ id, ...item }));
+  }, [sessions]);
+
   return (
     <Screen
       role="trainer"
       title="Training"
-      subtitle="Plans connect one objective to many phased sessions"
+      subtitle="Classes schedule one session for each enrolled horse"
+      refreshing={resource.isRefreshing}
+      onRefresh={() => void resource.refresh()}
     >
       <View style={uiStyles.metricGrid}>
-        <Metric
-          label="Active plans"
-          value={plans.filter((plan) => plan.status === "active").length}
-          hint={`${plans.length} ${t("total")}`}
-          tone="good"
-        />
+        <Metric label="Classes" value={classes.length} hint={t("from backend")} tone="good" />
         <Metric label="Sessions" value={sessions.length} hint={`${completed} ${t("completed")}`} />
         <Metric
           label="Live now"
@@ -54,73 +61,54 @@ export default function TrainerTraining() {
         />
         <Metric
           label="Horses covered"
-          value={new Set(plans.map((plan) => plan.horseId)).size}
-          hint={`${horses.length} ${t("in stable")}`}
+          value={new Set(sessions.map((session) => session.horseId)).size}
+          hint={t("from backend")}
         />
       </View>
-      <Chips options={["Schedule", "Plans", "Live"]} value={tab} onChange={setTab} />
-      {tab === "Schedule" ? (
+      <Chips options={["Schedule", "Classes", "Live"]} value={tab} onChange={setTab} />
+
+      <AsyncStateView
+        isLoading={resource.isLoading}
+        error={resource.error}
+        onRetry={() => void resource.retry()}
+      />
+      {!resource.isLoading && !resource.error && resource.data && sessions.length === 0 ? (
+        <AsyncStateView
+          isLoading={false}
+          error={null}
+          onRetry={() => undefined}
+          empty
+          emptyLabel="No training sessions are available for your horses."
+        />
+      ) : null}
+
+      {resource.data && tab === "Schedule" ? (
         <View style={uiStyles.section}>
           <SectionTitle>Upcoming sessions</SectionTitle>
-          {sessions
-            .filter(
-              ({ session }) => session.status !== "completed" && session.status !== "cancelled",
-            )
-            .slice(0, 8)
-            .map(({ plan, phase, session }) => (
-              <SessionRow key={session.id} plan={plan} phaseName={phase.name} session={session} />
-            ))}
+          {upcoming.slice(0, 30).map((session) => (
+            <TrainingSessionRow key={session.id} session={session} />
+          ))}
         </View>
       ) : null}
-      {tab === "Plans" ? (
+      {resource.data && tab === "Classes" ? (
         <View style={uiStyles.section}>
-          <SectionTitle>Goal-based plans</SectionTitle>
-          {plans.map((plan) => {
-            const horse = horses.find((item) => item.id === plan.horseId);
-            const all = plan.phases.flatMap((phase) => phase.sessions);
-            const done = all.filter((session) => session.status === "completed").length;
-            const progress = all.length ? Math.round((done / all.length) * 100) : 0;
-            const activePhase =
-              plan.phases.find((phase) =>
-                phase.sessions.some((session) =>
-                  ["scheduled", "in_progress"].includes(session.status),
-                ),
-              ) ?? plan.phases[0];
-            return (
-              <Pressable
-                key={plan.id}
-                onPress={() => router.push(`/trainer/plan/${plan.horseId}` as Href)}
-                style={styles.plan}
-              >
-                <View style={uiStyles.row}>
-                  <View style={styles.flex}>
-                    <Text style={styles.planName}>{plan.name}</Text>
-                    <Text style={uiStyles.muted}>
-                      {horse?.name ?? plan.horseId} · {activePhase?.name}
-                    </Text>
-                  </View>
-                  <Text style={styles.progress}>{progress}%</Text>
-                </View>
-                <Text style={styles.objective}>{plan.objective}</Text>
-                <ProgressBar value={progress} />
-                <View style={uiStyles.row}>
-                  <Text style={uiStyles.label}>
-                    {plan.phases.length} phases · {all.length} sessions
-                  </Text>
-                  <Text style={uiStyles.label}>{plan.targetEvent}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
+          <SectionTitle>Backend training classes</SectionTitle>
+          {classes.map((trainingClass) => (
+            <Panel key={trainingClass.id}>
+              <Text style={uiStyles.value}>{trainingClass.name}</Text>
+              <Text style={uiStyles.muted}>{trainingClass.planName}</Text>
+              <Text style={uiStyles.label}>
+                {trainingClass.horses.size} horses · {trainingClass.sessions.length} sessions
+              </Text>
+            </Panel>
+          ))}
         </View>
       ) : null}
-      {tab === "Live" ? (
+      {resource.data && tab === "Live" ? (
         <View style={uiStyles.section}>
-          <SectionTitle>Live telemetry sessions</SectionTitle>
+          <SectionTitle>Live training sessions</SectionTitle>
           {live.length ? (
-            live.map(({ plan, phase, session }) => (
-              <SessionRow key={session.id} plan={plan} phaseName={phase.name} session={session} />
-            ))
+            live.map((session) => <TrainingSessionRow key={session.id} session={session} />)
           ) : (
             <Panel>
               <Text style={uiStyles.value}>{t("No session is live")}</Text>
@@ -135,89 +123,37 @@ export default function TrainerTraining() {
   );
 }
 
-function SessionRow({
-  plan,
-  phaseName,
-  session,
-}: {
-  plan: TrainingPlan;
-  phaseName: string;
-  session: TrainingSession;
-}) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
-  const { t } = useI18n();
+function TrainingSessionRow({ session }: { session: TrainingSessionView }) {
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   return (
-    <Pressable
-      onPress={() =>
-        router.push(
-          `/trainer/plan/${plan.horseId}/session/${session.id}?phaseId=${encodeURIComponent(plan.phases.find((phase) => phase.sessions.some((item) => item.id === session.id))?.id ?? "")}` as Href,
-        )
-      }
-      style={styles.session}
-    >
-      <View style={styles.date}>
-        <Text style={styles.day}>{session.date.slice(8)}</Text>
-        <Text style={uiStyles.label}>
-          {session.date.slice(5, 7)}/{session.date.slice(2, 4)}
-        </Text>
-      </View>
-      <View style={styles.flex}>
-        <View style={uiStyles.row}>
+    <Panel>
+      <View style={uiStyles.row}>
+        <View style={{ flex: 1, gap: 4 }}>
           <Text style={uiStyles.value}>{session.title}</Text>
-          <Text style={[styles.status, session.status === "completed" && styles.complete]}>
-            {t(session.status)}
-          </Text>
+          <Text style={uiStyles.muted}>{session.horseName} · {session.className}</Text>
         </View>
-        <Text style={uiStyles.muted}>
-          {session.time} · {phaseName} · {session.distanceM} m · {session.intensity}
-        </Text>
-        <Text style={uiStyles.label}>{plan.name}</Text>
+        <Text style={uiStyles.label}>{session.status.replaceAll("_", " ")}</Text>
       </View>
-    </Pressable>
+      <Text style={uiStyles.muted}>
+        {session.scheduledStartLabel}
+        {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
+        {session.intensity ? ` · ${session.intensity}` : ""}
+      </Text>
+      {session.surface || session.location ? (
+        <Text style={uiStyles.label}>{[session.surface, session.location].filter(Boolean).join(" · ")}</Text>
+      ) : null}
+      {session.trials.length ? (
+        <Text style={uiStyles.label}>
+          Trial {session.trials.map((trial) => `#${trial.attemptNo} ${trial.elapsedLabel}`).join(" · ")}
+        </Text>
+      ) : null}
+      {session.targetTimeMs != null ? (
+        <Text style={uiStyles.label}>Target {formatDurationMs(session.targetTimeMs)}</Text>
+      ) : null}
+      {session.evaluation?.comment ? (
+        <Text style={uiStyles.muted}>{session.evaluation.evaluatorName ?? "Trainer"}: {session.evaluation.comment}</Text>
+      ) : null}
+    </Panel>
   );
 }
-
-const getStyles = (colors: any) => StyleSheet.create({
-  flex: { flex: 1, gap: 4 },
-  plan: {
-    padding: space.lg,
-    gap: space.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  planName: { color: colors.foreground, fontSize: 17, fontWeight: "800" },
-  objective: { color: colors.mutedForeground, fontSize: 13, lineHeight: 19 },
-  progress: { color: colors.primary, fontSize: 20, fontWeight: "800" },
-  session: {
-    flexDirection: "row",
-    gap: space.md,
-    padding: space.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  date: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.sm,
-    backgroundColor: colors.fitSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  day: { color: colors.primary, fontSize: 18, fontWeight: "800" },
-  status: {
-    color: colors.monitor,
-    backgroundColor: colors.monitorSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 9,
-    fontWeight: "800",
-  },
-  complete: { color: colors.primary, backgroundColor: colors.fitSoft },
-});
