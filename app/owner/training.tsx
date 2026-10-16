@@ -1,81 +1,60 @@
 import { type Href, router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { useRaceOS } from "@/context/RaceOSContext";
-import type { TrainingPlan, TrainingSession } from "@/lib/raceos-data";
+import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { Chips, getUiStyles, PrimaryButton } from "@/components/ui";
-import { Screen, SectionTitle } from "@/components/common";
-import { radius, space } from "@/config/theme";
+import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
+import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import type { TrainingSessionView } from "@/adapters/training.adapter";
+import { trainingService } from "@/services/training.service";
+import { formatDistance } from "@/utils/formatters";
+import { radius, space } from "@/config/theme";
 
 export default function OwnerTraining() {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
-  const { plans, horses } = useRaceOS();
-  const { t } = useI18n();
-
-  // Filter horses to only those owned by Marlow Bloodstock (or current owner logic)
-  const myHorses = horses.filter((horse) => horse.owner === "Marlow Bloodstock");
-  const myHorseIds = new Set(myHorses.map((h) => h.id));
-
+  const { token } = useAuth();
   const [tab, setTab] = useState("Schedule");
-
-  // Gather all sessions for the owner's horses
-  const allSessions = useMemo(
-    () =>
-      plans
-        .filter((plan) => myHorseIds.has(plan.horseId))
-        .flatMap((plan) =>
-          plan.phases.flatMap((phase) =>
-            phase.sessions.map((session) => ({ plan, phase, session })),
-          ),
-        )
-        .sort((a, b) =>
-          `${a.session.date}${a.session.time}`.localeCompare(`${b.session.date}${b.session.time}`),
-        ),
-    [plans, myHorseIds],
+  const loadSessions = useCallback(
+    () => trainingService.listAllVisibleSessions(token!),
+    [token],
   );
-
-  const upcomingSessions = allSessions.filter(
-    ({ session }) => session.status !== "completed" && session.status !== "cancelled",
+  const resource = useApiResource(loadSessions, Boolean(token));
+  const sessions = resource.data ?? [];
+  const upcomingSessions = sessions.filter(
+    (session) => session.status !== "completed" && session.status !== "cancelled",
   );
-  const completedSessions = allSessions.filter(
-    ({ session }) => session.status === "completed"
-  ).reverse(); // newest first
+  const completedSessions = sessions
+    .filter((session) => session.status === "completed")
+    .slice()
+    .reverse();
+  const visibleSessions = tab === "Schedule" ? upcomingSessions : completedSessions;
 
   return (
     <Screen
       role="owner"
       title="Training"
       subtitle="Training schedule for your horses"
+      refreshing={resource.isRefreshing}
+      onRefresh={() => void resource.refresh()}
     >
       <Chips options={["Schedule", "History"]} value={tab} onChange={setTab} />
-      
-      {tab === "Schedule" ? (
-        <View style={uiStyles.section}>
-          <SectionTitle>Upcoming / Today</SectionTitle>
-          {upcomingSessions.length > 0 ? (
-            upcomingSessions.map(({ plan, phase, session }) => (
-              <OwnerSessionRow key={session.id} plan={plan} phaseName={phase.name} session={session} />
-            ))
-          ) : (
-            <Text style={uiStyles.muted}>{t("No upcoming training sessions")}</Text>
-          )}
-        </View>
-      ) : null}
-
-      {tab === "History" ? (
-        <View style={uiStyles.section}>
-          <SectionTitle>Completed sessions</SectionTitle>
-          {completedSessions.length > 0 ? (
-            completedSessions.map(({ plan, phase, session }) => (
-              <OwnerSessionRow key={session.id} plan={plan} phaseName={phase.name} session={session} />
-            ))
-          ) : (
-            <Text style={uiStyles.muted}>{t("No completed sessions")}</Text>
-          )}
+      <View style={uiStyles.section}>
+        <SectionTitle>{tab === "Schedule" ? "Upcoming / Today" : "Completed sessions"}</SectionTitle>
+        <AsyncStateView
+          isLoading={resource.isLoading}
+          error={resource.error}
+          onRetry={() => void resource.retry()}
+          empty={Boolean(resource.data && visibleSessions.length === 0)}
+          emptyLabel={tab === "Schedule" ? "No upcoming training sessions." : "No completed sessions."}
+        />
+        {visibleSessions.map((session) => (
+          <OwnerSessionRow key={session.participantId} session={session} />
+        ))}
+        {tab === "History" ? (
           <View style={{ marginTop: space.lg }}>
             <PrimaryButton
               label="View Head Trainer Remarks"
@@ -83,52 +62,54 @@ export default function OwnerTraining() {
               onPress={() => router.push("/owner/remarks")}
             />
           </View>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </Screen>
   );
 }
 
-function OwnerSessionRow({
-  plan,
-  phaseName,
-  session,
-}: {
-  plan: TrainingPlan;
-  phaseName: string;
-  session: TrainingSession;
-}) {
+function OwnerSessionRow({ session }: { session: TrainingSessionView }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
-  const { horses } = useRaceOS();
-  const i18n = useI18n();
-  const horse = horses.find((h) => h.id === plan.horseId);
+  const { t } = useI18n();
+  const date = new Date(session.scheduledStartAt);
+  const day = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+  }).format(date);
+  const monthYear = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
 
   return (
     <Pressable
       onPress={() =>
-        router.push(`/owner/session/${session.id}?horseId=${plan.horseId}&phaseId=${plan.phases.find((phase) => phase.sessions.some((item) => item.id === session.id))?.id ?? ""}` as Href)
+        router.push(
+          `/owner/session/${session.participantId}?horseId=${encodeURIComponent(session.horseId)}` as Href,
+        )
       }
       style={styles.session}
     >
       <View style={styles.date}>
-        <Text style={styles.day}>{session.date.slice(8)}</Text>
-        <Text style={uiStyles.label}>
-          {session.date.slice(5, 7)}/{session.date.slice(2, 4)}
-        </Text>
+        <Text style={styles.day}>{day}</Text>
+        <Text style={uiStyles.label}>{monthYear}</Text>
       </View>
       <View style={styles.flex}>
         <View style={uiStyles.row}>
           <Text style={[uiStyles.value, { flex: 1 }]} numberOfLines={1}>
-            {horse?.name} · {session.title}
+            {session.horseName} · {session.title}
           </Text>
           <Text style={[styles.status, session.status === "completed" && styles.complete]}>
-            {i18n.t(session.status)}
+            {t(session.status)}
           </Text>
         </View>
         <Text style={uiStyles.muted}>
-          {session.time} · {phaseName} · {session.distanceM} m · {session.surface}
+          {session.scheduledStartLabel} · {session.className}
+          {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
+          {session.surface ? ` · ${session.surface}` : ""}
         </Text>
       </View>
     </Pressable>
@@ -161,9 +142,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    fontSize: 9,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "capitalize",
     overflow: "hidden",
   },
   complete: {

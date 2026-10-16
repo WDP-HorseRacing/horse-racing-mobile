@@ -1,4 +1,4 @@
-# RACEOS Mobile
+# HorseRacing Mobile
 
 Native iOS and Android client built with React Native, Expo SDK 57, Expo Router, TypeScript, and pnpm.
 
@@ -17,6 +17,7 @@ Copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL` to the backend origi
 
 ```bash
 pnpm check
+pnpm test
 pnpm export:web
 ```
 
@@ -26,6 +27,7 @@ Development helpers:
 - `pnpm lint` / `pnpm lint:fix` — ESLint validation and safe automatic fixes.
 - `pnpm format` / `pnpm format:check` — apply or verify Prettier formatting.
 - `pnpm check` — run typecheck, lint, and formatting validation together.
+- `pnpm test` — run Mobile API client unit tests and compare Mobile service requests with the sibling Backend OpenAPI contract.
 
 ## Structure
 

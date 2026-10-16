@@ -1,271 +1,54 @@
 import { type Href, router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { useCallback } from "react";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { useRaceOS } from "@/context/RaceOSContext";
-import { getHorse, type TrainingPhase, type TrainingPlan } from "@/lib/raceos-data";
-import { Field, NativeInput, ProgressBar , Metric, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
-import { Screen, SectionTitle } from "@/components/common";
-import { radius, space } from "@/config/theme";
-import { useI18n } from "@/context/I18nContext";
+import { useAuth } from "@/context/AuthContext";
+import { Panel, getUiStyles } from "@/components/ui";
+import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
+import { useApiResource } from "@/hooks/useApiResource";
+import { trainingService } from "@/services/training.service";
+import { formatDate, formatDateTime } from "@/utils/formatters";
 import { useTheme } from "@/hooks/useTheme";
 
-export default function TrainingPlanDetail() {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+export default function TrainingClassDetail() {
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { horses, plans, saveTrainingPlan } = useRaceOS();
-  const { t } = useI18n();
-  const horse = horses.find((item) => item.id === id) ?? getHorse(id);
-  const stored = plans.find((item) => item.horseId === horse.id);
-  const fallback = useMemo(() => createEmptyPlan(horse.id), [horse.id]);
-  const plan = stored ?? fallback;
-  const [name, setName] = useState(plan.name);
-  const [objective, setObjective] = useState(plan.objective);
-  const [targetEvent, setTargetEvent] = useState(plan.targetEvent);
-  const sessions = plan.phases.flatMap((phase) => phase.sessions);
-  const completed = sessions.filter((session) => session.status === "completed").length;
-  const progress = sessions.length ? Math.round((completed / sessions.length) * 100) : 0;
-  const save = () => {
-    saveTrainingPlan({
-      ...plan,
-      name,
-      objective,
-      targetEvent,
-      publishedAt: new Date().toISOString(),
-    });
-    Alert.alert(
-      t("Plan published"),
-      t("All phase schedules are now visible to groom and veterinarian."),
-    );
-  };
+  const classId = Array.isArray(id) ? id[0] : id;
+  const { token } = useAuth();
+  const load = useCallback(async () => {
+    const [trainingClass, sessions] = await Promise.all([
+      trainingService.getClass(token!, classId), trainingService.listClassSessions(token!, classId),
+    ]);
+    return { trainingClass, sessions };
+  }, [token, classId]);
+  const resource = useApiResource(load, Boolean(token && classId));
+
   return (
-    <Screen role="trainer" title={plan.name} subtitle={`${horse.name} · ${plan.status}`} back>
-      <View style={styles.hero}>
-        <Text style={styles.kicker}>{t("Training objective")}</Text>
-        <Text style={styles.objective}>{objective}</Text>
-        <View style={styles.target}>
-          <Text style={uiStyles.label}>{t("Target event")}</Text>
-          <Text style={uiStyles.value}>{targetEvent || t("Not set")}</Text>
-        </View>
-        <ProgressBar value={progress} />
-        <View style={uiStyles.row}>
-          <Text style={uiStyles.muted}>{progress}% complete</Text>
-          <Text style={uiStyles.muted}>
-            {plan.startDate} → {plan.endDate}
-          </Text>
-        </View>
-      </View>
-      <View style={uiStyles.metricGrid}>
-        <Metric label="Phases" value={plan.phases.length} hint="progressive blocks" />
-        <Metric label="Sessions" value={sessions.length} hint={`${completed} completed`} />
-        <Metric
-          label="Scheduled"
-          value={sessions.filter((session) => session.status === "scheduled").length}
-          hint="ready for groom"
-          tone="good"
-        />
-        <Metric label="Plan status" value={plan.status} hint="published" />
-      </View>
-      <View style={uiStyles.section}>
-        <SectionTitle>Plan definition</SectionTitle>
-        <Panel style={styles.form}>
-          <Field label="Plan name">
-            <NativeInput value={name} onChangeText={setName} />
-          </Field>
-          <Field label="Primary objective">
-            <NativeInput value={objective} onChangeText={setObjective} multiline />
-          </Field>
-          <Field label="Target event or milestone">
-            <NativeInput value={targetEvent} onChangeText={setTargetEvent} />
-          </Field>
-        </Panel>
-      </View>
-      <View style={uiStyles.section}>
-        <SectionTitle>Phases & sessions</SectionTitle>
-        {[...plan.phases]
-          .sort((a, b) => a.order - b.order)
-          .map((phase, index) => (
-            <PhaseCard key={phase.id} plan={plan} phase={phase} index={index} />
-          ))}
-      </View>
-      <View style={uiStyles.section}>
-        <SectionTitle>Plan note</SectionTitle>
+    <Screen role="trainer" title={resource.data?.trainingClass.name ?? "Training class"} subtitle={resource.data?.trainingClass.code ?? "Class details"} back refreshing={resource.isRefreshing} onRefresh={() => void resource.refresh()}>
+      <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} />
+      {resource.data ? <>
         <Panel>
-          <Text style={uiStyles.muted}>{plan.note}</Text>
+          <View style={uiStyles.row}><Text style={uiStyles.value}>{resource.data.trainingClass.status.replaceAll("_", " ")}</Text><Text style={uiStyles.label}>{resource.data.trainingClass.raceAptitude ?? "All aptitudes"}</Text></View>
+          <Text style={uiStyles.muted}>{resource.data.trainingClass.description || "No class description."}</Text>
+          <Text style={uiStyles.muted}>{formatDate(resource.data.trainingClass.startDate)} → {formatDate(resource.data.trainingClass.endDate)}</Text>
+          <Text style={uiStyles.label}>Maximum horses: {resource.data.trainingClass.maxHorses}</Text>
         </Panel>
-      </View>
-      <PrimaryButton label="Publish plan changes" icon="checkmark" onPress={save} />
+        <View style={uiStyles.section}>
+          <SectionTitle>Sessions ({resource.data.sessions.length})</SectionTitle>
+          <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty={resource.data.sessions.length === 0} emptyLabel="No sessions have been scheduled for this class." />
+          {resource.data.sessions.map((session) => (
+            <Pressable key={session.id} onPress={() => router.push(`/trainer/plan/${classId}/session/${session.id}` as Href)}>
+              <Panel>
+                <View style={uiStyles.row}><Text style={uiStyles.value}>{session.name}</Text><Text style={uiStyles.label}>{session.status.replaceAll("_", " ")}</Text></View>
+                <Text style={uiStyles.muted}>{formatDateTime(session.scheduledStartAt)} · {session.sessionType.replaceAll("_", " ")}</Text>
+                <Text style={uiStyles.label}>{session.plannedDistanceM.toLocaleString()} m · {session.intensity ?? "Intensity not set"}</Text>
+                {session.location || session.surface ? <Text style={uiStyles.muted}>{[session.location, session.surface].filter(Boolean).join(" · ")}</Text> : null}
+              </Panel>
+            </Pressable>
+          ))}
+        </View>
+      </> : null}
     </Screen>
   );
 }
-
-function PhaseCard({
-  plan,
-  phase,
-  index,
-}: {
-  plan: TrainingPlan;
-  phase: TrainingPhase;
-  index: number;
-}) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
-  const { t } = useI18n();
-  const done = phase.sessions.filter((session) => session.status === "completed").length;
-  return (
-    <View style={styles.phase}>
-      <View style={styles.phaseRail}>
-        <View style={styles.phaseNumber}>
-          <Text style={styles.phaseNumberText}>{index + 1}</Text>
-        </View>
-        <View style={styles.line} />
-      </View>
-      <View style={styles.phaseBody}>
-        <View style={uiStyles.row}>
-          <View style={styles.flex}>
-            <Text style={styles.phaseName}>{phase.name}</Text>
-            <Text style={uiStyles.muted}>
-              {phase.startDate} → {phase.endDate}
-            </Text>
-          </View>
-          <Text style={styles.phaseProgress}>
-            {done}/{phase.sessions.length}
-          </Text>
-        </View>
-        <Text style={styles.phaseObjective}>{phase.objective}</Text>
-        {phase.sessions.map((session) => (
-          <Pressable
-            key={session.id}
-            onPress={() =>
-              router.push(
-                `/trainer/plan/${plan.horseId}/session/${session.id}?phaseId=${encodeURIComponent(phase.id)}` as Href,
-              )
-            }
-            style={styles.session}
-          >
-            <View style={styles.sessionTop}>
-              <Text style={styles.sessionTitle}>{session.title}</Text>
-              <Text
-                style={[styles.sessionStatus, session.status === "completed" && styles.sessionDone]}
-              >
-                {t(session.status)}
-              </Text>
-            </View>
-            <Text style={uiStyles.muted}>
-              {session.date} · {session.time} · {session.type}
-            </Text>
-            <Text style={uiStyles.label}>
-              {session.distanceM} m · {session.durationMin} min · {t(session.intensity)} ·{" "}
-              {t(session.surface)}
-            </Text>
-          </Pressable>
-        ))}
-        <Pressable
-          onPress={() =>
-            router.push(
-              `/trainer/plan/${plan.horseId}/session/new?phaseId=${encodeURIComponent(phase.id)}` as Href,
-            )
-          }
-          style={styles.add}
-        >
-          <Text style={styles.addText}>＋ {t("Add session to this phase")}</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function createEmptyPlan(horseId: string): TrainingPlan {
-  return {
-    id: `plan-${horseId}`,
-    horseId,
-    name: "New training plan",
-    objective: "Define the primary outcome for this training cycle.",
-    status: "draft",
-    startDate: "2026-09-18",
-    endDate: "2026-10-18",
-    targetEvent: "",
-    note: "",
-    publishedAt: "",
-    phases: [
-      {
-        id: `phase-${horseId}-foundation`,
-        name: "Foundation",
-        objective: "Establish the baseline required for the plan objective.",
-        order: 1,
-        startDate: "2026-09-18",
-        endDate: "2026-09-28",
-        sessions: [],
-      },
-    ],
-  };
-}
-
-const getStyles = (colors: any) => StyleSheet.create({
-  hero: {
-    padding: space.xl,
-    gap: space.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.fitSoft,
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-  },
-  kicker: { color: colors.primary, fontSize: 11, fontWeight: "800" },
-  objective: { color: colors.foreground, fontSize: 22, lineHeight: 29, fontWeight: "800" },
-  target: { gap: 3 },
-  form: { gap: space.lg },
-  phase: { flexDirection: "row", gap: space.md },
-  phaseRail: { alignItems: "center", width: 32 },
-  phaseNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primary,
-  },
-  phaseNumberText: { color: "#FFFFFF", fontWeight: "800" },
-  line: { flex: 1, width: 1, minHeight: 40, backgroundColor: colors.border },
-  phaseBody: { flex: 1, gap: space.md, paddingBottom: space.xl },
-  flex: { flex: 1, gap: 3 },
-  phaseName: { color: colors.foreground, fontSize: 17, fontWeight: "800" },
-  phaseProgress: { color: colors.primary, fontWeight: "800" },
-  phaseObjective: { color: colors.mutedForeground, fontSize: 13, lineHeight: 19 },
-  session: {
-    gap: 5,
-    padding: space.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  sessionTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: space.sm,
-  },
-  sessionTitle: { flex: 1, color: colors.foreground, fontSize: 14, fontWeight: "700" },
-  sessionStatus: {
-    color: colors.monitor,
-    fontSize: 9,
-    fontWeight: "800",
-    backgroundColor: colors.monitorSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  sessionDone: { color: colors.primary, backgroundColor: colors.fitSoft },
-  add: {
-    alignItems: "center",
-    padding: space.md,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: colors.primary,
-    borderRadius: radius.md,
-  },
-  addText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
-});

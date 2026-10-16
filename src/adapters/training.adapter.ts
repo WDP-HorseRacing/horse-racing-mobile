@@ -70,6 +70,73 @@ export type TrainingSessionView = {
   evaluation: HorseTrainingSessionDto["evaluation"];
 };
 
+export type OwnerTrainingRemarkView = {
+  id: string;
+  sessionId: string;
+  horseId: string;
+  horseName: string;
+  date: string;
+  sessionTitle: string;
+  trainerName: string;
+  score: number;
+  observation: string;
+};
+
+export type OwnerTrialVideoView = {
+  id: string;
+  participantId: string;
+  attemptNo: number;
+  horseId: string;
+  horseName: string;
+  sessionTitle: string;
+  date: string;
+  elapsedMs: number;
+  elapsedLabel: string;
+  videoUrl: string;
+  notes: string | null;
+};
+
+export function mapOwnerTrainingRemarks(
+  sessions: readonly TrainingSessionView[],
+): OwnerTrainingRemarkView[] {
+  return sessions
+    .filter((session) => Boolean(session.evaluation?.comment?.trim()))
+    .map((session) => ({
+      id: session.participantId,
+      sessionId: session.sessionId,
+      horseId: session.horseId,
+      horseName: session.horseName,
+      date: session.scheduledStartAt,
+      sessionTitle: session.title,
+      trainerName: session.evaluation?.evaluatorName ?? "Head Trainer",
+      score: session.evaluation?.score ?? 0,
+      observation: session.evaluation?.comment ?? "",
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export function mapOwnerTrialVideos(
+  sessions: readonly TrainingSessionView[],
+): OwnerTrialVideoView[] {
+  return sessions
+    .flatMap((session) => session.trials
+      .filter((trial) => Boolean(trial.videoUrl))
+      .map((trial) => ({
+        id: `${session.participantId}:${trial.attemptNo}`,
+        participantId: session.participantId,
+        attemptNo: trial.attemptNo,
+        horseId: session.horseId,
+        horseName: session.horseName,
+        sessionTitle: session.title,
+        date: trial.recordedAt,
+        elapsedMs: trial.elapsedMs,
+        elapsedLabel: trial.elapsedLabel,
+        videoUrl: trial.videoUrl!,
+        notes: trial.notes,
+      })))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export function mapTrainingSessions(
   horseId: string,
   horseName: string,

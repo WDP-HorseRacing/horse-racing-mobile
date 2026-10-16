@@ -1,55 +1,62 @@
 import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, View } from "react-native";
+import { useCallback } from "react";
+import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { getHorse } from "@/lib/raceos-data";
-import { NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
+import { Panel, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { horseService } from "@/services/horse.service";
+import { space } from "@/config/theme";
 
 export default function HorseOwners() {
-    const { colors } = useTheme();
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
-  const horse = getHorse(id);
-  const [primary, setPrimary] = useState("60");
-  const [partner, setPartner] = useState("40");
-  const total = Number(primary || 0) + Number(partner || 0);
+  const { token } = useAuth();
+  const loadHorse = useCallback(() => horseService.get(token!, id), [id, token]);
+  const resource = useApiResource(loadHorse, Boolean(token && id));
+  const horse = resource.data;
+
   return (
-    <Screen role="manager" title="Syndicate allocation" subtitle={horse.name} back>
-      <View style={uiStyles.metricGrid}>
-        <Panel>
-          <Text style={uiStyles.label}>Allocated</Text>
-          <Text style={uiStyles.value}>{total}%</Text>
-        </Panel>
-        <Panel>
-          <Text style={uiStyles.label}>Remaining</Text>
-          <Text style={uiStyles.value}>{Math.max(0, 100 - total)}%</Text>
-        </Panel>
-      </View>
-      <View style={uiStyles.section}>
-        <SectionTitle>Owners</SectionTitle>
-        <Panel>
-          <Text style={uiStyles.value}>{horse.owner}</Text>
-          <Text style={uiStyles.muted}>Primary owner percentage</Text>
-          <NativeInput value={primary} onChangeText={setPrimary} />
-        </Panel>
-        <Panel>
-          <Text style={uiStyles.value}>Syndicate partner</Text>
-          <Text style={uiStyles.muted}>Secondary allocation</Text>
-          <NativeInput value={partner} onChangeText={setPartner} />
-        </Panel>
-      </View>
-      <PrimaryButton
-        label="Save allocation"
-        icon="checkmark"
-        onPress={() =>
-          Alert.alert(
-            total === 100 ? "Allocation saved" : "Allocation incomplete",
-            `Current total: ${total}%`,
-          )
-        }
-      />
+    <Screen
+      role="manager"
+      title="Horse owner"
+      subtitle={horse?.name ?? "Ownership record"}
+      back
+      refreshing={resource.isRefreshing}
+      onRefresh={() => void resource.refresh()}
+    >
+      <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} />
+      {horse ? (
+        <>
+          <View style={uiStyles.section}>
+            <SectionTitle>Current ownership</SectionTitle>
+            <Panel style={{ gap: space.md }}>
+              <View>
+                <Text style={uiStyles.label}>Horse</Text>
+                <Text style={uiStyles.value}>{horse.name}</Text>
+              </View>
+              <View>
+                <Text style={uiStyles.label}>Owner</Text>
+                <Text style={uiStyles.value}>{horse.owner?.fullName ?? "Unassigned"}</Text>
+              </View>
+              <View>
+                <Text style={uiStyles.label}>Ownership model</Text>
+                <Text style={uiStyles.value}>One owner account</Text>
+              </View>
+            </Panel>
+          </View>
+          <Panel style={{ gap: space.sm }}>
+            <Text style={uiStyles.value}>Ownership shares are not supported by the backend.</Text>
+            <Text style={uiStyles.muted}>
+              Horse records expose a single ownerId. This screen reads the current owner from the horse API and does not save unsupported percentage allocations.
+            </Text>
+          </Panel>
+        </>
+      ) : null}
     </Screen>
   );
 }

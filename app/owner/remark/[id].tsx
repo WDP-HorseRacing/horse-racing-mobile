@@ -1,90 +1,80 @@
 import { useLocalSearchParams } from "expo-router";
-import { View, StyleSheet } from "react-native";
+import { useCallback, useMemo } from "react";
+import { View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { useRaceOS } from "@/context/RaceOSContext";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { Panel, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { radius, space } from "@/config/theme";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { trainingService } from "@/services/training.service";
+import { mapOwnerTrainingRemarks } from "@/adapters/training.adapter";
+import { formatDateTime } from "@/utils/formatters";
+import { space } from "@/config/theme";
 
 export default function OwnerRemarkDetail() {
   const { colors } = useTheme();
-  const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
-  
-  const { trainerRemarks, horses } = useRaceOS();
-  const remark = trainerRemarks?.find((r) => r.id === id);
-  const horse = horses.find((h) => h.id === remark?.horseId);
-
-  if (!remark || !horse) {
-    return (
-      <Screen role="owner" title="Remark unavailable" back>
-        <Panel>
-          <Text style={uiStyles.muted}>This trainer remark could not be found.</Text>
-        </Panel>
-      </Screen>
-    );
-  }
+  const { token } = useAuth();
+  const loadTraining = useCallback(() => trainingService.listAllVisibleSessions(token!), [token]);
+  const resource = useApiResource(loadTraining, Boolean(token));
+  const remark = useMemo(
+    () => mapOwnerTrainingRemarks(resource.data ?? []).find((item) => item.id === id),
+    [id, resource.data],
+  );
 
   return (
     <Screen
       role="owner"
-      title="Trainer Remark"
-      subtitle={`${horse.name} · ${remark.date}`}
+      title="Trainer remark"
+      subtitle={remark ? `${remark.horseName} · ${formatDateTime(remark.date)}` : undefined}
       back
+      refreshing={resource.isRefreshing}
+      onRefresh={() => void resource.refresh()}
     >
-      <View style={uiStyles.section}>
-        <SectionTitle>Context</SectionTitle>
-        <Panel style={styles.grid}>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Head Trainer</Text>
-            <Text style={uiStyles.value}>{remark.trainerName}</Text>
+      <AsyncStateView
+        isLoading={resource.isLoading}
+        error={resource.error}
+        onRetry={() => void resource.retry()}
+      />
+      {resource.data && !remark ? (
+        <Panel><Text style={uiStyles.muted}>This training evaluation could not be found.</Text></Panel>
+      ) : null}
+      {remark ? (
+        <>
+          <View style={uiStyles.section}>
+            <SectionTitle>Session context</SectionTitle>
+            <Panel style={{ gap: space.md }}>
+              <View>
+                <Text style={uiStyles.label}>Horse</Text>
+                <Text style={uiStyles.value}>{remark.horseName}</Text>
+              </View>
+              <View>
+                <Text style={uiStyles.label}>Training session</Text>
+                <Text style={uiStyles.value}>{remark.sessionTitle}</Text>
+              </View>
+              <View>
+                <Text style={uiStyles.label}>Date</Text>
+                <Text style={uiStyles.value}>{formatDateTime(remark.date)}</Text>
+              </View>
+              <View>
+                <Text style={uiStyles.label}>Evaluator</Text>
+                <Text style={uiStyles.value}>{remark.trainerName}</Text>
+              </View>
+              <View>
+                <Text style={uiStyles.label}>Score</Text>
+                <Text style={{ ...uiStyles.value, color: colors.primary }}>{remark.score}</Text>
+              </View>
+            </Panel>
           </View>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Session</Text>
-            <Text style={uiStyles.value}>{remark.sessionTitle || remark.context}</Text>
+          <View style={uiStyles.section}>
+            <SectionTitle>Professional observation</SectionTitle>
+            <Panel><Text style={{ ...uiStyles.value, lineHeight: 24 }}>{remark.observation}</Text></Panel>
           </View>
-          <View style={[styles.cell, { width: "100%" }]}>
-            <Text style={uiStyles.label}>Performance Summary</Text>
-            <Text style={uiStyles.value}>{remark.performanceSummary}</Text>
-          </View>
-        </Panel>
-      </View>
-
-      <View style={uiStyles.section}>
-        <SectionTitle>Professional Observation</SectionTitle>
-        <Panel>
-          <Text style={styles.observation}>"{remark.observation}"</Text>
-        </Panel>
-      </View>
-
-      {remark.recommendation && (
-        <View style={uiStyles.section}>
-          <SectionTitle>Recommendation</SectionTitle>
-          <Panel>
-            <Text style={uiStyles.value}>{remark.recommendation}</Text>
-          </Panel>
-        </View>
-      )}
+        </>
+      ) : null}
     </Screen>
   );
 }
-
-const getStyles = (colors: any) => StyleSheet.create({
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: space.md,
-  },
-  cell: {
-    width: "45%",
-    marginBottom: space.sm,
-  },
-  observation: {
-    color: colors.foreground,
-    fontSize: 16,
-    lineHeight: 24,
-    fontStyle: "italic",
-  },
-});

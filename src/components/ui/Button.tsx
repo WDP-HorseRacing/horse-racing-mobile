@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet } from "react-native";
+import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
@@ -12,14 +12,16 @@ export function PrimaryButton({
   onPress,
   icon = "arrow-forward",
   disabled = false,
+  style,
 }: {
   label: string;
   onPress: () => void;
   icon?: IconName;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { t } = useI18n();
   return (
     <Pressable
@@ -30,6 +32,7 @@ export function PrimaryButton({
         styles.button,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
+        style,
       ]}
     >
       <Text style={styles.buttonText}>{t(label)}</Text>
@@ -38,56 +41,80 @@ export function PrimaryButton({
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  button: {
-    minHeight: 52,
-    borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space.sm,
-    backgroundColor: colors.primary,
-  },
-  secondaryButton: {
-    minHeight: 52,
-    borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dangerButton: {
-    minHeight: 52,
-    borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space.sm,
-    backgroundColor: colors.destructive,
-  },
-  buttonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-  secondaryButtonText: { color: colors.foreground, fontSize: 15, fontWeight: "800" },
-  dangerButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-  buttonDisabled: { opacity: 0.4 },
-  pressed: { opacity: 0.7 },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    button: {
+      minHeight: 52,
+      borderRadius: radius.md,
+      paddingHorizontal: space.lg,
+      paddingVertical: space.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: space.sm,
+      backgroundColor: colors.primary,
+    },
+    secondaryButton: {
+      minHeight: 52,
+      borderRadius: radius.md,
+      paddingHorizontal: space.lg,
+      paddingVertical: space.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: space.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    dangerButton: {
+      minHeight: 52,
+      borderRadius: radius.md,
+      paddingHorizontal: space.lg,
+      paddingVertical: space.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: space.sm,
+      backgroundColor: colors.destructive,
+    },
+    buttonText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "800",
+      flexShrink: 1,
+      textAlign: "center",
+    },
+    secondaryButtonText: {
+      color: colors.foreground,
+      fontSize: 15,
+      fontWeight: "800",
+      flexShrink: 1,
+      textAlign: "center",
+    },
+    dangerButtonText: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "800",
+      flexShrink: 1,
+      textAlign: "center",
+    },
+    buttonDisabled: { opacity: 0.4 },
+    pressed: { opacity: 0.7 },
+  });
 
 export function DangerButton({
   label,
   onPress,
   icon,
   disabled = false,
+  style,
 }: {
   label: string;
   onPress: () => void;
   icon?: IconName;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -101,6 +128,7 @@ export function DangerButton({
         styles.dangerButton,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
+        style,
       ]}
     >
       <Text style={styles.dangerButtonText}>{t(label)}</Text>
@@ -114,11 +142,13 @@ export function SecondaryButton({
   onPress,
   icon,
   disabled = false,
+  style,
 }: {
   label: string;
   onPress: () => void;
   icon?: IconName;
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -132,6 +162,7 @@ export function SecondaryButton({
         styles.secondaryButton,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
+        style,
       ]}
     >
       <Text style={styles.secondaryButtonText}>{t(label)}</Text>

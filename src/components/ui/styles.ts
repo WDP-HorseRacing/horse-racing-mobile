@@ -1,6 +1,5 @@
 import { StyleSheet } from "react-native";
 import { radius, space } from "@/config/theme";
-import { useTheme } from "@/hooks/useTheme";
 
 export const getUiStyles = (colors: any) => StyleSheet.create({
   section: { gap: space.md },
@@ -8,11 +7,10 @@ export const getUiStyles = (colors: any) => StyleSheet.create({
   body: { color: colors.foreground, fontSize: 15, lineHeight: 22 },
   muted: { color: colors.foreground, opacity: 0.85, fontSize: 13, lineHeight: 19 },
   label: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "600",
-    letterSpacing: 1.6,
-    color: colors.injured,
-    textTransform: "uppercase",
+    letterSpacing: 0.2,
+    color: colors.mutedForeground,
   },
   value: { color: colors.foreground, fontSize: 15, fontWeight: "600" },
   row: {

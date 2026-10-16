@@ -8,13 +8,19 @@ export type HorseListItemDto = {
   gender: string | null;
   breed: string | null;
   color: string | null;
+  microchipId?: string | null;
+  mediaId?: string | null;
+  sireId?: string | null;
+  damId?: string | null;
+  ownerId?: string | null;
+  version?: number;
   raceAptitude: "SPRINTER" | "MILER" | "STAYER" | null;
   dateOfBirth: string | null;
   healthStatus: HorseHealthStatusDto;
   lifecycleStatus: string;
   location: {
-    barn: { name: string } | null;
-    stall: { code: string } | null;
+    barn: { id?: string; name: string } | null;
+    stall: { id?: string; code: string } | null;
     placementStatus: string;
   };
   photoUrl: string | null;
@@ -23,13 +29,100 @@ export type HorseListItemDto = {
 };
 
 export type HorseDetailDto = Omit<HorseListItemDto, "photoUrl" | "canRegisterRace"> & {
+  microchipId: string | null;
+  mediaId: string | null;
+  ownerId: string | null;
+  version: number;
   sireId: string | null;
   damId: string | null;
   owner: { id: string; fullName: string } | null;
   groom: { id: string; fullName: string } | null;
-  latestMeasurements: Array<{ type: string; value: number; unit: string; measuredAt: string }>;
+  latestMeasurements: {
+    type: string;
+    value: number;
+    unit: string;
+    measuredAt: string;
+    isAbnormal: boolean;
+  }[];
   activeTrainingLock: boolean;
-  eligibility: { trainingEligible: boolean; racingEligible: boolean };
+  eligibility: {
+    trainingEligible: boolean;
+    racingEligible: boolean;
+    trainingReasons: string[];
+    racingReasons: string[];
+    reasons: string[];
+  };
+  dateOfDeath: string | null;
+  lifecycleReason: string | null;
+  lifecycleChangedAt: string | null;
+  ownerSince: string | null;
+  isDeleted: boolean;
+};
+
+export type HorseProfileResponseDto = {
+  id: string;
+  name: string;
+  gender: string | null;
+  breed: string | null;
+  color: string | null;
+  raceAptitude: string | null;
+  dateOfBirth: string | null;
+  microchipId: string | null;
+  mediaId: string | null;
+  sireId: string | null;
+  damId: string | null;
+  ownerId: string | null;
+  healthStatus: string;
+  lifecycleStatus: string;
+  version: number;
+};
+
+export type HorseGenderDto = "MALE" | "FEMALE" | "GELDING";
+export type CreateHorseInput = {
+  name: string;
+  gender: HorseGenderDto;
+  breed?: string;
+  color?: string;
+  microchipId?: string;
+  dateOfBirth?: string;
+  sireId?: string;
+  damId?: string;
+  ownerId?: string;
+  barnId?: string;
+  mediaId?: string;
+};
+export type UpdateHorseInput = {
+  version: number;
+  name?: string;
+  gender?: HorseGenderDto;
+  breed?: string | null;
+  color?: string | null;
+  microchipId?: string | null;
+  dateOfBirth?: string | null;
+  sireId?: string | null;
+  damId?: string | null;
+  mediaId?: string | null;
+  ownerId?: string | null;
+  raceAptitude?: "SPRINTER" | "MILER" | "STAYER";
+};
+
+export type HorsePedigreeDto = {
+  horseId: string;
+  horseName: string;
+  depth: number;
+  ancestors: {
+    id: string;
+    name: string;
+    gender?: string | null;
+    breed?: string | null;
+    color?: string | null;
+    dateOfBirth?: string | null;
+    raceAptitude?: string | null;
+    canOpen: boolean;
+    generation: number;
+    parentRole: "SIRE" | "DAM" | string;
+    childId: string;
+  }[];
 };
 
 export type HorseSummary = {
@@ -80,9 +173,10 @@ export function mapHorseSummaryToPrototype(horse: HorseSummary): Horse {
     status: horse.status,
     fitness: 0,
     readiness: horse.status === "FIT" ? "High" : "Low",
-    raceAptitude: horse.raceAptitude === "SPRINTER" || horse.raceAptitude === "STAYER"
-      ? horse.raceAptitude
-      : "MILER",
+    raceAptitude:
+      horse.raceAptitude === "SPRINTER" || horse.raceAptitude === "STAYER"
+        ? horse.raceAptitude
+        : "MILER",
     phase: horse.lifecycleStatus,
     lastSession: `${horse.barnName} · ${horse.raceAptitude}`,
     owner: "—",
@@ -95,7 +189,8 @@ export function mapHorseSummaryToPrototype(horse: HorseSummary): Horse {
 }
 
 export function mapHorseDetailToPrototype(horse: HorseDetailDto): Horse {
-  const weight = horse.latestMeasurements.find((measurement) => measurement.type === "WEIGHT")?.value ?? 0;
+  const weight =
+    horse.latestMeasurements.find((measurement) => measurement.type === "WEIGHT")?.value ?? 0;
   const age = horse.dateOfBirth ? ageFromDateOfBirth(horse.dateOfBirth) : 0;
   return {
     id: horse.id,

@@ -35,4 +35,19 @@ export const groomService = {
       body: {},
     });
   },
+
+  reportIncident(token: string, input: { horseId: string; description: string; urgent?: boolean; photoMediaId?: string }) {
+    return apiRequest<IncidentDto>("/incidents", { method: "POST", token, body: input });
+  },
+};
+
+export type IncidentDto = {
+  id: string;
+  horseId: string;
+  horseName: string;
+  description: string;
+  urgent: boolean;
+  status: string;
+  photoUrl: string | null;
+  createdAt: string;
 };

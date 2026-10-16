@@ -2,9 +2,20 @@ import { Pressable, Text as NativeText, type TextProps } from "react-native";
 import { Children, type ReactNode } from "react";
 import { useI18n } from "@/context/I18nContext";
 
-export function Text({ children, ...props }: TextProps) {
+import { useTheme } from "@/hooks/useTheme";
+
+export type LocalizedTextProps = TextProps & {
+  translatable?: boolean;
+};
+
+export function Text({ children, translatable = true, style, ...props }: LocalizedTextProps) {
   const { t } = useI18n();
-  return <NativeText {...props}>{localize(children, t)}</NativeText>;
+  const { colors } = useTheme();
+  return (
+    <NativeText style={[{ color: colors.foreground }, style]} {...props}>
+      {translatable ? localize(children, t) : children}
+    </NativeText>
+  );
 }
 
 export function LanguageToggle() {
@@ -29,7 +40,10 @@ export function LanguageToggle() {
 }
 
 function localize(node: ReactNode, t: (text: string) => string): ReactNode {
-  if (typeof node === "string") return t(node);
+  if (typeof node === "string") {
+    if (node === "HorseRacing" || node === "HorseRacing Mobile") return node;
+    return t(node);
+  }
   if (Array.isArray(node)) return Children.map(node, (child) => localize(child, t));
   return node;
 }

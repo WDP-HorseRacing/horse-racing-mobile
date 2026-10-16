@@ -24,12 +24,13 @@ export function AuthRouteGate({ children }: PropsWithChildren) {
   }
 
   useEffect(() => {
-    if (redirectPath) router.replace(redirectPath as Href);
+    if (redirectPath) {
+      router.replace(redirectPath as Href);
+    }
   }, [redirectPath]);
 
   if (isLoading) return <LoadingScreen label="Checking your session…" />;
-  if (redirectPath) return <LoadingScreen label="Opening your workspace…" />;
-  return children;
+  return <>{children}</>;
 }
 
 function roleForPath(pathname: string): RoleId | null {

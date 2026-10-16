@@ -49,5 +49,5 @@ export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
 
 const getStyles = (colors: any) => StyleSheet.create({
   alert: { borderRadius: radius.md, borderWidth: 1, padding: space.lg, gap: space.sm },
-  alertSeverity: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
+  alertSeverity: { fontSize: 11, fontWeight: "700", textTransform: "capitalize", letterSpacing: 0.3 },
 });

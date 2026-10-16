@@ -1,4 +1,5 @@
 import { formatDateTime } from "@/utils/formatters";
+import type { HorseLifecyclePreviewDto } from "@/services/horse.service";
 
 export type MedicalRecordDto = {
   id: string;
@@ -14,11 +15,31 @@ export type MedicalRecordDto = {
   vetId: string;
   voidedAt: string | null;
   voidReason: string | null;
-  prescriptions: unknown[];
-  injuries: unknown[];
+  replacesRecordId: string | null;
+  prescriptions: PrescriptionDto[];
+  injuries: InjuryDto[];
 };
 
-export type MedicalCaseDto = {
+export type PrescriptionDto = {
+  id: string;
+  medicine: string;
+  dosage?: string;
+  frequency?: string;
+  startDate: string;
+  endDate: string | null;
+};
+
+export type InjuryDto = {
+  id: string;
+  medicalRecordId: string;
+  bodyRegion: string;
+  position: { x: number; y: number; z: number } | null;
+  injuryType: string;
+  recoveryStatus: string;
+  notes: string | null;
+};
+
+export type MedicalCaseSummaryDto = {
   id: string;
   horseId: string;
   status: "OPEN" | "CLOSED" | "CANCELLED" | string;
@@ -29,29 +50,42 @@ export type MedicalCaseDto = {
   finalConclusion: string | null;
   totalCost?: number | null;
   costHidden?: boolean;
-  visits?: MedicalRecordDto[];
 };
 
+export type MedicalCaseDto = MedicalCaseSummaryDto & { visits: MedicalRecordDto[] };
+
 export type MedicalDashboardDto = {
-  herd: { horses: Array<{ horseId: string; horseName: string }> };
-  checkups: Array<{
+  herd: {
+    counts: Record<"QUARANTINED" | "INJURED" | "UNDER_OBSERVATION" | "ELIGIBLE", number>;
+    horses: {
+      horseId: string;
+      horseName: string;
+      barnId: string | null;
+      stallId: string | null;
+      stallCode: string | null;
+      healthStatus: "ELIGIBLE" | "UNDER_OBSERVATION" | "INJURED" | "QUARANTINED";
+    }[];
+  };
+  checkups: {
     horseId: string;
     horseName: string;
+    barnId: string | null;
     healthStatus: string;
+    lastVisitDate: string | null;
     dueDate: string;
     daysLeft: number;
     dueStatus: string;
-    appointment: { scheduledAt: string } | null;
-  }>;
-  careSchedules: Array<{
+    appointment: { id: string; horseId: string; scheduledAt: string } | null;
+  }[];
+  careSchedules: {
     scheduleId: string;
     horseId: string;
     horseName: string;
     type: string;
     dueDate: string;
     assignedTo: string | null;
-  }>;
-  openCases: Array<{
+  }[];
+  openCases: {
     caseId: string;
     horseId: string;
     horseName: string;
@@ -59,15 +93,89 @@ export type MedicalDashboardDto = {
     openedAt: string;
     lastVisitAt: string | null;
     nextVisitAt: string | null;
-  }>;
-  pendingRequests: Array<{
+  }[];
+  pendingRequests: {
     id: string;
     horseId: string;
     horseName: string;
     urgent: boolean;
     description: string;
     createdAt: string;
-  }>;
+    status?: string;
+    source?: string;
+    requestedBy?: string | null;
+    requestedBySystem?: boolean;
+    dismissReason?: string | null;
+    handledAt?: string | null;
+    medicalRecordId?: string | null;
+  }[];
+};
+
+export type MedicalCaseClosePreviewDto = {
+  activeLock: { id: string; reason: string; lockEnd: string | null } | null;
+  healthStatus: string;
+  healthWarning: boolean;
+  pendingRequestCount: number;
+  deathImpact?: HorseLifecyclePreviewDto;
+};
+
+export type CareScheduleDto = {
+  id: string;
+  horseId: string;
+  type: string;
+  dueAt: string;
+  assignedTo: string | null;
+  status: "SCHEDULED" | "COMPLETED" | "CANCELLED" | string;
+  completedAt: string | null;
+  completedBy: string | null;
+  cancelReason: string | null;
+  notes: string | null;
+};
+
+export type ExamRequestDto = MedicalDashboardDto["pendingRequests"][number] & {
+  requestedBy: string | null;
+  requestedBySystem: boolean;
+  source: string;
+  status: "PENDING" | "EXAMINED" | "DISMISSED" | string;
+  dismissReason: string | null;
+  handledBy: string | null;
+  handledBySystem: boolean;
+  handledAt: string | null;
+  medicalRecordId: string | null;
+  alertType: string | null;
+  incidentId: string | null;
+};
+
+export type PageDto<T> = {
+  items: T[];
+  meta: { page?: number; limit?: number; total?: number; totalPages?: number };
+};
+
+export type MedicalCostReportDto = {
+  from: string;
+  to: string;
+  caseCount: number;
+  totalCost: number;
+  items: { horseId: string; horseName: string; caseCount: number; totalCost: number }[];
+};
+
+export type TrainingLockDto = {
+  id: string;
+  horseId: string;
+  caseId: string | null;
+  reason: string;
+  lockStart: string;
+  lockEnd: string | null;
+  status: string;
+  lockedBy: string;
+  releasedBy?: string | null;
+  releasedAt: string | null;
+  releaseConclusion?: string | null;
+};
+
+export type InjuryTimelineItemDto = InjuryDto & {
+  examDate: string;
+  caseId: string | null;
 };
 
 export type MedicalCaseListItem = {
@@ -87,7 +195,7 @@ export type MedicalCaseView = MedicalCaseListItem & {
   finalConclusion: string | null;
   totalCost: number | null;
   costHidden: boolean;
-  visits: Array<{
+  visits: {
     id: string;
     kind: string;
     conclusion: string | null;
@@ -99,12 +207,10 @@ export type MedicalCaseView = MedicalCaseListItem & {
     nextVisitAt: string | null;
     isVoided: boolean;
     voidReason: string | null;
-  }>;
+  }[];
 };
 
-export function mapMedicalDashboardCases(
-  dashboard: MedicalDashboardDto,
-): MedicalCaseListItem[] {
+export function mapMedicalDashboardCases(dashboard: MedicalDashboardDto): MedicalCaseListItem[] {
   return dashboard.openCases.map((item) => ({
     id: item.caseId,
     horseId: item.horseId,

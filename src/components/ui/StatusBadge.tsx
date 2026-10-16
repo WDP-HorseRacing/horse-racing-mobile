@@ -3,6 +3,7 @@ import { Text } from "@/components/common/LocalizedText";
 import type { HorseStatus } from "@/lib/raceos-data";
 import { radius } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { formatEnum } from "@/utils/formatters";
 
 import type { ThemeColors } from "@/config/theme";
 
@@ -16,17 +17,17 @@ const getStatusPalette = (colors: ThemeColors): Record<HorseStatus, { color: str
 });
 
 export function StatusBadge({ status }: { status: HorseStatus }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const palette = getStatusPalette(colors)[status];
   return (
     <View style={[styles.badge, { backgroundColor: palette.background }]}>
-      <Text style={[styles.badgeText, { color: palette.color }]}>{status}</Text>
+      <Text style={[styles.badgeText, { color: palette.color }]}>{formatEnum(status)}</Text>
     </View>
   );
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
   badge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.4 },
+  badgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
 });

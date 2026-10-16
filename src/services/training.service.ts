@@ -8,7 +8,69 @@ import {
 type Page<T> = { items: T[]; meta: { totalPages: number } };
 type HorseSummary = { id: string; name: string };
 
+export type TrainingClassDto = {
+  id: string; code: string; name: string; description: string | null; raceAptitude: string | null;
+  maxHorses: number; headTrainerId: string | null; planId: string; startDate: string; endDate: string;
+  status: string; completedAt: string | null; cancelledAt: string | null; cancelReason: string | null;
+  createdAt: string; updatedAt: string;
+};
+export type TrainingSessionDto = {
+  id: string; classId: string; subjectId: string | null; name: string; sessionType: string;
+  intensity: string | null; plannedDistanceM: number; scheduledStartAt: string; scheduledEndAt: string;
+  location: string | null; surface: string | null; notes: string | null; status: string;
+  cancelledAt: string | null; cancelledBy: string | null; cancelReason: string | null;
+};
+
+export type SessionParticipantDto = {
+  id: string;
+  sessionId: string;
+  horseId: string;
+  horseEnrollmentId: string;
+  assignedGroomId: string | null;
+  assignedGroomName: string | null;
+  status: string;
+  checkedInAt: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  absenceReason: string | null;
+  cancelReason: string | null;
+  ineligibilityReason: string | null;
+  trainingLocked: boolean;
+  horseName: string;
+  horsePhotoUrl: string | null;
+};
+
+type SessionParticipantEvaluationInput = { score: number; comment?: string };
+
 export const trainingService = {
+  getClass(token: string, classId: string) {
+    return apiRequest<TrainingClassDto>(`/classes/${encodeURIComponent(classId)}`, { token });
+  },
+
+  async listClassSessions(token: string, classId: string) {
+    const response = await apiRequest<TrainingSessionDto[] | { items: TrainingSessionDto[] }>(
+      `/classes/${encodeURIComponent(classId)}/sessions`, { token },
+    );
+    return Array.isArray(response) ? response : response.items ?? [];
+  },
+
+  getSession(token: string, sessionId: string) {
+    return apiRequest<TrainingSessionDto>(`/training-sessions/${encodeURIComponent(sessionId)}`, { token });
+  },
+
+  listSessionParticipants(token: string, sessionId: string) {
+    return apiRequest<SessionParticipantDto[]>(
+      `/training-sessions/${encodeURIComponent(sessionId)}/participants`,
+      { token },
+    );
+  },
+
+  createEvaluation(token: string, participantId: string, input: SessionParticipantEvaluationInput) {
+    return apiRequest<unknown>(`/session-participants/${encodeURIComponent(participantId)}/evaluation`, {
+      method: "POST", token, body: input,
+    });
+  },
+
   async listHorseSessions(
     token: string,
     horseId: string,

@@ -1,20 +1,37 @@
 import { router } from "expo-router";
+import { useCallback } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
-import { auditLog } from "@/lib/raceos-data";
 import { Panel, getUiStyles } from "@/components/ui";
 import { TimelineItem, Screen, SectionTitle } from "@/components/common";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
+import { auditService } from "@/services/audit.service";
+import { formatDateTime } from "@/utils/formatters";
+import { ApiError } from "@/services/api-client";
 import { space, radius } from "@/config/theme";
 
 export default function Operations() {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   const styles = getStyles(colors);
+  const { token } = useAuth();
+  const loadAuditLog = useCallback(() => auditService.list(token!), [token]);
+  const auditResource = useApiResource(loadAuditLog, Boolean(token));
+  const auditLog = auditResource.data ?? [];
+  const auditUnavailable = auditResource.error instanceof ApiError && auditResource.error.status === 501;
 
   return (
-    <Screen role="manager" title="Operations" subtitle="Manage club personnel, inventory, and access">
+    <Screen
+      role="manager"
+      title="Operations"
+      subtitle="Manage club personnel, inventory, and access"
+      refreshing={auditResource.isRefreshing}
+      onRefresh={() => void auditResource.refresh()}
+    >
       <View style={uiStyles.section}>
         <SectionTitle>Management Areas</SectionTitle>
         <Pressable style={styles.card} onPress={() => router.push("/manager/staff")}>
@@ -53,18 +70,30 @@ export default function Operations() {
 
       <View style={uiStyles.section}>
         <SectionTitle>Recent activity (Audit Log)</SectionTitle>
-        <Panel>
+        <AsyncStateView
+          isLoading={auditResource.isLoading}
+          error={auditResource.error}
+          onRetry={() => void auditResource.retry()}
+          empty={Boolean(auditResource.data && auditLog.length === 0)}
+          emptyLabel="No audit activity has been recorded."
+        />
+        {auditUnavailable ? (
+          <Panel>
+            <Text style={uiStyles.muted}>The mobile app is connected to GET /audit-logs. The current backend source returns 501 until the audit list endpoint is implemented.</Text>
+          </Panel>
+        ) : null}
+        {auditLog.length ? <Panel>
           {auditLog.slice(0, 5).map((entry, index) => (
             <TimelineItem
-              key={`${entry.time}-${entry.action}`}
-              time={entry.time}
+              key={entry.id}
+              time={formatDateTime(entry.createdAt)}
               title={entry.action}
-              detail={`${entry.who} · ${entry.object} · ${entry.result}`}
+              detail={`${entry.actor?.fullName ?? entry.actor?.email ?? entry.actorId ?? "System"} · ${entry.entityType} · ${entry.entityId.slice(0, 8)}${entry.reason ? ` · ${entry.reason}` : ""}`}
               tone={index === 0 ? colors.destructive : colors.training}
               last={index === 4}
             />
           ))}
-        </Panel>
+        </Panel> : null}
       </View>
     </Screen>
   );

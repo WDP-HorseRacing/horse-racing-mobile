@@ -14,8 +14,8 @@ import { useTheme } from "@/hooks/useTheme";
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 function BottomNav({ role }: { role: RoleId }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const pathname = usePathname();
   const items = roles[role].nav;
   const { t } = useI18n();
@@ -50,6 +50,7 @@ export function Screen({
   subtitle,
   children,
   back,
+  scrollable = true,
   refreshing = false,
   onRefresh,
 }: PropsWithChildren<{
@@ -57,11 +58,12 @@ export function Screen({
   title: string;
   subtitle?: string;
   back?: boolean;
+  scrollable?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
 }>) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const cfg = roles[role];
   const { language, toggleLanguage, t } = useI18n();
   const auth = useAuth();
@@ -110,98 +112,108 @@ export function Screen({
           <Ionicons name="log-out-outline" size={20} color={colors.mutedForeground} />
         </Pressable>
       </View>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-          ) : undefined
-        }
-      >
-        {children}
-      </ScrollView>
+      {scrollable ? (
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
+            ) : undefined
+          }
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={styles.fillContent}>{children}</View>
+      )}
       {!back ? <BottomNav role={role} /> : null}
     </SafeAreaView>
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  header: {
-    minHeight: 68,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.md,
-    paddingHorizontal: space.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.sm,
-    backgroundColor: colors.elevated,
-  },
-  headerCopy: { flex: 1 },
-  title: { color: colors.foreground, fontSize: 21, fontWeight: "700", letterSpacing: -0.4 },
-  subtitle: { color: colors.mutedForeground, fontSize: 11, marginTop: 3 },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: colors.foreground, fontSize: 11, fontWeight: "700" },
-  signOut: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.sm,
-    backgroundColor: colors.elevated,
-  },
-  language: {
-    minWidth: 38,
-    height: 34,
-    paddingHorizontal: 8,
-    borderRadius: radius.sm,
-    backgroundColor: colors.fitSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  languageText: { color: colors.primary, fontSize: 11, fontWeight: "800" },
-  content: {
-    padding: space.lg,
-    paddingBottom: 116,
-    gap: space.xl,
-    width: "100%",
-    maxWidth: 620,
-    alignSelf: "center",
-  },
-  nav: {
-    minHeight: 66,
-    paddingBottom: space.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-    paddingTop: space.sm,
-  },
-  navLabel: { color: colors.mutedForeground, fontSize: 10, fontWeight: "600" },
-  navLabelActive: { color: colors.primary },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    header: {
+      minHeight: 68,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.md,
+      paddingHorizontal: space.lg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    backButton: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.sm,
+      backgroundColor: colors.elevated,
+    },
+    headerCopy: { flex: 1 },
+    title: { color: colors.foreground, fontSize: 21, fontWeight: "700", letterSpacing: -0.4 },
+    subtitle: { color: colors.mutedForeground, fontSize: 11, marginTop: 3 },
+    avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarText: { color: colors.foreground, fontSize: 11, fontWeight: "700" },
+    signOut: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.sm,
+      backgroundColor: colors.elevated,
+    },
+    language: {
+      minWidth: 38,
+      height: 34,
+      paddingHorizontal: 8,
+      borderRadius: radius.sm,
+      backgroundColor: colors.fitSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    languageText: { color: colors.primary, fontSize: 11, fontWeight: "800" },
+    content: {
+      padding: space.lg,
+      paddingBottom: 116,
+      gap: space.xl,
+      width: "100%",
+      maxWidth: 620,
+      alignSelf: "center",
+    },
+    fillContent: { flex: 1, minHeight: 0, width: "100%", maxWidth: 620, alignSelf: "center" },
+    nav: {
+      minHeight: 66,
+      paddingBottom: space.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    navItem: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 3,
+      paddingTop: space.sm,
+    },
+    navLabel: { color: colors.mutedForeground, fontSize: 10, fontWeight: "600" },
+    navLabelActive: { color: colors.primary },
+  });

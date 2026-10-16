@@ -1,4 +1,4 @@
-import { TextInput, StyleSheet } from "react-native";
+import { TextInput, StyleSheet, type TextInputProps } from "react-native";
 import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
@@ -8,11 +8,15 @@ export function NativeInput({
   onChangeText,
   multiline,
   placeholder,
+  secureTextEntry,
+  keyboardType,
 }: {
   value: string;
   onChangeText: (value: string) => void;
   multiline?: boolean;
   placeholder?: string;
+  secureTextEntry?: boolean;
+  keyboardType?: TextInputProps["keyboardType"];
 }) {
     const { colors } = useTheme();
     const styles = getStyles(colors);
@@ -22,6 +26,8 @@ export function NativeInput({
       value={value}
       onChangeText={onChangeText}
       multiline={multiline}
+      secureTextEntry={secureTextEntry}
+      keyboardType={keyboardType}
       placeholder={placeholder ? t(placeholder) : undefined}
       placeholderTextColor={colors.mutedForeground}
       style={[styles.input, multiline && styles.multiline]}

@@ -80,3 +80,33 @@ function asDate(value: string | number | Date): Date | null {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
+
+/**
+ * Formats an ALL CAPS or SNAKE_CASE string into clean sentence case with only the first letter capitalized.
+ * Preserves common acronyms (VI, EN, ID, SLA, RBAC, VND, API).
+ * e.g. "HEALTH_QUARANTINED" -> "Health quarantined"
+ * e.g. "SPRINTER" -> "Sprinter"
+ * e.g. "UNDER_OBSERVATION" -> "Under observation"
+ */
+export function formatEnum(value: string | null | undefined): string {
+  if (!value) return "—";
+  const clean = value.replaceAll("_", " ").trim();
+  if (!clean) return "—";
+  if (
+    clean === "VI" ||
+    clean === "EN" ||
+    clean === "ID" ||
+    clean === "SLA" ||
+    clean === "RBAC" ||
+    clean === "VND" ||
+    clean === "API"
+  ) {
+    return clean;
+  }
+  if (/^[A-Z0-9 ]+$/.test(clean) && clean.length > 1) {
+    const lower = clean.toLowerCase();
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  }
+  return clean;
+}
+

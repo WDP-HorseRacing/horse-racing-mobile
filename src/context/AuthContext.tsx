@@ -1,14 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState } from "react-native";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
-import { ApiError } from "@/services/api-client";
+import { ApiError, setUnauthorizedTokenRefreshHandler } from "@/services/api-client";
 import { authService, type AuthTokens, type AuthUser } from "@/services/auth.service";
 import { appRoleFromAuthRoles } from "@/features/auth/role-mapper";
 import type { RoleId } from "@/types/raceos";
@@ -19,6 +21,7 @@ type StoredSession = {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
+  expiresIn?: number;
 };
 
 type AuthContextValue = {
@@ -40,13 +43,59 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<StoredSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<unknown>(null);
+  const sessionRef = useRef<StoredSession | null>(null);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
+
+  const refreshAccessToken = useCallback(async (failedToken?: string): Promise<string | null> => {
+    const current = sessionRef.current;
+    if (!current?.refreshToken) return null;
+
+    // Another request may already have refreshed this token while this 401 was in flight.
+    if (failedToken && current.accessToken !== failedToken) return current.accessToken;
+    if (!failedToken && !shouldRefreshSession(current)) return current.accessToken;
+    if (refreshPromiseRef.current) return refreshPromiseRef.current;
+
+    const refreshPromise = (async () => {
+      try {
+        const tokens = await authService.refresh(current.refreshToken);
+        const nextSession = toStoredSession(tokens);
+        if (sessionRef.current?.refreshToken !== current.refreshToken) {
+          return sessionRef.current?.accessToken ?? null;
+        }
+
+        await persistSession(nextSession);
+        sessionRef.current = nextSession;
+        setSession(nextSession);
+        return nextSession.accessToken;
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          error.status === 401 &&
+          sessionRef.current?.refreshToken === current.refreshToken
+        ) {
+          sessionRef.current = null;
+          setSession(null);
+          setUser(null);
+          setAuthError(error);
+          await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+        }
+        throw error;
+      }
+    })();
+    refreshPromiseRef.current = refreshPromise;
+
+    try {
+      return await refreshPromise;
+    } finally {
+      if (refreshPromiseRef.current === refreshPromise) refreshPromiseRef.current = null;
+    }
+  }, []);
 
   const restoreSession = useCallback(async () => {
-    setIsLoading(true);
-    setAuthError(null);
     try {
       const serialized = await AsyncStorage.getItem(STORAGE_KEY);
       if (!serialized) {
+        sessionRef.current = null;
         setSession(null);
         setUser(null);
         return;
@@ -54,63 +103,89 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       let stored: StoredSession;
       try {
-        stored = JSON.parse(serialized) as StoredSession;
+        const parsed: unknown = JSON.parse(serialized);
+        if (
+          typeof parsed !== "object" ||
+          parsed === null ||
+          typeof (parsed as StoredSession).accessToken !== "string" ||
+          typeof (parsed as StoredSession).refreshToken !== "string"
+        ) {
+          throw new Error("Stored authentication session is invalid.");
+        }
+        stored = parsed as StoredSession;
       } catch {
+        sessionRef.current = null;
         await AsyncStorage.removeItem(STORAGE_KEY);
         setSession(null);
         setUser(null);
         return;
       }
 
+      sessionRef.current = stored;
+      const currentToken = (await refreshAccessToken()) ?? stored.accessToken;
+      let currentUser: AuthUser;
       try {
-        const currentUser = await authService.getMe(stored.accessToken);
-        setSession(stored);
-        setUser(currentUser);
-        if (!appRoleFromAuthRoles(currentUser.roles)) {
-          setAuthError(new Error("Tài khoản chưa được cấp vai trò sử dụng ứng dụng."));
-        }
+        currentUser = await authService.getMe(currentToken);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401 && stored.refreshToken) {
-          try {
-            const refreshed = await authService.refresh(stored.refreshToken);
-            const nextSession = toStoredSession(refreshed);
-            const currentUser = await authService.getMe(nextSession.accessToken);
-            await persistSession(nextSession);
-            setSession(nextSession);
-            setUser(currentUser);
-            if (!appRoleFromAuthRoles(currentUser.roles)) {
-              setAuthError(new Error("Tài khoản chưa được cấp vai trò sử dụng ứng dụng."));
-            }
-            return;
-          } catch (refreshError) {
-            if (!(refreshError instanceof ApiError) || refreshError.status !== 401) {
-              setSession(stored);
-              setUser(null);
-              setAuthError(refreshError);
-              return;
-            }
-          }
-          await AsyncStorage.removeItem(STORAGE_KEY);
-          setSession(null);
-          setUser(null);
-          return;
-        }
+        if (!(error instanceof ApiError) || error.status !== 401) throw error;
+        const refreshedToken = await refreshAccessToken(stored.accessToken);
+        if (!refreshedToken || refreshedToken === currentToken) throw error;
+        currentUser = await authService.getMe(refreshedToken);
+      }
 
-        setSession(stored);
-        setUser(null);
-        setAuthError(error);
+      const activeSession = sessionRef.current ?? stored;
+      setSession(activeSession);
+      setUser(currentUser);
+      if (!appRoleFromAuthRoles(currentUser.roles)) {
+        setAuthError(new Error("Tài khoản chưa được cấp vai trò sử dụng ứng dụng."));
       }
     } catch (error) {
-      setSession(null);
-      setUser(null);
+      if (error instanceof ApiError && error.status === 401) {
+        sessionRef.current = null;
+        setSession(null);
+        setUser(null);
+        await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+      } else {
+        setSession(sessionRef.current);
+        setUser(null);
+      }
       setAuthError(error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshAccessToken]);
+
+  const retrySession = useCallback(async () => {
+    setIsLoading(true);
+    setAuthError(null);
+    await restoreSession();
+  }, [restoreSession]);
 
   useEffect(() => {
-    void restoreSession();
+    setUnauthorizedTokenRefreshHandler(refreshAccessToken);
+    return () => setUnauthorizedTokenRefreshHandler(null);
+  }, [refreshAccessToken]);
+
+  useEffect(() => {
+    if (!session) return;
+    const delay = scheduledRefreshDelay(session);
+    if (delay === null) return;
+
+    const timer = setTimeout(() => {
+      void refreshAccessToken().catch(() => undefined);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [refreshAccessToken, session]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshAccessToken().catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, [refreshAccessToken]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => restoreSession());
   }, [restoreSession]);
 
   const signIn = useCallback(async (email: string, password: string) => {
@@ -119,14 +194,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const tokens = await authService.login(email.trim(), password);
       const nextSession = toStoredSession(tokens);
+      sessionRef.current = nextSession;
+
       const currentUser = await authService.getMe(nextSession.accessToken);
       if (!appRoleFromAuthRoles(currentUser.roles)) {
         throw new Error("Tài khoản chưa được cấp vai trò sử dụng ứng dụng.");
       }
-      await persistSession(nextSession);
-      setSession(nextSession);
+
+      const activeSession = sessionRef.current ?? nextSession;
+      await persistSession(activeSession);
+      setSession(activeSession);
       setUser(currentUser);
     } catch (error) {
+      if (sessionRef.current?.accessToken) {
+        sessionRef.current = null;
+        setSession(null);
+        setUser(null);
+        await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+      }
       setAuthError(error);
       throw error;
     } finally {
@@ -135,18 +220,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const signOut = useCallback(async () => {
-    const refreshToken = session?.refreshToken;
     setIsLoading(true);
     try {
+      // Wait for a rotating refresh token to settle, then revoke the newest one.
+      await refreshPromiseRef.current?.catch(() => null);
+      const refreshToken = sessionRef.current?.refreshToken;
       if (refreshToken) await authService.logout(refreshToken).catch(() => undefined);
     } finally {
+      sessionRef.current = null;
       await AsyncStorage.removeItem(STORAGE_KEY);
       setSession(null);
       setUser(null);
       setAuthError(null);
       setIsLoading(false);
     }
-  }, [session?.refreshToken]);
+  }, []);
 
   const role = useMemo(() => (user ? appRoleFromAuthRoles(user.roles) : null), [user]);
   const value = useMemo<AuthContextValue>(
@@ -159,9 +247,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       authError,
       signIn,
       signOut,
-      retrySession: restoreSession,
+      retrySession,
     }),
-    [user, session, role, isLoading, authError, signIn, signOut, restoreSession],
+    [user, session, role, isLoading, authError, signIn, signOut, retrySession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -182,5 +270,23 @@ function toStoredSession(tokens: AuthTokens): StoredSession {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresAt: Date.now() + tokens.expiresIn * 1000,
+    expiresIn: tokens.expiresIn,
   };
+}
+
+function shouldRefreshSession(session: StoredSession, now = Date.now()): boolean {
+  if (!Number.isFinite(session.expiresAt)) return true;
+  const lifetimeMs = Number.isFinite(session.expiresIn) ? session.expiresIn! * 1000 : null;
+  const refreshWindowMs =
+    lifetimeMs === null ? 60_000 : Math.min(60_000, Math.max(2_000, lifetimeMs * 0.2));
+  return session.expiresAt - now <= refreshWindowMs;
+}
+
+function scheduledRefreshDelay(session: StoredSession, now = Date.now()): number | null {
+  if (!Number.isFinite(session.expiresAt)) return 0;
+  const lifetimeMs = Number.isFinite(session.expiresIn) ? session.expiresIn! * 1000 : null;
+  if (lifetimeMs !== null && lifetimeMs <= 15_000) return null;
+  const refreshWindowMs =
+    lifetimeMs === null ? 60_000 : Math.min(60_000, Math.max(2_000, lifetimeMs * 0.2));
+  return Math.max(0, session.expiresAt - now - refreshWindowMs);
 }

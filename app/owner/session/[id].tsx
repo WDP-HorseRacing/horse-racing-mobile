@@ -1,143 +1,151 @@
+import { useCallback } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { View, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { useRaceOS } from "@/context/RaceOSContext";
+import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { Panel, getUiStyles } from "@/components/ui";
-import { Screen, SectionTitle } from "@/components/common";
-import { radius, space } from "@/config/theme";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
-import { useI18n } from "@/context/I18nContext";
-import { Link } from "expo-router";
-import { TrainerRemark } from "@/types/raceos";
+import { trainingService } from "@/services/training.service";
+import type { SessionParticipantDto } from "@/services/training.service";
+import { horseService } from "@/services/horse.service";
+import type { TrainingSessionView } from "@/adapters/training.adapter";
+import { formatDistance, formatDurationMs } from "@/utils/formatters";
+import { space } from "@/config/theme";
+
+type OwnerSessionPayload = {
+  session: TrainingSessionView;
+  horseName: string;
+  participant: SessionParticipantDto;
+};
 
 export default function OwnerSessionDetail() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
-  const { id, horseId, phaseId } = useLocalSearchParams<{
-    id: string;
-    horseId: string;
-    phaseId: string;
-  }>();
-  
-  const { plans, horses, trainerRemarks } = useRaceOS();
-  const { t } = useI18n();
-  
-  const horse = horses.find((h) => h.id === horseId);
-  const plan = plans.find((p) => p.horseId === horseId);
-  const phase = plan?.phases.find((p) => p.id === phaseId);
-  const session = phase?.sessions.find((s) => s.id === id);
-  const remark = trainerRemarks?.find((r) => r.sessionId === id);
-
-  if (!session || !horse) {
-    return (
-      <Screen role="owner" title="Session unavailable" back>
-        <Panel>
-          <Text style={uiStyles.muted}>{t("This session could not be found.")}</Text>
-        </Panel>
-      </Screen>
-    );
-  }
+  const { id, horseId } = useLocalSearchParams<{ id: string; horseId: string }>();
+  const { token } = useAuth();
+  const load = useCallback(async (): Promise<OwnerSessionPayload> => {
+    const sessions = await trainingService.listHorseSessions(token!, horseId);
+    const session = sessions.find((item) => item.participantId === id);
+    if (!session) throw new Error("This session is no longer available for this horse.");
+    const [horse, participants] = await Promise.all([
+      horseService.get(token!, horseId),
+      trainingService.listSessionParticipants(token!, session.sessionId),
+    ]);
+    const participant = participants.find((item) => item.id === id);
+    if (!participant) throw new Error("This training participant is no longer available.");
+    return { session, horseName: horse.name, participant };
+  }, [token, horseId, id]);
+  const resource = useApiResource(load, Boolean(token && horseId && id));
+  const session = resource.data?.session;
+  const completed = session?.status === "completed";
 
   return (
     <Screen
       role="owner"
-      title={session.title}
-      subtitle={`${horse.name} · ${session.date}`}
+      title={session?.title ?? "Training session"}
+      subtitle={resource.data ? `${resource.data.horseName} · ${session?.scheduledStartLabel}` : "Session details"}
       back
+      refreshing={resource.isRefreshing}
+      onRefresh={() => void resource.refresh()}
     >
-      <View style={uiStyles.section}>
-        <SectionTitle>Training Plan</SectionTitle>
-        <Panel style={styles.grid}>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Distance</Text>
-            <Text style={uiStyles.value}>{session.distanceM} m</Text>
+      <AsyncStateView
+        isLoading={resource.isLoading}
+        error={resource.error}
+        onRetry={() => void resource.retry()}
+        empty={!resource.isLoading && !resource.error && (!id || !horseId)}
+        emptyLabel="This session link is missing its horse or participant ID."
+      />
+      {session ? (
+        <>
+          <View style={uiStyles.section}>
+            <SectionTitle>Training Plan</SectionTitle>
+            <Panel style={styles.grid}>
+              <DetailCell label="Training class" value={session.className} />
+              <DetailCell label="Plan" value={session.planName} />
+              <DetailCell label="Distance" value={session.distanceM == null ? "—" : formatDistance(session.distanceM)} />
+              <DetailCell label="Scheduled duration" value={`${session.durationMin} min`} />
+              <DetailCell label="Surface" value={session.surface ?? "—"} />
+              <DetailCell label="Intensity" value={session.intensity ?? "—"} />
+              <DetailCell label="Location" value={session.location ?? "—"} />
+              <DetailCell label="Assigned groom" value={resource.data!.participant.assignedGroomName ?? session.groomName ?? "—"} />
+            </Panel>
           </View>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Duration</Text>
-            <Text style={uiStyles.value}>{session.durationMin} min</Text>
-          </View>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Surface</Text>
-            <Text style={uiStyles.value}>{t(session.surface)}</Text>
-          </View>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Intensity</Text>
-            <Text style={uiStyles.value}>{t(session.intensity)}</Text>
-          </View>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Workload</Text>
-            <Text style={uiStyles.value}>{session.workloadPercent}%</Text>
-          </View>
-          <View style={styles.cell}>
-            <Text style={uiStyles.label}>Phase</Text>
-            <Text style={uiStyles.value}>{phase?.name}</Text>
-          </View>
-        </Panel>
-      </View>
 
-      <View style={uiStyles.section}>
-        <SectionTitle>Status</SectionTitle>
-        <Panel>
-          <Text style={{ ...uiStyles.value, color: session.status === 'completed' ? colors.primary : colors.foreground }}>
-            {t(session.status)}
-          </Text>
-        </Panel>
-      </View>
+          <View style={uiStyles.section}>
+            <SectionTitle>Status</SectionTitle>
+            <Panel>
+              <Text style={{ ...uiStyles.value, color: completed ? colors.primary : colors.foreground }}>
+                {resource.data!.participant.status.replaceAll("_", " ")}
+              </Text>
+              {session.subjectName ? <Text style={uiStyles.muted}>{session.subjectName}</Text> : null}
+              {resource.data!.participant.trainingLocked ? (
+                <Text style={{ ...uiStyles.muted, color: colors.destructive }}>Training lock is active for this horse.</Text>
+              ) : null}
+              {resource.data!.participant.ineligibilityReason ? (
+                <Text style={{ ...uiStyles.muted, color: colors.destructive }}>{resource.data!.participant.ineligibilityReason}</Text>
+              ) : null}
+            </Panel>
+          </View>
 
-      {session.status === "completed" && (
-        <View style={uiStyles.section}>
-          <SectionTitle>Performance</SectionTitle>
-          <Panel style={styles.grid}>
-            <View style={styles.cell}>
-              <Text style={uiStyles.label}>Actual distance</Text>
-              <Text style={uiStyles.value}>{session.distanceM + 20} m</Text>
+          {completed ? (
+            <View style={uiStyles.section}>
+              <SectionTitle>Trial results</SectionTitle>
+              {session.trials.length ? session.trials.map((trial) => (
+                <Panel key={`${session.participantId}:${trial.attemptNo}`}>
+                  <View style={uiStyles.row}>
+                    <Text style={uiStyles.value}>Attempt {trial.attemptNo}</Text>
+                    <Text style={uiStyles.value}>{formatDurationMs(trial.elapsedMs)}</Text>
+                  </View>
+                  {trial.targetTimeMs == null ? null : (
+                    <Text style={uiStyles.muted}>Target {formatDurationMs(trial.targetTimeMs)}</Text>
+                  )}
+                  {trial.notes ? <Text style={uiStyles.muted}>{trial.notes}</Text> : null}
+                  {trial.videoUrl ? <Text style={{ ...uiStyles.label, color: colors.primary }}>Video available</Text> : null}
+                </Panel>
+              )) : (
+                <Panel><Text style={uiStyles.muted}>No trial timing has been recorded.</Text></Panel>
+              )}
             </View>
-            <View style={styles.cell}>
-              <Text style={uiStyles.label}>Avg speed</Text>
-              <Text style={uiStyles.value}>{Math.round((session.distanceM / (session.durationMin * 60)) * 3.6)} km/h</Text>
-            </View>
-            <View style={styles.cell}>
-              <Text style={uiStyles.label}>Energy used</Text>
-              <Text style={uiStyles.value}>{session.energyMcal} Mcal</Text>
-            </View>
-          </Panel>
-        </View>
-      )}
+          ) : null}
 
-      {remark && (
-        <View style={uiStyles.section}>
-          <SectionTitle>Trainer Remark</SectionTitle>
-          <Panel>
-            <Text style={styles.quote}>"{remark.observation.slice(0, 80)}..."</Text>
-            <Link href={`/owner/remark/${remark.id}`} style={styles.link}>
-              View full trainer remark →
-            </Link>
-          </Panel>
-        </View>
-      )}
+          {session.evaluation ? (
+            <View style={uiStyles.section}>
+              <SectionTitle>Trainer evaluation</SectionTitle>
+              <Panel>
+                <Text style={uiStyles.value}>Score {session.evaluation.score}</Text>
+                <Text style={uiStyles.muted}>{session.evaluation.evaluatorName ?? "Head Trainer"}</Text>
+                {session.evaluation.comment ? <Text style={styles.quote}>{session.evaluation.comment}</Text> : null}
+              </Panel>
+            </View>
+          ) : null}
+        </>
+      ) : null}
     </Screen>
   );
 }
 
+function DetailCell({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
+  return (
+    <View style={stylesForCell.cell}>
+      <Text style={uiStyles.label}>{label}</Text>
+      <Text style={uiStyles.value}>{value}</Text>
+    </View>
+  );
+}
+
+const stylesForCell = StyleSheet.create({ cell: { width: "45%", marginBottom: space.sm } });
+
 const getStyles = (colors: any) => StyleSheet.create({
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: space.md,
-  },
-  cell: {
-    width: "45%",
-    marginBottom: space.sm,
-  },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: space.md },
   quote: {
     color: colors.foreground,
     fontSize: 15,
     fontStyle: "italic",
-    marginBottom: space.md,
+    marginTop: space.md,
   },
-  link: {
-    color: colors.primary,
-    fontWeight: "700",
-  }
 });

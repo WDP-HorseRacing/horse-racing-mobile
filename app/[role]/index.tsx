@@ -5,6 +5,7 @@ import { RoleDashboard, type DashboardPayload } from "@/features/dashboard/compo
 import { Screen } from "@/components/common";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
+import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { horseService } from "@/services/horse.service";
 import { trainingService } from "@/services/training.service";
@@ -31,6 +32,7 @@ export default function RoleHome() {
     return { kind: "horses", horses: horses.map(mapHorseSummary) };
   }, [auth.token, roleId]);
   const resource = useApiResource(loadDashboard, Boolean(auth.token) && isRole(role));
+  useRefreshOnFocus(resource.refresh);
   if (!isRole(role)) return <Redirect href="/" />;
   if (auth.role !== role) return <Redirect href={(auth.role ? `/${auth.role}` : "/login") as Href} />;
   const firstName = auth.user?.fullName.split(" ")[0] ?? "there";

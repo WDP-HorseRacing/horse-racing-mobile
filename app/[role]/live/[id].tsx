@@ -94,9 +94,9 @@ export default function LiveTraining() {
       </View>
       {role === "trainer" ? (
         <PrimaryButton
-          label="Complete session & evaluate"
+          label="Open training schedule"
           icon="checkmark-circle-outline"
-          onPress={() => router.push(`/trainer/eval/${horse.id}`)}
+          onPress={() => router.push("/trainer/training")}
         />
       ) : null}
     </Screen>

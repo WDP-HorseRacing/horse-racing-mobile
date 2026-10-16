@@ -8,6 +8,7 @@ import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
 import { extractErrorMessage, extractFieldErrors } from "@/utils/errorHandler";
 import { useTheme } from "@/hooks/useTheme";
+import { getLoginFeedback } from "@/features/auth/login-feedback";
 
 export default function Login() {
   const { colors } = useTheme();
@@ -18,6 +19,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const loginFeedback = getLoginFeedback(authError, formError, Boolean(token));
 
   if (isLoading && !token) return <LoadingScreen label={t("Signing in…")} />;
 
@@ -43,8 +45,8 @@ export default function Login() {
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View>
-          <Text style={styles.brand}>
-            RACE<Text style={styles.brandAccent}>OS</Text>
+          <Text style={styles.brand} translatable={false}>
+            Horse<Text style={styles.brandAccent} translatable={false}>Racing</Text>
           </Text>
           <Text style={styles.kicker}>{t("Stable operations, in your hand")}</Text>
         </View>
@@ -53,17 +55,14 @@ export default function Login() {
           <Text style={styles.copy}>{t("Use your club account to continue.")}</Text>
         </View>
 
-        {authError && token ? (
+        {loginFeedback ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{extractErrorMessage(authError)}</Text>
-            <Pressable onPress={retry} style={styles.retry}>
-              <Text style={styles.retryText}>{t("Retry session check")}</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {formError ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{formError}</Text>
+            <Text style={styles.errorText}>{extractErrorMessage(loginFeedback.error)}</Text>
+            {loginFeedback.showSessionRetry ? (
+              <Pressable onPress={retry} style={styles.retry}>
+                <Text style={styles.retryText}>{t("Retry session check")}</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
 
@@ -108,8 +107,35 @@ export default function Login() {
           >
             <Text style={styles.submitText}>{isLoading ? t("Signing in…") : t("Sign in")}</Text>
           </Pressable>
+
+          <View style={styles.demoSection}>
+            <Text style={styles.demoTitle}>Demo Quick Fill:</Text>
+            <View style={styles.demoPills}>
+              {[
+                { label: "Trainer", email: "trainer@racehorse.com" },
+                { label: "Groom", email: "groom@racehorse.com" },
+                { label: "Vet", email: "vet@racehorse.com" },
+                { label: "Owner", email: "owner@racehorse.com" },
+                { label: "Manager", email: "manager@racehorse.com" },
+              ].map((acc) => (
+                <Pressable
+                  key={acc.email}
+                  onPress={() => {
+                    setEmail(acc.email);
+                    setPassword("Password123@");
+                    setFormError("");
+                  }}
+                  style={styles.demoPill}
+                >
+                  <Text style={styles.demoPillText}>{acc.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         </View>
-        <Text style={styles.footer}>{t("Your access is determined by the role on your account.")}</Text>
+        <Text style={styles.footer}>
+          {t("Your access is determined by the role on your account.")}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -169,4 +195,16 @@ const getStyles = (colors: any) =>
     retry: { alignSelf: "flex-start", paddingVertical: space.xs },
     retryText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
     footer: { textAlign: "center", color: colors.mutedForeground, fontSize: 11 },
+    demoSection: { marginTop: space.md, gap: space.xs },
+    demoTitle: { color: colors.mutedForeground, fontSize: 11, fontWeight: "600" },
+    demoPills: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    demoPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    demoPillText: { color: colors.foreground, fontSize: 12, fontWeight: "600" },
   });

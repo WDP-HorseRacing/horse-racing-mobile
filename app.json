@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "RACEOS",
-    "slug": "raceos-mobile",
+    "name": "HorseRacing",
+    "slug": "horseracing-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "raceos",
+    "scheme": "horseracing",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.raceos.mobile"
+      "bundleIdentifier": "com.horseracing.mobile"
     },
     "android": {
-      "package": "com.raceos.mobile",
+      "package": "com.horseracing.mobile",
       "predictiveBackGestureEnabled": false
     },
     "web": {

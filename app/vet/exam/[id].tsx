@@ -1,10 +1,10 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, type Href, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { examSymptoms, getHorse } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
-import { Chips, Field, NativeInput , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import { Chips, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { KeyValue, Screen, SectionTitle, TimelineItem } from "@/components/common";
 import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
@@ -14,26 +14,32 @@ import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { medicalService } from "@/services/medical.service";
 import { mapMedicalCase } from "@/adapters/medical.adapter";
 import { formatWeight } from "@/utils/formatters";
+import { isUuid } from "@/features/medical/medical-validation";
 
 export default function Examination() {
-    const { colors } = useTheme();
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const { id, view, horseName } = useLocalSearchParams<{
     id: string;
     view?: string;
     horseName?: string;
   }>();
+  const normalizedId = Array.isArray(id) ? id[0] : id;
+  const normalizedView = Array.isArray(view) ? view[0] : view;
   const { token } = useAuth();
-  const loadCase = useCallback(() => medicalService.getCase(token!, id), [id, token]);
-  const caseResource = useApiResource(loadCase, view === "case" && Boolean(token));
+  const loadCase = useCallback(
+    () => medicalService.getCase(token!, normalizedId),
+    [normalizedId, token],
+  );
+  const caseResource = useApiResource(loadCase, normalizedView === "case" && Boolean(token));
   const medicalCase = useMemo(
     () =>
-      view === "case" && caseResource.data
+      normalizedView === "case" && caseResource.data
         ? mapMedicalCase(caseResource.data, horseName || undefined)
         : null,
-    [caseResource.data, horseName, view],
+    [caseResource.data, horseName, normalizedView],
   );
-  const horse = getHorse(id);
+  const horse = getHorse(normalizedId);
   const { saveExamination, examinations } = useRaceOS();
   const savedExam = examinations[horse.id];
   const [symptoms, setSymptoms] = useState(
@@ -60,7 +66,14 @@ export default function Examination() {
     Alert.alert("Examination recorded", "Trainer has been notified.");
   };
 
-  if (view === "case") {
+  if (normalizedView === "case" && isUuid(normalizedId)) {
+    return <Redirect href={`/vet/medical/cases/${normalizedId}` as Href} />;
+  }
+  if (normalizedView !== "case" && isUuid(normalizedId)) {
+    return <Redirect href={`/vet/medical/visit?horseId=${normalizedId}` as Href} />;
+  }
+
+  if (normalizedView === "case") {
     return (
       <Screen
         role="vet"
@@ -85,7 +98,10 @@ export default function Examination() {
                   ["Opened", medicalCase.openedAtLabel],
                   ["Initial diagnosis", medicalCase.diagnosis],
                   ["Final conclusion", medicalCase.finalConclusion ?? "—"],
-                  ["Total cost", medicalCase.totalCost == null ? "—" : `${medicalCase.totalCost} VND`],
+                  [
+                    "Total cost",
+                    medicalCase.totalCost == null ? "—" : `${medicalCase.totalCost} VND`,
+                  ],
                 ]}
               />
             </Panel>
@@ -101,7 +117,9 @@ export default function Examination() {
                       detail={[
                         visit.resultingStatus.replaceAll("_", " "),
                         visit.careInstructions,
-                        visit.isVoided ? `Voided: ${visit.voidReason ?? "No reason provided"}` : null,
+                        visit.isVoided
+                          ? `Voided: ${visit.voidReason ?? "No reason provided"}`
+                          : null,
                       ]
                         .filter(Boolean)
                         .join(" · ")}

@@ -1,115 +1,56 @@
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { type Href, router, useLocalSearchParams } from "expo-router";
+import { useCallback } from "react";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { getHorse, recoveryTrend } from "@/lib/raceos-data";
-import { MiniChart, ProgressBar , Panel, PrimaryButton, getUiStyles } from "@/components/ui";
-import { Screen, SectionTitle } from "@/components/common";
-import { radius, space } from "@/config/theme";
+import { useAuth } from "@/context/AuthContext";
+import { Panel, getUiStyles } from "@/components/ui";
+import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
+import { useApiResource } from "@/hooks/useApiResource";
+import { horseService } from "@/services/horse.service";
+import { medicalService } from "@/services/medical.service";
+import { formatDateTime } from "@/utils/formatters";
 import { useTheme } from "@/hooks/useTheme";
 
-type Region = { id: string; label: string; finding?: string; recovery?: number };
-const regions: Region[] = [
-  { id: "head", label: "Head & neck" },
-  { id: "shoulder", label: "Left shoulder" },
-  { id: "back", label: "Back" },
-  { id: "left-fore", label: "Left fore", finding: "Grade 2 tendon strain", recovery: 38 },
-  { id: "right-fore", label: "Right fore" },
-  { id: "hind", label: "Hindquarter" },
-  { id: "left-hind", label: "Left hind", finding: "Soft-tissue inflammation", recovery: 65 },
-  { id: "hoof", label: "Right hind hoof" },
-];
+const regionLabels: Record<string, string> = {
+  HEAD: "Head", NECK: "Neck", BACK: "Back", CHEST: "Chest", ABDOMEN: "Abdomen", PELVIS: "Pelvis",
+  LEFT_FRONT_LEG: "Left front leg", RIGHT_FRONT_LEG: "Right front leg", LEFT_HIND_LEG: "Left hind leg",
+  RIGHT_HIND_LEG: "Right hind leg", OTHER: "Other region",
+};
 
 export default function InjuryMap() {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
-  const horse = getHorse(id);
-  const [active, setActive] = useState(regions[3]);
+  const horseId = Array.isArray(id) ? id[0] : id;
+  const { token } = useAuth();
+  const load = useCallback(async () => {
+    const [horse, injuries] = await Promise.all([
+      horseService.get(token!, horseId), medicalService.listInjuries(token!, horseId),
+    ]);
+    return { horse, injuries };
+  }, [token, horseId]);
+  const resource = useApiResource(load, Boolean(token && horseId));
+  const injuries = resource.data?.injuries ?? [];
+
   return (
-    <Screen role="vet" title="Injury mapping" subtitle={`${horse.name} · tap a region`} back>
-      <Panel>
-        <View style={styles.body}>
-          <Text style={styles.horse}>HORSE BODY MAP</Text>
-          <View style={styles.regions}>
-            {regions.map((region) => (
-              <Pressable
-                key={region.id}
-                onPress={() => setActive(region)}
-                style={[
-                  styles.region,
-                  region.finding && styles.injured,
-                  active.id === region.id && styles.active,
-                ]}
-              >
-                <Text style={[styles.regionText, region.finding && styles.injuredText]}>
-                  {region.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+    <Screen role="vet" title="Injury history" subtitle={resource.data?.horse.name ?? ""} back refreshing={resource.isRefreshing} onRefresh={() => void resource.refresh()}>
+      <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} empty={!resource.isLoading && !resource.error && injuries.length === 0} emptyLabel="No injuries have been recorded for this horse." />
+      {resource.data && injuries.length ? <>
+        <Panel><Text style={uiStyles.value}>{resource.data.horse.name}</Text><Text style={uiStyles.muted}>{injuries.length} recorded injury event{injuries.length === 1 ? "" : "s"}</Text></Panel>
+        <View style={uiStyles.section}>
+          <SectionTitle>Injury timeline</SectionTitle>
+          {injuries.map((injury) => (
+            <Pressable key={injury.id} disabled={!injury.caseId} onPress={() => injury.caseId && router.push(`/vet/medical/cases/${injury.caseId}` as Href)}>
+              <Panel style={uiStyles.alert}>
+                <View style={uiStyles.row}><Text style={uiStyles.value}>{regionLabels[injury.bodyRegion] ?? injury.bodyRegion.replaceAll("_", " ")}</Text><Text style={{ ...uiStyles.label, color: colors.destructive }}>{injury.recoveryStatus.replaceAll("_", " ")}</Text></View>
+                <Text style={uiStyles.muted}>{injury.injuryType.replaceAll("_", " ")} · {formatDateTime(injury.examDate)}</Text>
+                {injury.notes ? <Text style={uiStyles.muted}>{injury.notes}</Text> : null}
+                {injury.caseId ? <Text style={{ ...uiStyles.label, color: colors.primary }}>Open medical case</Text> : null}
+              </Panel>
+            </Pressable>
+          ))}
         </View>
-        <Text style={uiStyles.muted}>
-          Red regions are open findings · neutral regions are clear
-        </Text>
-      </Panel>
-      <View style={uiStyles.section}>
-        <SectionTitle>{active.label}</SectionTitle>
-        <Panel>
-          {active.finding ? (
-            <>
-              <Text style={uiStyles.value}>{active.finding}</Text>
-              <Text style={uiStyles.muted}>Recorded Sep 02 · monitoring · re-scan in 5 days</Text>
-              <View style={{ height: space.md }} />
-              <View style={uiStyles.row}>
-                <Text style={uiStyles.muted}>Recovery</Text>
-                <Text style={uiStyles.value}>{active.recovery}%</Text>
-              </View>
-              <ProgressBar value={active.recovery ?? 0} tone={colors.monitor} />
-              <MiniChart data={recoveryTrend} valueKey="v" color={colors.monitor} />
-            </>
-          ) : (
-            <Text style={uiStyles.muted}>No findings recorded for this region.</Text>
-          )}
-        </Panel>
-      </View>
-      <PrimaryButton
-        label={`Add finding to ${active.label.toLowerCase()}`}
-        icon="add"
-        onPress={() => Alert.alert("Finding drafted", active.label)}
-      />
-      <PrimaryButton
-        label="Open examination"
-        onPress={() => router.push(`/vet/exam/${horse.id}`)}
-      />
+      </> : null}
     </Screen>
   );
 }
-
-const getStyles = (colors: any) => StyleSheet.create({
-  body: { gap: space.lg, paddingVertical: space.md },
-  horse: {
-    color: colors.mutedForeground,
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "900",
-    letterSpacing: 3,
-  },
-  regions: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  region: {
-    width: "48%",
-    minHeight: 52,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.elevated,
-    padding: space.sm,
-  },
-  injured: { backgroundColor: colors.injuredSoft, borderColor: colors.destructive },
-  active: { borderWidth: 2, borderColor: colors.primary },
-  regionText: { color: colors.mutedForeground, fontSize: 12, fontWeight: "600" },
-  injuredText: { color: colors.destructive },
-});

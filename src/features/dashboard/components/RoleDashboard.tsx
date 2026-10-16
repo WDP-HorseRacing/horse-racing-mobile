@@ -37,22 +37,51 @@ export function RoleDashboard({
 
   if (payload.kind === "horses") {
     const horses = payload.horses.map(mapHorseSummaryToPrototype);
-    const attention = horses.filter((horse) => ["MONITOR", "INJURED", "LOCKED"].includes(horse.status));
+    const attention = horses.filter((horse) =>
+      ["MONITOR", "INJURED", "LOCKED"].includes(horse.status),
+    );
     return (
       <>
         <View style={uiStyles.metricGrid}>
           <Metric label="Visible horses" value={horses.length} hint="from backend" />
-          <Metric label="Need attention" value={attention.length} hint="monitor or injured" tone={attention.length ? "warning" : "good"} />
-          <Metric label="Eligible" value={horses.filter((horse) => horse.status === "FIT").length} hint="health status" tone="good" />
+          <Metric
+            label="Need attention"
+            value={attention.length}
+            hint="monitor or injured"
+            tone={attention.length ? "warning" : "good"}
+          />
+          <Metric
+            label="Eligible"
+            value={horses.filter((horse) => horse.status === "FIT").length}
+            hint="health status"
+            tone="good"
+          />
         </View>
         <View style={uiStyles.section}>
           <SectionTitle>{role === "owner" ? "My horses" : "Horses in the club"}</SectionTitle>
-          {horses.slice(0, 5).map((horse) => <HorseRow key={horse.id} horse={horse} role={role} />)}
+          {horses.slice(0, 5).map((horse) => (
+            <HorseRow key={horse.id} horse={horse} role={role} />
+          ))}
           {!horses.length ? (
-            <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No horses are available for this account." />
+            <AsyncStateView
+              isLoading={false}
+              error={null}
+              onRetry={() => undefined}
+              empty
+              emptyLabel="No horses are available for this account."
+            />
           ) : null}
         </View>
-        <PrimaryButton label="View all horses" icon="grid-outline" onPress={() => router.push(`/${role}/horses` as Href)} />
+        <PrimaryButton
+          label="View all horses"
+          icon="grid-outline"
+          onPress={() => router.push(`/${role}/horses` as Href)}
+        />
+        {role === "manager" ? <PrimaryButton
+          label="Medical overview"
+          icon="medkit-outline"
+          onPress={() => router.push("/manager/medical" as Href)}
+        /> : null}
       </>
     );
   }
@@ -60,14 +89,25 @@ export function RoleDashboard({
   if (payload.kind === "training") {
     const sessions = payload.sessions;
     const live = sessions.filter((session) => session.status === "in_progress");
-    const upcoming = sessions.filter((session) => session.status === "scheduled" || session.status === "planned");
+    const upcoming = sessions.filter(
+      (session) => session.status === "scheduled" || session.status === "planned",
+    );
     const classes = new Set(sessions.map((session) => session.classId));
     return (
       <>
         <View style={uiStyles.metricGrid}>
           <Metric label="Classes" value={classes.size} hint="from backend" tone="good" />
-          <Metric label="Sessions" value={sessions.length} hint={`${sessions.filter((session) => session.status === "completed").length} completed`} />
-          <Metric label="Live now" value={live.length} hint="active sessions" tone={live.length ? "warning" : "default"} />
+          <Metric
+            label="Sessions"
+            value={sessions.length}
+            hint={`${sessions.filter((session) => session.status === "completed").length} completed`}
+          />
+          <Metric
+            label="Live now"
+            value={live.length}
+            hint="active sessions"
+            tone={live.length ? "warning" : "default"}
+          />
         </View>
         <View style={uiStyles.section}>
           <SectionTitle>Upcoming sessions</SectionTitle>
@@ -76,7 +116,9 @@ export function RoleDashboard({
               <View style={uiStyles.row}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={uiStyles.value}>{session.title}</Text>
-                  <Text style={uiStyles.muted}>{session.horseName} · {session.className}</Text>
+                  <Text style={uiStyles.muted}>
+                    {session.horseName} · {session.className}
+                  </Text>
                 </View>
                 <Text style={uiStyles.label}>{session.status.replaceAll("_", " ")}</Text>
               </View>
@@ -85,14 +127,36 @@ export function RoleDashboard({
                 {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
                 {session.surface ? ` · ${session.surface}` : ""}
               </Text>
-              {session.targetTimeMs == null ? null : <Text style={uiStyles.label}>Target {formatDurationMs(session.targetTimeMs)}</Text>}
+              {session.targetTimeMs == null ? null : (
+                <Text style={uiStyles.label}>Target {formatDurationMs(session.targetTimeMs)}</Text>
+              )}
             </Panel>
           ))}
           {!sessions.length ? (
-            <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No training sessions are available yet." />
+            <AsyncStateView
+              isLoading={false}
+              error={null}
+              onRetry={() => undefined}
+              empty
+              emptyLabel="No training sessions are available yet."
+            />
           ) : null}
         </View>
-        <PrimaryButton label="Open training schedule" icon="calendar-outline" onPress={() => router.push("/trainer/training" as Href)} />
+        <PrimaryButton
+          label="Open training schedule"
+          icon="calendar-outline"
+          onPress={() => router.push("/trainer/training" as Href)}
+        />
+        <PrimaryButton
+          label="Stable overview"
+          icon="map-outline"
+          onPress={() => router.push("/trainer/stable" as Href)}
+        />
+        <PrimaryButton
+          label="Medical overview"
+          icon="medkit-outline"
+          onPress={() => router.push("/trainer/medical" as Href)}
+        />
       </>
     );
   }
@@ -104,27 +168,66 @@ export function RoleDashboard({
     const completeTask = async (taskId: string) => {
       const task = tasks.find((item) => item.id === taskId);
       if (!task?.sourceId) return;
-      if (task.sourceType === "checklist") await groomService.tickChecklistItem(token, task.sourceId, true);
-      else if (task.sourceType === "training" && task.sourceAction === "check-in") await groomService.checkIn(token, task.sourceId);
-      else if (task.sourceType === "training" && task.sourceAction === "ready") await groomService.markReady(token, task.sourceId);
-      else if (task.sourceType === "care") await groomService.completeCareSchedule(token, task.sourceId);
+      if (task.sourceType === "checklist")
+        await groomService.tickChecklistItem(token, task.sourceId, true);
+      else if (task.sourceType === "training" && task.sourceAction === "check-in")
+        await groomService.checkIn(token, task.sourceId);
+      else if (task.sourceType === "training" && task.sourceAction === "ready")
+        await groomService.markReady(token, task.sourceId);
+      else if (task.sourceType === "care")
+        await groomService.completeCareSchedule(token, task.sourceId);
       await onRefresh();
     };
     return (
       <>
         <View style={uiStyles.metricGrid}>
-          <Metric label="Tasks today" value={actionable.length} hint={formatDate(payload.today.date)} />
-          <Metric label="Completed" value={`${done}/${actionable.length}`} hint="checklist and care" tone="good" />
-          <Metric label="Horses in care" value={payload.today.horses.length} hint="assigned to you" />
+          <Metric
+            label="Tasks today"
+            value={actionable.length}
+            hint={formatDate(payload.today.date)}
+          />
+          <Metric
+            label="Completed"
+            value={`${done}/${actionable.length}`}
+            hint="checklist and care"
+            tone="good"
+          />
+          <Metric
+            label="Horses in care"
+            value={payload.today.horses.length}
+            hint="assigned to you"
+          />
         </View>
         <View style={uiStyles.section}>
           <SectionTitle>Next tasks</SectionTitle>
-          {tasks.slice(0, 3).map((task) => <TaskCard key={task.id} task={task} onComplete={completeTask} />)}
+          {tasks.slice(0, 3).map((task) => (
+            <TaskCard key={task.id} task={task} onComplete={completeTask} />
+          ))}
           {!tasks.length ? (
-            <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No tasks assigned for today." />
+            <AsyncStateView
+              isLoading={false}
+              error={null}
+              onRetry={() => undefined}
+              empty
+              emptyLabel="No tasks assigned for today."
+            />
           ) : null}
         </View>
-        <PrimaryButton label="Open all tasks" icon="checkmark-circle-outline" onPress={() => router.push("/groom/tasks" as Href)} />
+        <PrimaryButton
+          label="Open all tasks"
+          icon="checkmark-circle-outline"
+          onPress={() => router.push("/groom/tasks" as Href)}
+        />
+        <PrimaryButton
+          label="Medical examination requests"
+          icon="medkit-outline"
+          onPress={() => router.push("/groom/medical/requests" as Href)}
+        />
+        <PrimaryButton
+          label="Assigned care schedules"
+          icon="calendar-outline"
+          onPress={() => router.push("/groom/medical/care" as Href)}
+        />
       </>
     );
   }
@@ -134,16 +237,34 @@ export function RoleDashboard({
   return (
     <>
       <View style={uiStyles.metricGrid}>
-        <Metric label="Open cases" value={cases.length} hint="from medical records" tone={cases.length ? "warning" : "good"} />
-        <Metric label="Pending requests" value={payload.dashboard.pendingRequests.length} hint="awaiting review" />
-        <Metric label="Checkups due" value={checkups.length} hint="overdue or soon" tone={checkups.length ? "warning" : "good"} />
+        <Metric
+          label="Open cases"
+          value={cases.length}
+          hint="from medical records"
+          tone={cases.length ? "warning" : "good"}
+        />
+        <Metric
+          label="Pending requests"
+          value={payload.dashboard.pendingRequests.length}
+          hint="awaiting review"
+        />
+        <Metric
+          label="Checkups due"
+          value={checkups.length}
+          hint="overdue or soon"
+          tone={checkups.length ? "warning" : "good"}
+        />
       </View>
       <View style={uiStyles.section}>
         <SectionTitle>Open medical cases</SectionTitle>
         {cases.slice(0, 4).map((medicalCase) => (
           <Pressable
             key={medicalCase.id}
-            onPress={() => router.push(`/vet/exam/${medicalCase.id}?view=case&horseName=${encodeURIComponent(medicalCase.horseName)}` as Href)}
+            onPress={() =>
+              router.push(
+                `/vet/medical/cases/${medicalCase.id}` as Href,
+              )
+            }
           >
             <Panel>
               <TimelineItem
@@ -157,7 +278,13 @@ export function RoleDashboard({
           </Pressable>
         ))}
         {!cases.length ? (
-          <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="There are no open medical cases." />
+          <AsyncStateView
+            isLoading={false}
+            error={null}
+            onRetry={() => undefined}
+            empty
+            emptyLabel="There are no open medical cases."
+          />
         ) : null}
       </View>
       <View style={uiStyles.section}>
@@ -167,16 +294,29 @@ export function RoleDashboard({
             <View style={uiStyles.row}>
               <View style={{ flex: 1 }}>
                 <Text style={uiStyles.value}>{checkup.horseName}</Text>
-                <Text style={uiStyles.muted}>Due {formatDate(checkup.dueDate)} · {checkup.healthStatus.replaceAll("_", " ")}</Text>
+                <Text style={uiStyles.muted}>
+                  Due {formatDate(checkup.dueDate)} · {checkup.healthStatus.replaceAll("_", " ")}
+                </Text>
               </View>
-              <Text style={{ ...uiStyles.label, color: checkup.daysLeft < 0 ? colors.destructive : colors.monitor }}>
-                {checkup.daysLeft < 0 ? `${Math.abs(checkup.daysLeft)} days overdue` : `${checkup.daysLeft} days`}
+              <Text
+                style={{
+                  ...uiStyles.label,
+                  color: checkup.daysLeft < 0 ? colors.destructive : colors.monitor,
+                }}
+              >
+                {checkup.daysLeft < 0
+                  ? `${Math.abs(checkup.daysLeft)} days overdue`
+                  : `${checkup.daysLeft} days`}
               </Text>
             </View>
           </Panel>
         ))}
       </View>
-      <PrimaryButton label="Open medical workspace" icon="medkit-outline" onPress={() => router.push("/vet/medical" as Href)} />
+      <PrimaryButton
+        label="Open medical workspace"
+        icon="medkit-outline"
+        onPress={() => router.push("/vet/medical" as Href)}
+      />
     </>
   );
 }

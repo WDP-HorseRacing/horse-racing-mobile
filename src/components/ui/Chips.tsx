@@ -3,6 +3,7 @@ import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
+import { formatEnum } from "@/utils/formatters";
 
 export function Chips({
   options,
@@ -29,7 +30,7 @@ export function Chips({
           style={[styles.chip, value === option && styles.chipActive]}
         >
           <Text style={[styles.chipText, value === option && styles.chipTextActive]}>
-            {t(option)}
+            {formatEnum(t(option))}
           </Text>
         </Pressable>
       ))}
@@ -38,7 +39,7 @@ export function Chips({
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  chips: { flexDirection: "row", gap: space.sm, paddingRight: space.md },
+  chips: { flexDirection: "row", gap: space.sm, paddingRight: space.md, paddingVertical: 3 },
   chip: {
     borderRadius: radius.pill,
     borderWidth: 1,

@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { router, type Href } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { Screen, SectionTitle } from "@/components/common";
-import { Chips, Metric, Panel, getUiStyles } from "@/components/ui";
+import { Chips, Metric, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useI18n } from "@/context/I18nContext";
@@ -94,13 +95,15 @@ export default function TrainerTraining() {
         <View style={uiStyles.section}>
           <SectionTitle>Backend training classes</SectionTitle>
           {classes.map((trainingClass) => (
-            <Panel key={trainingClass.id}>
-              <Text style={uiStyles.value}>{trainingClass.name}</Text>
-              <Text style={uiStyles.muted}>{trainingClass.planName}</Text>
-              <Text style={uiStyles.label}>
-                {trainingClass.horses.size} horses · {trainingClass.sessions.length} sessions
-              </Text>
-            </Panel>
+            <Pressable key={trainingClass.id} onPress={() => router.push(`/trainer/plan/${trainingClass.id}` as Href)}>
+              <Panel>
+                <Text style={uiStyles.value}>{trainingClass.name}</Text>
+                <Text style={uiStyles.muted}>{trainingClass.planName}</Text>
+                <Text style={uiStyles.label}>
+                  {trainingClass.horses.size} horses · {trainingClass.sessions.length} sessions
+                </Text>
+              </Panel>
+            </Pressable>
           ))}
         </View>
       ) : null}
@@ -127,6 +130,8 @@ function TrainingSessionRow({ session }: { session: TrainingSessionView }) {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   return (
+    <View style={{ gap: 8 }}>
+    <Pressable onPress={() => router.push(`/trainer/plan/${session.classId}/session/${session.sessionId}` as Href)}>
     <Panel>
       <View style={uiStyles.row}>
         <View style={{ flex: 1, gap: 4 }}>
@@ -155,5 +160,8 @@ function TrainingSessionRow({ session }: { session: TrainingSessionView }) {
         <Text style={uiStyles.muted}>{session.evaluation.evaluatorName ?? "Trainer"}: {session.evaluation.comment}</Text>
       ) : null}
     </Panel>
+    </Pressable>
+    {session.status === "completed" && !session.evaluation ? <PrimaryButton label="Evaluate session" icon="checkmark" onPress={() => router.push(`/trainer/eval/${session.participantId}?horse=${encodeURIComponent(session.horseName)}&session=${encodeURIComponent(session.title)}` as Href)} /> : null}
+    </View>
   );
 }

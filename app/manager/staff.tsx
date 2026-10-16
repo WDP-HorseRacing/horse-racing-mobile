@@ -1,203 +1,151 @@
-import { useState } from "react";
-import { View, StyleSheet, Pressable, Alert } from "react-native";
+import { useCallback, useState } from "react";
+import { Alert, Pressable, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { staff as initialStaff } from "@/lib/raceos-data";
-import { Panel, PrimaryButton, Field, NativeInput, Chips, getUiStyles } from "@/components/ui";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
+import { Chips, Field, NativeInput, Panel, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { space, radius } from "@/config/theme";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { usersService } from "@/services/users.service";
+import { mapStaffMember, STAFF_ROLE_OPTIONS, staffRoleFromLabel, type StaffDto, type StaffStatus } from "@/adapters/staff.adapter";
+import { showApiError } from "@/utils/errorHandler";
+import { radius, space } from "@/config/theme";
 
 export default function StaffManagement() {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
-  const styles = getStyles(colors);
-
-  const [staffList, setStaffList] = useState(initialStaff);
-  const [editingPerson, setEditingPerson] = useState<any>(null);
+  const { token } = useAuth();
+  const [editingPerson, setEditingPerson] = useState<StaffDto | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-
-  // Form State
+  const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState("Groom");
-  const [scope, setScope] = useState("");
-  const [status, setStatus] = useState("Active");
+
+  const loadStaff = useCallback(() => usersService.list(token!), [token]);
+  const resource = useApiResource(loadStaff, Boolean(token));
+  const staffList = resource.data ?? [];
 
   const openAdd = () => {
-    setName("");
-    setRole("Groom");
-    setScope("");
-    setStatus("Active");
-    setEditingPerson(null);
-    setIsAdding(true);
+    setName(""); setEmail(""); setPassword(""); setRole("Groom");
+    setEditingPerson(null); setIsAdding(true);
   };
 
-  const openEdit = (person: any) => {
-    setName(person.name);
-    setRole(person.role);
-    setScope(person.scope);
-    setStatus(person.status);
-    setEditingPerson(person);
-    setIsAdding(true);
+  const openEdit = (person: StaffDto) => {
+    setName(person.fullName); setEmail(person.email); setPassword("");
+    setRole(person.role ? mapStaffMember(person).roleLabel : "Groom");
+    setEditingPerson(person); setIsAdding(true);
   };
 
-  const savePerson = () => {
-    if (!name || !scope) {
-      Alert.alert("Missing information", "Please fill in all fields.");
+  const savePerson = async () => {
+    if (!token || !name.trim() || (!editingPerson && (!email.trim() || password.length < 8))) {
+      Alert.alert("Missing information", editingPerson ? "Enter the staff member’s name." : "Enter a name, email, and password of at least 8 characters.");
       return;
     }
-
-    if (editingPerson) {
-      setStaffList(
-        staffList.map((p) =>
-          p.name === editingPerson.name
-            ? { ...p, name, role, scope, status }
-            : p
-        )
-      );
-    } else {
-      setStaffList([...staffList, { name, role, scope, status }]);
+    setIsSaving(true);
+    try {
+      if (editingPerson) {
+        await usersService.update(token, editingPerson.id, {
+          fullName: name.trim(), role: staffRoleFromLabel(role),
+        });
+      } else {
+        await usersService.create(token, {
+          fullName: name.trim(), email: email.trim(), role: staffRoleFromLabel(role), password,
+        });
+      }
+      setIsAdding(false);
+      await resource.refresh();
+    } catch (error) {
+      showApiError(error, "Could not save staff account");
+    } finally {
+      setIsSaving(false);
     }
-    setIsAdding(false);
   };
 
-  const deactivatePerson = () => {
-    Alert.alert(
-      "Deactivate Staff",
-      `Are you sure you want to deactivate ${editingPerson?.name}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Deactivate",
-          style: "destructive",
-          onPress: () => {
-            setStaffList(
-              staffList.map((p) =>
-                p.name === editingPerson.name ? { ...p, status: "Deactivated" } : p
-              )
-            );
-            setIsAdding(false);
-          },
-        },
-      ]
-    );
+  const toggleStatus = (person: StaffDto) => {
+    const nextStatus: StaffStatus = person.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    const action = nextStatus === "ACTIVE" ? "activate" : "deactivate";
+    Alert.alert(`${action[0].toUpperCase()}${action.slice(1)} staff`, `Change ${person.fullName} to ${nextStatus.toLowerCase()}?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: action, onPress: () => {
+        void usersService.setStatus(token!, person.id, nextStatus)
+          .then(() => resource.refresh())
+          .catch((error) => showApiError(error, "Could not update staff status"));
+      } },
+    ]);
   };
 
   if (isAdding) {
     return (
-      <Screen
-        role="manager"
-        title={editingPerson ? "Edit Staff" : "Add Staff"}
-        subtitle={editingPerson ? editingPerson.name : "New club personnel"}
-        back
-      >
-        <Field label="Full Name">
-          <NativeInput value={name} onChangeText={setName} placeholder="e.g. John Doe" />
-        </Field>
-
+      <Screen role="manager" title={editingPerson ? "Edit staff" : "Add staff"} subtitle={editingPerson?.fullName ?? "New club account"} back>
+        <Field label="Full name"><NativeInput value={name} onChangeText={setName} placeholder="e.g. Nguyen Van A" /></Field>
+        {!editingPerson ? (
+          <>
+            <Field label="Email"><NativeInput value={email} onChangeText={setEmail} placeholder="staff@racehorse.com" keyboardType="email-address" /></Field>
+            <Field label="Initial password (8+ characters)"><NativeInput value={password} onChangeText={setPassword} placeholder="Enter initial password" secureTextEntry /></Field>
+          </>
+        ) : (
+          <Panel><Text style={uiStyles.label}>Email</Text><Text style={uiStyles.value}>{editingPerson.email}</Text></Panel>
+        )}
         <View style={uiStyles.section}>
           <SectionTitle>Role</SectionTitle>
-          <Chips
-            options={["Head Trainer", "Veterinarian", "Groom", "Horse Owner", "Manager"]}
-            value={role}
-            onChange={setRole}
-          />
+          <Chips options={[...STAFF_ROLE_OPTIONS]} value={role} onChange={setRole} />
         </View>
-
-        <Field label="Assigned Scope">
-          <NativeInput
-            value={scope}
-            onChangeText={setScope}
-            placeholder="e.g. A wing · 8 horses"
+        <PrimaryButton label={isSaving ? "Saving…" : "Save changes"} icon="checkmark" onPress={() => void savePerson()} disabled={isSaving} />
+        {editingPerson ? (
+          <SecondaryButton
+            label={editingPerson.status === "ACTIVE" ? "Deactivate account" : "Activate account"}
+            icon={editingPerson.status === "ACTIVE" ? "person-remove-outline" : "person-add-outline"}
+            onPress={() => toggleStatus(editingPerson)}
           />
-        </Field>
-
-        <View style={uiStyles.section}>
-          <SectionTitle>Account Status</SectionTitle>
-          <Chips
-            options={["Active", "Off shift", "Deactivated"]}
-            value={status}
-            onChange={setStatus}
-          />
-        </View>
-
-        <View style={{ height: space.md }} />
-        <PrimaryButton label="Save Changes" icon="checkmark" onPress={savePerson} />
-        {editingPerson && (
-          <View style={{ marginTop: space.sm }}>
-            <PrimaryButton
-              label="Deactivate Staff"
-              icon="trash-outline"
-              onPress={deactivatePerson}
-            />
-          </View>
-        )}
+        ) : null}
       </Screen>
     );
   }
 
   return (
-    <Screen role="manager" title="Staff" subtitle="Manage club personnel and their assignments" back>
-      <PrimaryButton label="Add Staff" icon="add" onPress={openAdd} />
-      
+    <Screen
+      role="manager"
+      title="Staff"
+      subtitle="Manage club accounts and roles"
+      back
+      refreshing={resource.isRefreshing}
+      onRefresh={() => void resource.refresh()}
+    >
+      <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} />
+      <PrimaryButton label="Add staff" icon="add" onPress={openAdd} />
       <View style={uiStyles.section}>
-        <SectionTitle>Personnel List</SectionTitle>
-        {staffList.map((person) => (
-          <Pressable key={person.name} onPress={() => openEdit(person)}>
-            <Panel>
-              <View style={uiStyles.row}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {person.name
-                      .split(" ")
-                      .map((n: string) => n[0])
-                      .slice(0, 2)
-                      .join("")}
+        <SectionTitle>Personnel list</SectionTitle>
+        {resource.data && staffList.length === 0 ? (
+          <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="There are no staff accounts." />
+        ) : null}
+        {staffList.map((person) => {
+          const member = mapStaffMember(person);
+          return (
+            <Pressable key={person.id} onPress={() => openEdit(person)}>
+              <Panel>
+                <View style={uiStyles.row}>
+                  <View style={{ width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.fitSoft, alignItems: "center", justifyContent: "center", marginRight: space.sm }}>
+                    <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "800" }}>
+                      {person.fullName.split(" ").map((part) => part[0]).slice(-2).join("")}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Text style={uiStyles.value}>{person.fullName}</Text>
+                    <Text style={uiStyles.muted}>{person.email}</Text>
+                    <Text style={uiStyles.label}>{member.roleLabel}</Text>
+                  </View>
+                  <Text style={{ ...uiStyles.muted, color: person.status === "ACTIVE" ? colors.primary : person.status === "INACTIVE" ? colors.destructive : colors.monitor }}>
+                    {member.statusLabel}
                   </Text>
                 </View>
-                <View style={styles.info}>
-                  <Text style={uiStyles.value}>{person.name}</Text>
-                  <Text style={uiStyles.muted}>
-                    {person.role} · {person.scope}
-                  </Text>
-                </View>
-                <Text
-                  style={{
-                    ...uiStyles.muted,
-                    color:
-                      person.status === "Active"
-                        ? colors.primary
-                        : person.status === "Deactivated"
-                        ? colors.destructive
-                        : colors.mutedForeground,
-                  }}
-                >
-                  {person.status}
-                </Text>
-              </View>
-            </Panel>
-          </Pressable>
-        ))}
+              </Panel>
+            </Pressable>
+          );
+        })}
       </View>
     </Screen>
   );
 }
-
-const getStyles = (colors: any) => StyleSheet.create({
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.fitSoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: space.md,
-  },
-  avatarText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  info: {
-    flex: 1,
-  },
-});

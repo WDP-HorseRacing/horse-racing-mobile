@@ -1,110 +1,66 @@
-import { router } from "expo-router";
-import { View, StyleSheet, Pressable } from "react-native";
+import { router, type Href } from "expo-router";
+import { useCallback, useMemo } from "react";
+import { Pressable, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import { useRaceOS } from "@/context/RaceOSContext";
+import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { Panel, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
-import { radius, space } from "@/config/theme";
+import { useAuth } from "@/context/AuthContext";
+import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { trainingService } from "@/services/training.service";
+import { mapOwnerTrainingRemarks } from "@/adapters/training.adapter";
+import { formatDateTime } from "@/utils/formatters";
+import { space } from "@/config/theme";
 
 export default function OwnerRemarks() {
   const { colors } = useTheme();
-  const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
-  
-  const { trainerRemarks, horses } = useRaceOS();
-  
-  // Filter for Marlow Bloodstock (or current owner)
-  const myHorses = horses.filter((h) => h.owner === "Marlow Bloodstock");
-  const myHorseIds = new Set(myHorses.map((h) => h.id));
-  const myRemarks = trainerRemarks?.filter((r) => myHorseIds.has(r.horseId))
-    .sort((a, b) => b.date.localeCompare(a.date)) || [];
+  const { token } = useAuth();
+  const loadTraining = useCallback(() => trainingService.listAllVisibleSessions(token!), [token]);
+  const resource = useApiResource(loadTraining, Boolean(token));
+  const remarks = useMemo(
+    () => mapOwnerTrainingRemarks(resource.data ?? []),
+    [resource.data],
+  );
 
   return (
-    <Screen role="owner" title="Trainer Remarks" subtitle="Professional observations from your Head Trainer">
+    <Screen
+      role="owner"
+      title="Trainer remarks"
+      subtitle="Evaluations attached to your horses’ training sessions"
+      refreshing={resource.isRefreshing}
+      onRefresh={() => void resource.refresh()}
+    >
       <View style={uiStyles.section}>
-        <SectionTitle>Recent Observations</SectionTitle>
-        {myRemarks.length > 0 ? (
-          myRemarks.map((remark) => {
-            const horse = horses.find(h => h.id === remark.horseId);
-            return (
-              <Pressable
-                key={remark.id}
-                onPress={() => router.push(`/owner/remark/${remark.id}`)}
-                style={styles.card}
-              >
-                <View style={uiStyles.row}>
-                  <View style={styles.dateBox}>
-                    <Text style={styles.day}>{remark.date.slice(8)}</Text>
-                    <Text style={uiStyles.label}>{remark.date.slice(5, 7)}/{remark.date.slice(2, 4)}</Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={uiStyles.value}>{horse?.name}</Text>
-                    <Text style={uiStyles.muted}>{remark.sessionTitle || remark.context}</Text>
-                  </View>
+        <SectionTitle>Recent observations</SectionTitle>
+        <AsyncStateView
+          isLoading={resource.isLoading}
+          error={resource.error}
+          onRetry={() => void resource.retry()}
+          empty={Boolean(resource.data && remarks.length === 0)}
+          emptyLabel="There are no trainer evaluations for your horses yet."
+        />
+        {remarks.map((remark) => (
+          <Pressable
+            key={remark.id}
+            onPress={() => router.push(`/owner/remark/${remark.id}` as Href)}
+          >
+            <Panel style={{ gap: space.md }}>
+              <View style={uiStyles.row}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={uiStyles.value}>{remark.horseName}</Text>
+                  <Text style={uiStyles.muted}>{remark.sessionTitle} · {formatDateTime(remark.date)}</Text>
                 </View>
-                
-                <View style={styles.content}>
-                  <Text style={uiStyles.label}>From: {remark.trainerName}</Text>
-                  <Text style={styles.observation} numberOfLines={2}>
-                    "{remark.observation}"
-                  </Text>
-                </View>
-                
-                <View style={styles.footer}>
-                  <Text style={styles.link}>View details →</Text>
-                </View>
-              </Pressable>
-            );
-          })
-        ) : (
-          <Panel>
-            <Text style={uiStyles.muted}>No trainer remarks yet</Text>
-          </Panel>
-        )}
+                <Text style={{ ...uiStyles.value, color: colors.primary }}>Score {remark.score}</Text>
+              </View>
+              <Text style={uiStyles.muted}>From {remark.trainerName}</Text>
+              <Text style={uiStyles.value} numberOfLines={3}>{remark.observation}</Text>
+              <Text style={{ ...uiStyles.label, color: colors.primary, textAlign: "right" }}>View details →</Text>
+            </Panel>
+          </Pressable>
+        ))}
       </View>
     </Screen>
   );
 }
-
-const getStyles = (colors: any) => StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: space.md,
-    gap: space.md,
-  },
-  dateBox: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.sm,
-    backgroundColor: colors.fitSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  day: { color: colors.primary, fontSize: 16, fontWeight: "800" },
-  content: {
-    paddingLeft: 44 + space.md,
-    gap: 4,
-  },
-  observation: {
-    color: colors.foreground,
-    fontSize: 14,
-    lineHeight: 20,
-    fontStyle: "italic",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    paddingTop: space.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  link: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "700",
-  }
-});

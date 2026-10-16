@@ -32,7 +32,7 @@ for (const path of files) {
     visible.add(match[1]);
 }
 const properNameOrUnit =
-  /^(RACE|OS|Thunder King|Red Storm|Pale Comet|Autumn Sprint|Silver Arrow|Night Quartz|Golden Hour|Iron Verdict|Brave Ledger|Marlow Bloodstock|Meadowline Racing Club|[+\d$°].*|.*(?:bpm|km\/h|Mcal\/day))$/;
+  /^(RACE|OS|HorseRacing|HorseRacing Mobile|entry\.value|item\.quantityOnHand|Thunder King|Red Storm|Pale Comet|Autumn Sprint|Silver Arrow|Night Quartz|Golden Hour|Iron Verdict|Brave Ledger|Marlow Bloodstock|Meadowline Racing Club|[+\d$°].*|.*(?:bpm|km\/h|Mcal\/day))$/;
 const untranslated = [...visible].filter(
   (text) =>
     text &&
