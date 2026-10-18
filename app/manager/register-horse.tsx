@@ -1,6 +1,7 @@
 import { type Href, router } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert, Image, View } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
 import { Text } from "@/components/common/LocalizedText";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -18,6 +19,7 @@ import { useApiResource } from "@/hooks/useApiResource";
 import { usersService } from "@/services/users.service";
 import { horseService } from "@/services/horse.service";
 import { stableService } from "@/services/stable.service";
+import { mediaService, type LocalMediaAsset } from "@/services/media.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import type { StaffDto } from "@/adapters/staff.adapter";
 import type { CreateHorseInput, HorseGenderDto } from "@/adapters/horse.adapter";
@@ -39,6 +41,9 @@ export default function RegisterHorse() {
   const [sireId, setSireId] = useState("");
   const [damId, setDamId] = useState("");
   const [barnId, setBarnId] = useState("");
+  const [photo, setPhoto] = useState<LocalMediaAsset | null>(null);
+  const [uploadedPhotoId, setUploadedPhotoId] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [sireSearch, setSireSearch] = useState("");
   const [damSearch, setDamSearch] = useState("");
   const [ownerSearch, setOwnerSearch] = useState("");
@@ -92,6 +97,8 @@ export default function RegisterHorse() {
     setSireId("");
     setDamId("");
     setBarnId("");
+    setPhoto(null);
+    setUploadedPhotoId(null);
     setSireSearch("");
     setDamSearch("");
     setOwnerSearch("");
@@ -119,19 +126,27 @@ export default function RegisterHorse() {
     savingRef.current = true;
     setSaving(true);
     setFormError("");
-    const input: CreateHorseInput = {
-      name: name.trim(),
-      gender,
-      ...(microchipId.trim() ? { microchipId: microchipId.trim() } : {}),
-      ...(breed.trim() ? { breed: breed.trim() } : {}),
-      ...(color.trim() ? { color: color.trim() } : {}),
-      ...(dateOfBirth.trim() ? { dateOfBirth: dateOfBirth.trim() } : {}),
-      ...(ownerId ? { ownerId } : {}),
-      ...(sireId ? { sireId } : {}),
-      ...(damId ? { damId } : {}),
-      ...(barnId ? { barnId } : {}),
-    };
     try {
+      let mediaId = uploadedPhotoId;
+      if (photo && !mediaId) {
+        setUploadingPhoto(true);
+        mediaId = await mediaService.uploadHorsePhoto(token, photo);
+        setUploadedPhotoId(mediaId);
+        setUploadingPhoto(false);
+      }
+      const input: CreateHorseInput = {
+        name: name.trim(),
+        gender,
+        ...(microchipId.trim() ? { microchipId: microchipId.trim() } : {}),
+        ...(breed.trim() ? { breed: breed.trim() } : {}),
+        ...(color.trim() ? { color: color.trim() } : {}),
+        ...(dateOfBirth.trim() ? { dateOfBirth: dateOfBirth.trim() } : {}),
+        ...(ownerId ? { ownerId } : {}),
+        ...(sireId ? { sireId } : {}),
+        ...(damId ? { damId } : {}),
+        ...(barnId ? { barnId } : {}),
+        ...(mediaId ? { mediaId } : {}),
+      };
       const created = await horseService.create(token, input);
       if (mode === "another") {
         Alert.alert(
@@ -147,8 +162,21 @@ export default function RegisterHorse() {
       setFormError(message);
       Alert.alert("Could not register horse", message);
     } finally {
+      setUploadingPhoto(false);
       savingRef.current = false;
       setSaving(false);
+    }
+  };
+
+  const choosePhoto = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["image/jpeg", "image/png", "image/webp"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhoto(result.assets[0]);
+      setUploadedPhotoId(null);
     }
   };
 
@@ -158,6 +186,7 @@ export default function RegisterHorse() {
       title="Register horse"
       subtitle="Identity, pedigree and initial barn"
       back
+      fallbackHref="/manager/horses"
       refreshing={
         ownersResource.isRefreshing || horsesResource.isRefreshing || barnsResource.isRefreshing
       }
@@ -302,27 +331,53 @@ export default function RegisterHorse() {
                   emptyLabel="No active barn with an available stall and Head Trainer. Horse will remain pending barn assignment."
                 />
               </Field>
-              <Panel>
-                <Text style={uiStyles.muted}>
-                  Photo upload is currently unavailable in this mobile build. You can create the
-                  profile without a photo.
-                </Text>
-              </Panel>
+              <View style={uiStyles.section}>
+                <Text style={uiStyles.value}>Horse photo (optional)</Text>
+                {photo ? (
+                  <>
+                    <Text style={uiStyles.muted}>{photo.name}</Text>
+                    <Image
+                      source={{ uri: photo.uri }}
+                      style={{ width: 200, height: 150, borderRadius: 12 }}
+                      resizeMode="cover"
+                    />
+                    <SecondaryButton
+                      label="Remove photo"
+                      onPress={() => {
+                        setPhoto(null);
+                        setUploadedPhotoId(null);
+                      }}
+                    />
+                  </>
+                ) : null}
+                <SecondaryButton
+                  label="Choose photo"
+                  onPress={() => void choosePhoto()}
+                  disabled={saving || Boolean(photo)}
+                />
+                <Text style={uiStyles.muted}>JPEG, PNG, or WebP · up to 10 MB</Text>
+              </View>
             </View>
           </Panel>
           {formError ? (
             <Panel style={uiStyles.alert}>
-              <Text style={{ color: colors.destructive, fontWeight: "600", fontSize: 13 }}>{formError}</Text>
+              <Text style={{ color: colors.destructive, fontWeight: "600", fontSize: 13 }}>
+                {formError}
+              </Text>
             </Panel>
           ) : null}
           <PrimaryButton
-            label={saving ? "Saving…" : "Save and open profile"}
+            label={
+              uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save and open profile"
+            }
             icon="checkmark"
             disabled={saving}
             onPress={() => void submit("open")}
           />
           <SecondaryButton
-            label={saving ? "Saving…" : "Save and add another"}
+            label={
+              uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save and add another"
+            }
             icon="add"
             disabled={saving}
             onPress={() => void submit("another")}

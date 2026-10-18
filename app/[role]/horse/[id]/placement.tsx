@@ -1,4 +1,5 @@
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
+import { safeBack } from "@/utils/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
@@ -102,7 +103,7 @@ export default function HorsePlacement() {
         "The horse is now assigned to the selected barn. The Backend places it in pending stall assignment.",
       );
       await horseResource.refresh();
-      router.back();
+      safeBack(`/${role}/horse/${id}` as Href);
     } catch (error) {
       const message = extractErrorMessage(error);
       setFormError(message);
@@ -128,7 +129,7 @@ export default function HorsePlacement() {
               await horseService.placeHorse(token, id, { stallId, groomId });
               Alert.alert("Placement updated", "Stall and Groom assignments have been refreshed.");
               await horseResource.refresh();
-              router.back();
+              safeBack(`/${role}/horse/${id}` as Href);
             } catch (error) {
               const message = extractErrorMessage(error);
               setFormError(message);
@@ -151,6 +152,7 @@ export default function HorsePlacement() {
       title={role === "manager" ? "Assign barn" : "Stall and Groom"}
       subtitle={horseResource.data?.name ?? "Horse profile"}
       back
+      fallbackHref={`/${role}/horse/${id}` as Href}
       refreshing={
         horseResource.isRefreshing ||
         permissionsResource.isRefreshing ||

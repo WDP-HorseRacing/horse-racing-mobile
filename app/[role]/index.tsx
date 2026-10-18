@@ -1,7 +1,10 @@
 import { Redirect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback } from "react";
 import { isRole, roles } from "@/features/auth/roles";
-import { RoleDashboard, type DashboardPayload } from "@/features/dashboard/components/RoleDashboard";
+import {
+  RoleDashboard,
+  type DashboardPayload,
+} from "@/features/dashboard/components/RoleDashboard";
 import { Screen } from "@/components/common";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
@@ -20,7 +23,11 @@ export default function RoleHome() {
   const loadDashboard = useCallback(async (): Promise<DashboardPayload> => {
     const token = auth.token!;
     if (roleId === "trainer") {
-      return { kind: "training", sessions: await trainingService.listAllVisibleSessions(token) };
+      const classes = await trainingService.listClasses(token);
+      const sessionGroups = await Promise.all(
+        classes.map((trainingClass) => trainingService.listClassSessions(token, trainingClass.id)),
+      );
+      return { kind: "training", classes, sessions: sessionGroups.flat() };
     }
     if (roleId === "groom") {
       return { kind: "groom", today: await groomService.getToday(token) };
@@ -32,9 +39,10 @@ export default function RoleHome() {
     return { kind: "horses", horses: horses.map(mapHorseSummary) };
   }, [auth.token, roleId]);
   const resource = useApiResource(loadDashboard, Boolean(auth.token) && isRole(role));
-  useRefreshOnFocus(resource.refresh);
+  useRefreshOnFocus(resource.revalidate);
   if (!isRole(role)) return <Redirect href="/" />;
-  if (auth.role !== role) return <Redirect href={(auth.role ? `/${auth.role}` : "/login") as Href} />;
+  if (auth.role !== role)
+    return <Redirect href={(auth.role ? `/${auth.role}` : "/login") as Href} />;
   const firstName = auth.user?.fullName.split(" ")[0] ?? "there";
   const title =
     role === "trainer"

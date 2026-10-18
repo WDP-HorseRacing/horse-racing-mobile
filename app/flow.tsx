@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { safeBack } from "@/utils/navigation";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { LanguageToggle, Text } from "@/components/common/LocalizedText";
 import { flowSteps } from "@/lib/raceos-data";
@@ -30,7 +30,7 @@ export default function Flow() {
             <Text style={uiStyles.muted}>{step.detail}</Text>
           </Panel>
         ))}
-        <PrimaryButton label="Back" icon="arrow-back" onPress={() => router.back()} />
+        <PrimaryButton label="Back" icon="arrow-back" onPress={() => safeBack("/")} />
       </ScrollView>
     </SafeAreaView>
   );

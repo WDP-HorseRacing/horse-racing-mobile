@@ -62,7 +62,7 @@ export default function MedicalCaseDetail() {
     load,
     Boolean(token && id && role && ["vet", "manager", "trainer", "owner"].includes(role)),
   );
-  useRefreshOnFocus(resource.refresh);
+  useRefreshOnFocus(resource.revalidate);
   const medicalCase = resource.data?.medicalCase;
   const visits = medicalCase?.visits ?? [];
   const isVet = role === "vet";

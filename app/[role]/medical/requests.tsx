@@ -52,7 +52,7 @@ export default function ExaminationRequests() {
     load,
     Boolean(token && role && ["vet", "manager", "trainer", "groom"].includes(role)),
   );
-  useRefreshOnFocus(resource.refresh);
+  useRefreshOnFocus(resource.revalidate);
   const loadHorses = useCallback(
     () =>
       horseService.list(token!, "", {

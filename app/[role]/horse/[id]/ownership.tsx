@@ -116,6 +116,7 @@ export default function HorseOwnership() {
       title="Ownership history"
       subtitle={horseResource.data?.name ?? "Horse profile"}
       back
+      fallbackHref={`/${role}/horse/${id}` as any}
       refreshing={
         horseResource.isRefreshing ||
         historyResource.isRefreshing ||

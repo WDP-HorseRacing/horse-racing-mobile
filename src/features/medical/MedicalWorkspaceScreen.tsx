@@ -51,7 +51,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
     load,
     Boolean(token && role && ["vet", "manager", "trainer"].includes(role)),
   );
-  useRefreshOnFocus(resource.refresh);
+  useRefreshOnFocus(resource.revalidate);
 
   const horsesByBarn = useMemo(() => {
     const groups = new Map<string, MedicalDashboardDto["herd"]["horses"]>();

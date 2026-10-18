@@ -1,74 +1,128 @@
-import { useCallback, useMemo } from "react";
-import { View } from "react-native";
+import { useCallback, useState } from "react";
+import { Alert, View } from "react-native";
+import { router } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
-import { AsyncStateView } from "@/components/common/AsyncStateView";
-import { Metric, Panel, getUiStyles } from "@/components/ui";
-import { Screen, SectionTitle } from "@/components/common";
+import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
+import {
+  Field,
+  NativeInput,
+  Panel,
+  PrimaryButton,
+  SecondaryButton,
+  getUiStyles,
+} from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
 import { reportsService } from "@/services/reports.service";
-import { formatDate } from "@/utils/formatters";
+import { isDateOnly } from "@/features/stable-care/stable-care-validation";
+import { clubDate } from "@/utils/horse-validation";
 
 export default function ManagerReports() {
   const { colors } = useTheme();
-  const uiStyles = getUiStyles(colors);
+  const ui = getUiStyles(colors);
   const { token } = useAuth();
-  const today = new Date();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const from = `${today.getFullYear()}-${month}-01`;
-  const to = `${today.getFullYear()}-${month}-${String(today.getDate()).padStart(2, "0")}`;
-  const loadFinance = useCallback(() => reportsService.getClubFinance(token!, from, to), [token, from, to]);
-  const resource = useApiResource(loadFinance, Boolean(token));
-  const rows = useMemo(() => flattenFinance(resource.data), [resource.data]);
+  const today = todayDate();
+  const initialFrom = today.slice(0, 7) + "-01";
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(today);
+  const [range, setRange] = useState({ from: initialFrom, to: today });
+  const load = useCallback(
+    () => reportsService.getClubFinance(token!, range.from, range.to),
+    [range.from, range.to, token],
+  );
+  const resource = useApiResource(load, Boolean(token));
+  const updateRange = () => {
+    if (!isDateOnly(from) || !isDateOnly(to) || from > to) {
+      Alert.alert("Check report dates", "Enter valid dates and make sure From is not after To.");
+      return;
+    }
+    setRange({ from, to });
+  };
+  const report = resource.data;
 
   return (
     <Screen
       role="manager"
       title="Club reports"
-      subtitle={`${formatDate(from)} – ${formatDate(to)}`}
+      subtitle={report ? report.from + " – " + report.to : "Financial summary by date range"}
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
-      <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} />
-      {resource.error ? (
-        <Panel>
-          <Text style={uiStyles.value}>Finance data is not available yet</Text>
-          <Text style={uiStyles.muted}>The mobile app requests GET /reports/club/finance. The current backend source returns 501 until that report service is implemented.</Text>
-        </Panel>
-      ) : null}
-      {resource.data !== null ? (
-        <View style={uiStyles.section}>
-          <SectionTitle>Finance summary</SectionTitle>
-          {rows.length ? rows.map((row) => (
-            <Panel key={row.label}>
-              <View style={uiStyles.row}>
-                <Text style={uiStyles.muted}>{row.label}</Text>
-                <Text style={uiStyles.value}>{row.value}</Text>
-              </View>
+      <Field label="From · YYYY-MM-DD">
+        <NativeInput value={from} onChangeText={setFrom} placeholder="YYYY-MM-DD" />
+      </Field>
+      <Field label="To · YYYY-MM-DD">
+        <NativeInput value={to} onChangeText={setTo} placeholder="YYYY-MM-DD" />
+      </Field>
+      <SecondaryButton label="Load report" onPress={updateRange} />
+      <PrimaryButton
+        label="Review unapplied surcharges"
+        icon="cash-outline"
+        onPress={() => router.push("/manager/surcharges")}
+      />
+      <SecondaryButton
+        label="Manage daily boarding fees"
+        onPress={() => router.push("/manager/daily-fees")}
+      />
+      <AsyncStateView
+        isLoading={resource.isLoading}
+        error={resource.error}
+        onRetry={() => void resource.retry()}
+      />
+      {report ? (
+        <>
+          <View style={ui.section}>
+            <SectionTitle>Owner charges · VND</SectionTitle>
+            <Panel>
+              <Row label="Daily boarding fees" value={money(report.ownerCharges.dailyFee)} />
+              <Row label="Medical costs" value={money(report.ownerCharges.medicalCost)} />
+              <Row label="Care surcharges" value={money(report.ownerCharges.surcharge)} />
+              <Row label="Total" value={money(report.ownerCharges.total)} strong />
             </Panel>
-          )) : (
-            <Metric label="Finance report" value="No summary values" hint="The API returned no scalar fields" />
-          )}
-        </View>
+          </View>
+          <View style={ui.section}>
+            <SectionTitle>Supply costs · VND</SectionTitle>
+            <Panel>
+              <Row label="Purchased" value={money(report.supplies.purchased)} />
+              <Row label="Used" value={money(report.supplies.used)} />
+            </Panel>
+          </View>
+          <View style={ui.section}>
+            <SectionTitle>By horse owner</SectionTitle>
+            {report.owners.length ? (
+              report.owners.map((owner) => (
+                <Panel key={owner.ownerId}>
+                  <Text style={ui.value}>{owner.ownerName}</Text>
+                  <Row label="Daily fees" value={money(owner.dailyFee)} />
+                  <Row label="Medical" value={money(owner.medicalCost)} />
+                  <Row label="Surcharges" value={money(owner.surcharge)} />
+                  <Row label="Total" value={money(owner.total)} strong />
+                </Panel>
+              ))
+            ) : (
+              <Text style={ui.muted}>No owner charges were recorded for this period.</Text>
+            )}
+          </View>
+        </>
       ) : null}
     </Screen>
   );
 }
 
-function flattenFinance(value: unknown, prefix = ""): Array<{ label: string; value: string }> {
-  if (Array.isArray(value)) {
-    return value.flatMap((item, index) => flattenFinance(item, prefix ? `${prefix} ${index + 1}` : `Item ${index + 1}`)).slice(0, 50);
-  }
-  if (typeof value === "object" && value !== null) {
-    return Object.entries(value).flatMap(([key, item]) =>
-      flattenFinance(item, prefix ? `${prefix} · ${humanize(key)}` : humanize(key)),
-    ).slice(0, 50);
-  }
-  if (value === null || value === undefined) return [];
-  return [{ label: prefix || "Value", value: typeof value === "number" ? new Intl.NumberFormat("vi-VN").format(value) : String(value) }];
+function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  const { colors } = useTheme();
+  const ui = getUiStyles(colors);
+  return (
+    <View style={ui.row}>
+      <Text style={strong ? ui.value : ui.muted}>{label}</Text>
+      <Text style={ui.value}>{value}</Text>
+    </View>
+  );
 }
-
-function humanize(value: string): string {
-  return value.replace(/([a-z])([A-Z])/g, "$1 $2").replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
+function money(value: number): string {
+  return new Intl.NumberFormat("vi-VN").format(value) + " ₫";
+}
+function todayDate(): string {
+  return clubDate();
 }

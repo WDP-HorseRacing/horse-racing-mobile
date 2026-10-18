@@ -14,6 +14,7 @@ import {
   NativeInput,
   Panel,
   PrimaryButton,
+  SecondaryButton,
   StatusBadge,
   getUiStyles,
 } from "@/components/ui";
@@ -25,7 +26,13 @@ import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { trainingService } from "@/services/training.service";
-import { formatDistance, formatDurationMs, formatEnum, formatWeight } from "@/utils/formatters";
+import {
+  formatDateTime,
+  formatDistance,
+  formatDurationMs,
+  formatEnum,
+  formatWeight,
+} from "@/utils/formatters";
 import { horseService } from "@/services/horse.service";
 import { mapHorseDetailToPrototype } from "@/adapters/horse.adapter";
 import { medicalService } from "@/services/medical.service";
@@ -33,13 +40,14 @@ import type { HealthStatusDto } from "@/services/medical.service";
 import { isValidRequiredText } from "@/features/medical/medical-validation";
 import { performanceService } from "@/services/performance.service";
 import { racingService } from "@/services/racing.service";
+import { auditService } from "@/services/audit.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 
 const tabsByRole: Record<RoleId, string[]> = {
-  trainer: ["Overview", "Training", "Health", "Performance", "Racing", "Timeline"],
-  vet: ["Overview", "Training", "Health", "Injuries", "Treatment", "Timeline"],
-  groom: ["Overview", "Care", "Timeline"],
-  owner: ["Overview", "Training", "Health", "Performance", "Racing", "Costs", "Timeline"],
+  trainer: ["Overview", "Training", "Health", "Performance", "Racing"],
+  vet: ["Overview", "Training", "Health", "Injuries", "Treatment"],
+  groom: ["Overview", "Care"],
+  owner: ["Overview", "Training", "Health", "Performance", "Racing", "Costs"],
   manager: ["Overview", "Health", "Performance", "Racing", "Costs", "Timeline"],
 };
 
@@ -47,15 +55,30 @@ export default function HorseProfile() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
-  const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
+  const {
+    role,
+    id,
+    tab: requestedTab,
+  } = useLocalSearchParams<{ role: string; id: string; tab?: string }>();
   const roleId: RoleId = isRole(role) ? role : "trainer";
+  const requestedTabValue = Array.isArray(requestedTab) ? requestedTab[0] : requestedTab;
   const raceOS = useRaceOS();
   const [raceAptitudeDraft, setRaceAptitudeDraft] = useState<string | null>(null);
   const [savingAptitude, setSavingAptitude] = useState(false);
   const [healthStatusDraft, setHealthStatusDraft] = useState("");
   const [healthReason, setHealthReason] = useState("");
   const [savingHealth, setSavingHealth] = useState(false);
-  const [tab, setTab] = useState(tabsByRole[roleId][0]);
+  const [thresholdEditorOpen, setThresholdEditorOpen] = useState(false);
+  const [thresholdName, setThresholdName] = useState("Horse-specific limits");
+  const [thresholdWarning, setThresholdWarning] = useState("");
+  const [thresholdCritical, setThresholdCritical] = useState("");
+  const [thresholdSpeed, setThresholdSpeed] = useState("");
+  const [savingThreshold, setSavingThreshold] = useState(false);
+  const [tab, setTab] = useState(() =>
+    requestedTabValue && tabsByRole[roleId].includes(requestedTabValue)
+      ? requestedTabValue
+      : tabsByRole[roleId][0],
+  );
   const { plans, lockedHorseIds } = raceOS;
   const { token } = useAuth();
   const loadHorse = useCallback(() => horseService.get(token!, id), [id, token]);
@@ -124,12 +147,19 @@ export default function HorseProfile() {
     ),
   );
   const loadPerformanceData = useCallback(async () => {
-    const [summary, sessions] = await Promise.all([
-      performanceService.getHorseSummary(token!, id),
+    const [sessions, workload] = await Promise.all([
       performanceService.listHorseSessions(token!, id),
+      performanceService.getHorseWorkload(token!, id),
     ]);
-    return { summary, sessions };
-  }, [id, token]);
+    if (roleId === "owner")
+      return { summary: null, sessions, workload, thresholds: null, alerts: [] };
+    const [summary, thresholds, alertPage] = await Promise.all([
+      performanceService.getHorseSummary(token!, id),
+      performanceService.getThresholds(token!, id),
+      performanceService.listHorseAlerts(token!, id, { page: 1, limit: 20 }),
+    ]);
+    return { summary, sessions, workload, thresholds, alerts: alertPage.items };
+  }, [id, roleId, token]);
   const performanceResource = useApiResource(
     loadPerformanceData,
     Boolean(
@@ -160,28 +190,38 @@ export default function HorseProfile() {
     loadCareInstructions,
     Boolean(token && isUuid(id) && visibleTab === "Care"),
   );
+  const loadAuditLog = useCallback(
+    () => auditService.list(token!, 20, { entityId: id }),
+    [id, token],
+  );
+  const auditResource = useApiResource(
+    loadAuditLog,
+    Boolean(token && isUuid(id) && roleId === "manager" && visibleTab === "Timeline"),
+  );
   const refreshFunctionsRef = useRef<(() => Promise<void>)[]>([]);
   const focusedOnce = useRef(false);
   useEffect(() => {
     refreshFunctionsRef.current = [
-      horseResource.refresh,
-      permissionsResource.refresh,
-      trainingResource.refresh,
-      pedigreeResource.refresh,
-      medicalResource.refresh,
-      performanceResource.refresh,
-      racingResource.refresh,
-      careResource.refresh,
+      horseResource.revalidate,
+      permissionsResource.revalidate,
+      trainingResource.revalidate,
+      pedigreeResource.revalidate,
+      medicalResource.revalidate,
+      performanceResource.revalidate,
+      racingResource.revalidate,
+      careResource.revalidate,
+      auditResource.revalidate,
     ];
   }, [
-    careResource.refresh,
-    horseResource.refresh,
-    medicalResource.refresh,
-    pedigreeResource.refresh,
-    performanceResource.refresh,
-    permissionsResource.refresh,
-    racingResource.refresh,
-    trainingResource.refresh,
+    careResource.revalidate,
+    auditResource.revalidate,
+    horseResource.revalidate,
+    medicalResource.revalidate,
+    pedigreeResource.revalidate,
+    performanceResource.revalidate,
+    permissionsResource.revalidate,
+    racingResource.revalidate,
+    trainingResource.revalidate,
   ]);
   useFocusEffect(
     useCallback(() => {
@@ -192,8 +232,62 @@ export default function HorseProfile() {
     }, []),
   );
 
+  const saveHorseThresholds = async () => {
+    if (!token || !isUuid(id) || !thresholdName.trim() || savingThreshold) return;
+    const warning = Number(thresholdWarning);
+    const critical = Number(thresholdCritical);
+    const maxSpeed = Number(thresholdSpeed);
+    if (
+      !Number.isInteger(warning) ||
+      warning < 1 ||
+      warning > 300 ||
+      !Number.isInteger(critical) ||
+      critical < 1 ||
+      critical > 300 ||
+      critical <= warning ||
+      !Number.isFinite(maxSpeed) ||
+      maxSpeed < 1 ||
+      maxSpeed > 30
+    ) {
+      Alert.alert(
+        "Check threshold values",
+        "Enter warning and critical heart-rate limits from 1–300 bpm with critical above warning, and maximum speed from 1–30 m/s.",
+      );
+      return;
+    }
+    setSavingThreshold(true);
+    try {
+      await performanceService.setThresholds(token, id, {
+        profileName: thresholdName.trim(),
+        effectiveFrom: new Date().toISOString(),
+        limits: {
+          heartRateWarningBpm: warning,
+          heartRateCriticalBpm: critical,
+          maxSpeedMps: maxSpeed,
+        },
+      });
+      setThresholdEditorOpen(false);
+      await performanceResource.refresh();
+      Alert.alert(
+        "Threshold version saved",
+        "The new horse-specific limits are now available from the Backend.",
+      );
+    } catch (error) {
+      Alert.alert("Could not save thresholds", extractErrorMessage(error));
+    } finally {
+      setSavingThreshold(false);
+    }
+  };
+
   const saveHealthStatus = async () => {
-    if (!token || !horseResource.data || !healthStatusDraft || !isValidRequiredText(healthReason, 500) || savingHealth) return;
+    if (
+      !token ||
+      !horseResource.data ||
+      !healthStatusDraft ||
+      !isValidRequiredText(healthReason, 500) ||
+      savingHealth
+    )
+      return;
     setSavingHealth(true);
     try {
       await medicalService.updateHealthStatus(token, horseResource.data.id, {
@@ -229,6 +323,7 @@ export default function HorseProfile() {
         role={roleId}
         title="Horse profile"
         back
+        fallbackHref={`/${roleId}/horses` as any}
         refreshing={
           horseResource.isRefreshing ||
           trainingResource.isRefreshing ||
@@ -256,6 +351,7 @@ export default function HorseProfile() {
       title={horse.name}
       subtitle={`${roleId} view · ${horseResource.data ? "backend profile" : "demo profile"}`}
       back
+      fallbackHref={`/${roleId}/horses` as any}
       refreshing={
         horseResource.isRefreshing ||
         trainingResource.isRefreshing ||
@@ -408,7 +504,9 @@ export default function HorseProfile() {
                   Training:{" "}
                   <Text
                     style={{
-                      color: horseResource.data.eligibility.trainingEligible ? colors.fit : colors.injured,
+                      color: horseResource.data.eligibility.trainingEligible
+                        ? colors.fit
+                        : colors.injured,
                       fontWeight: "700",
                     }}
                   >
@@ -416,7 +514,10 @@ export default function HorseProfile() {
                   </Text>
                 </Text>
                 {horseResource.data.eligibility.trainingReasons.map((reason) => (
-                  <Text key={`training-${reason}`} style={[uiStyles.muted, { color: colors.mutedForeground }]}>
+                  <Text
+                    key={`training-${reason}`}
+                    style={[uiStyles.muted, { color: colors.mutedForeground }]}
+                  >
                     • {formatEnum(reason)}
                   </Text>
                 ))}
@@ -424,7 +525,9 @@ export default function HorseProfile() {
                   Racing:{" "}
                   <Text
                     style={{
-                      color: horseResource.data.eligibility.racingEligible ? colors.fit : colors.injured,
+                      color: horseResource.data.eligibility.racingEligible
+                        ? colors.fit
+                        : colors.injured,
                       fontWeight: "700",
                     }}
                   >
@@ -432,7 +535,10 @@ export default function HorseProfile() {
                   </Text>
                 </Text>
                 {horseResource.data.eligibility.racingReasons.map((reason) => (
-                  <Text key={`racing-${reason}`} style={[uiStyles.muted, { color: colors.mutedForeground }]}>
+                  <Text
+                    key={`racing-${reason}`}
+                    style={[uiStyles.muted, { color: colors.mutedForeground }]}
+                  >
                     • {formatEnum(reason)}
                   </Text>
                 ))}
@@ -451,6 +557,11 @@ export default function HorseProfile() {
                 label="Ownership history"
                 icon="people-outline"
                 onPress={() => router.push(`/${roleId}/horse/${horse.id}/ownership` as Href)}
+              />
+              <PrimaryButton
+                label="Stable care and feeding"
+                icon="leaf-outline"
+                onPress={() => router.push(`/${roleId}/horse/${horse.id}/stable-care` as Href)}
               />
               {permissionsResource.data?.canEditProfile &&
               roleId === "manager" &&
@@ -656,7 +767,9 @@ export default function HorseProfile() {
           <PrimaryButton
             label="View care schedules"
             icon="calendar-outline"
-            onPress={() => router.push(`/${roleId}/medical/care?horseId=${horseResource.data!.id}` as Href)}
+            onPress={() =>
+              router.push(`/${roleId}/medical/care?horseId=${horseResource.data!.id}` as Href)
+            }
           />
         </>
       ) : null}
@@ -693,47 +806,87 @@ export default function HorseProfile() {
             icon="stats-chart"
             onPress={() => router.push(`/${roleId}/horse/${horse.id}/measurements` as Href)}
           />
-          {roleId === "vet" ? <>
-            <PrimaryButton label="Record examination" icon="medkit-outline" onPress={() => router.push(`/vet/medical/visit?horseId=${horse.id}` as Href)} />
-            <PrimaryButton label={horseResource.data.activeTrainingLock ? "Manage training lock" : "Lock training"} icon="lock-closed" onPress={() => router.push(`/vet/lock/${horse.id}` as Href)} />
-            <PrimaryButton label="Manage care schedule" icon="calendar-outline" onPress={() => router.push(`/vet/medical/care?horseId=${horse.id}` as Href)} />
-            {permissionsResource.data?.canChangeHealth ? <View style={uiStyles.section}>
-              <SectionTitle>Update health status</SectionTitle>
-              <Chips options={["ELIGIBLE", "UNDER_OBSERVATION", "INJURED", "QUARANTINED"]} value={healthStatusDraft || horseResource.data.healthStatus} onChange={setHealthStatusDraft} />
-              {healthStatusDraft && healthStatusDraft !== horseResource.data.healthStatus ? <>
-                <Field label="Reason for this change"><NativeInput value={healthReason} onChangeText={setHealthReason} multiline /></Field>
-                <PrimaryButton style={{ marginTop: space.xs }} label={savingHealth ? "Saving…" : "Save health status"} disabled={savingHealth || !isValidRequiredText(healthReason, 500)} onPress={() => void saveHealthStatus()} />
-              </> : null}
-            </View> : null}
-          </> : null}
+          {roleId === "vet" ? (
+            <>
+              <PrimaryButton
+                label="Record examination"
+                icon="medkit-outline"
+                onPress={() => router.push(`/vet/medical/visit?horseId=${horse.id}` as Href)}
+              />
+              <PrimaryButton
+                label={
+                  horseResource.data.activeTrainingLock ? "Manage training lock" : "Lock training"
+                }
+                icon="lock-closed"
+                onPress={() => router.push(`/vet/lock/${horse.id}` as Href)}
+              />
+              <PrimaryButton
+                label="Manage care schedule"
+                icon="calendar-outline"
+                onPress={() => router.push(`/vet/medical/care?horseId=${horse.id}` as Href)}
+              />
+              {permissionsResource.data?.canChangeHealth ? (
+                <View style={uiStyles.section}>
+                  <SectionTitle>Update health status</SectionTitle>
+                  <Chips
+                    options={["ELIGIBLE", "UNDER_OBSERVATION", "INJURED", "QUARANTINED"]}
+                    value={healthStatusDraft || horseResource.data.healthStatus}
+                    onChange={setHealthStatusDraft}
+                  />
+                  {healthStatusDraft && healthStatusDraft !== horseResource.data.healthStatus ? (
+                    <>
+                      <Field label="Reason for this change">
+                        <NativeInput
+                          value={healthReason}
+                          onChangeText={setHealthReason}
+                          multiline
+                        />
+                      </Field>
+                      <PrimaryButton
+                        style={{ marginTop: space.xs }}
+                        label={savingHealth ? "Saving…" : "Save health status"}
+                        disabled={savingHealth || !isValidRequiredText(healthReason, 500)}
+                        onPress={() => void saveHealthStatus()}
+                      />
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
+            </>
+          ) : null}
           {medicalResource.data ? (
             <View style={uiStyles.section}>
               <SectionTitle>Medical cases</SectionTitle>
               {medicalResource.data.cases.items.length ? (
                 medicalResource.data.cases.items.map((medicalCase) => (
-                  <Pressable key={medicalCase.id} onPress={() => router.push(`/${roleId}/medical/cases/${medicalCase.id}` as Href)}>
+                  <Pressable
+                    key={medicalCase.id}
+                    onPress={() =>
+                      router.push(`/${roleId}/medical/cases/${medicalCase.id}` as Href)
+                    }
+                  >
                     <Panel>
-                    <Text style={uiStyles.value}>{medicalCase.initialDiagnosis}</Text>
-                    <Text style={uiStyles.muted}>
-                      {medicalCase.status} · opened{" "}
-                      {new Date(medicalCase.openedAt).toLocaleDateString()}
-                    </Text>
-                    {medicalCase.closedAt ? (
+                      <Text style={uiStyles.value}>{medicalCase.initialDiagnosis}</Text>
                       <Text style={uiStyles.muted}>
-                        Closed {new Date(medicalCase.closedAt).toLocaleDateString()}
+                        {medicalCase.status} · opened{" "}
+                        {new Date(medicalCase.openedAt).toLocaleDateString()}
                       </Text>
-                    ) : null}
-                    {medicalCase.finalConclusion ? (
-                      <Text>{medicalCase.finalConclusion}</Text>
-                    ) : null}
-                    {"totalCost" in medicalCase ? (
-                      <Text>
-                        Medical cost:{" "}
-                        {medicalCase.totalCost == null
-                          ? "Hidden or not yet closed"
-                          : `${medicalCase.totalCost.toLocaleString()} VND`}
-                      </Text>
-                    ) : null}
+                      {medicalCase.closedAt ? (
+                        <Text style={uiStyles.muted}>
+                          Closed {new Date(medicalCase.closedAt).toLocaleDateString()}
+                        </Text>
+                      ) : null}
+                      {medicalCase.finalConclusion ? (
+                        <Text>{medicalCase.finalConclusion}</Text>
+                      ) : null}
+                      {"totalCost" in medicalCase ? (
+                        <Text>
+                          Medical cost:{" "}
+                          {medicalCase.totalCost == null
+                            ? "Hidden or not yet closed"
+                            : `${medicalCase.totalCost.toLocaleString()} VND`}
+                        </Text>
+                      ) : null}
                     </Panel>
                   </Pressable>
                 ))
@@ -749,18 +902,21 @@ export default function HorseProfile() {
               <SectionTitle>Medical visits</SectionTitle>
               {medicalResource.data.records.length ? (
                 medicalResource.data.records.slice(0, 12).map((record) => (
-                  <Pressable key={record.id} onPress={() => router.push(`/${roleId}/medical/visits/${record.id}` as Href)}>
+                  <Pressable
+                    key={record.id}
+                    onPress={() => router.push(`/${roleId}/medical/visits/${record.id}` as Href)}
+                  >
                     <Panel>
-                    <Text style={uiStyles.value}>
-                      {record.conclusion ?? record.diagnosis ?? record.kind}
-                    </Text>
-                    <Text style={uiStyles.muted}>
-                      {new Date(record.examDate).toLocaleString()} · {record.resultingStatus}
-                      {record.voidedAt
-                        ? ` · voided: ${record.voidReason ?? "no reason returned"}`
-                        : ""}
-                    </Text>
-                    {record.careInstructions ? <Text>{record.careInstructions}</Text> : null}
+                      <Text style={uiStyles.value}>
+                        {record.conclusion ?? record.diagnosis ?? record.kind}
+                      </Text>
+                      <Text style={uiStyles.muted}>
+                        {new Date(record.examDate).toLocaleString()} · {record.resultingStatus}
+                        {record.voidedAt
+                          ? ` · voided: ${record.voidReason ?? "no reason returned"}`
+                          : ""}
+                      </Text>
+                      {record.careInstructions ? <Text>{record.careInstructions}</Text> : null}
                     </Panel>
                   </Pressable>
                 ))
@@ -775,9 +931,17 @@ export default function HorseProfile() {
                       <Text style={uiStyles.value}>{schedule.type.replaceAll("_", " ")}</Text>
                       <Text style={uiStyles.label}>{schedule.status.replaceAll("_", " ")}</Text>
                     </View>
-                    <Text style={uiStyles.muted}>Due {new Date(schedule.dueAt).toLocaleString()}</Text>
-                    {schedule.completedAt ? <Text style={uiStyles.muted}>Completed {new Date(schedule.completedAt).toLocaleString()}</Text> : null}
-                    {schedule.cancelReason ? <Text style={uiStyles.muted}>Cancelled: {schedule.cancelReason}</Text> : null}
+                    <Text style={uiStyles.muted}>
+                      Due {new Date(schedule.dueAt).toLocaleString()}
+                    </Text>
+                    {schedule.completedAt ? (
+                      <Text style={uiStyles.muted}>
+                        Completed {new Date(schedule.completedAt).toLocaleString()}
+                      </Text>
+                    ) : null}
+                    {schedule.cancelReason ? (
+                      <Text style={uiStyles.muted}>Cancelled: {schedule.cancelReason}</Text>
+                    ) : null}
                     {schedule.notes ? <Text>{schedule.notes}</Text> : null}
                   </Panel>
                 ))
@@ -820,7 +984,16 @@ export default function HorseProfile() {
           />
           {medicalResource.data?.injuries.length ? (
             medicalResource.data.injuries.map((injury) => (
-              <Pressable key={injury.id} onPress={() => router.push(injury.caseId ? `/${roleId}/medical/cases/${injury.caseId}` as Href : `/${roleId}/medical/visits/${injury.medicalRecordId}` as Href)}>
+              <Pressable
+                key={injury.id}
+                onPress={() =>
+                  router.push(
+                    injury.caseId
+                      ? (`/${roleId}/medical/cases/${injury.caseId}` as Href)
+                      : (`/${roleId}/medical/visits/${injury.medicalRecordId}` as Href),
+                  )
+                }
+              >
                 <Panel>
                   <Text style={uiStyles.value}>
                     {injury.bodyRegion} · {injury.injuryType}
@@ -868,7 +1041,12 @@ export default function HorseProfile() {
                       ? ` · expected end ${new Date(lock.lockEnd).toLocaleDateString()}`
                       : ""}
                   </Text>
-                  {lock.releasedAt ? <Text style={uiStyles.muted}>Released {new Date(lock.releasedAt).toLocaleString()}{lock.releasedBy ? ` · staff ${lock.releasedBy.slice(0, 8)}` : ""}</Text> : null}
+                  {lock.releasedAt ? (
+                    <Text style={uiStyles.muted}>
+                      Released {new Date(lock.releasedAt).toLocaleString()}
+                      {lock.releasedBy ? ` · staff ${lock.releasedBy.slice(0, 8)}` : ""}
+                    </Text>
+                  ) : null}
                   {lock.releaseConclusion ? <Text>{lock.releaseConclusion}</Text> : null}
                 </Panel>
               ))
@@ -882,8 +1060,11 @@ export default function HorseProfile() {
               />
             ) : null}
           </View>
-            {medicalResource.data?.cases.items.map((medicalCase) => (
-            <Pressable key={medicalCase.id} onPress={() => router.push(`/${roleId}/medical/cases/${medicalCase.id}` as Href)}>
+          {medicalResource.data?.cases.items.map((medicalCase) => (
+            <Pressable
+              key={medicalCase.id}
+              onPress={() => router.push(`/${roleId}/medical/cases/${medicalCase.id}` as Href)}
+            >
               <Panel>
                 <Text style={uiStyles.value}>{medicalCase.initialDiagnosis}</Text>
                 <Text style={uiStyles.muted}>
@@ -903,46 +1084,199 @@ export default function HorseProfile() {
           />
           {performanceResource.data ? (
             <>
-              <View style={uiStyles.metricGrid}>
-                <Metric
-                  label="Sessions tracked"
-                  value={performanceResource.data.summary.sessionsTracked}
-                />
-                <Metric
-                  label="Average heart rate"
-                  value={performanceResource.data.summary.latestMetric?.heartRateBpm ?? "—"}
-                  hint={
-                    performanceResource.data.summary.latestMetric
-                      ? "bpm · latest sample"
-                      : undefined
-                  }
-                />
-                <Metric
-                  label="Latest speed"
-                  value={
-                    performanceResource.data.summary.latestMetric
-                      ? `${(performanceResource.data.summary.latestMetric.speedMps * 3.6).toFixed(1)} km/h`
-                      : "—"
-                  }
-                />
-                <Metric
-                  label="Evaluation score"
-                  value={performanceResource.data.summary.latestEvaluation?.score ?? "—"}
-                />
-              </View>
-              {performanceResource.data.summary.latestEvaluation?.comment ? (
+              {performanceResource.data.summary ? (
+                <>
+                  <View style={uiStyles.metricGrid}>
+                    <Metric
+                      label="Sessions tracked"
+                      value={performanceResource.data.summary.sessionsTracked}
+                    />
+                    <Metric
+                      label="Latest heart rate"
+                      value={performanceResource.data.summary.latestMetric?.heartRateBpm ?? "—"}
+                      hint={
+                        performanceResource.data.summary.latestMetric
+                          ? "bpm · latest sample"
+                          : undefined
+                      }
+                    />
+                    <Metric
+                      label="Latest speed"
+                      value={
+                        performanceResource.data.summary.latestMetric
+                          ? `${(performanceResource.data.summary.latestMetric.speedMps * 3.6).toFixed(1)} km/h`
+                          : "—"
+                      }
+                    />
+                    <Metric
+                      label="Evaluation score"
+                      value={performanceResource.data.summary.latestEvaluation?.score ?? "—"}
+                    />
+                  </View>
+                  {performanceResource.data.summary.latestEvaluation?.comment ? (
+                    <Panel>
+                      <Text>{performanceResource.data.summary.latestEvaluation.comment}</Text>
+                    </Panel>
+                  ) : null}
+                  {performanceResource.data.summary.recentMetrics.length > 1 ? (
+                    <ChartSection
+                      title="Recent speed history"
+                      data={performanceResource.data.summary.recentMetrics.map((point) => ({
+                        speed: point.speedMps * 3.6,
+                      }))}
+                      valueKey="speed"
+                      color={colors.primary}
+                    />
+                  ) : null}
+                </>
+              ) : (
                 <Panel>
-                  <Text>{performanceResource.data.summary.latestEvaluation.comment}</Text>
+                  <Text style={uiStyles.muted}>
+                    Horse Owners receive per-session performance summaries. Raw sensor points are
+                    restricted to staff roles.
+                  </Text>
                 </Panel>
-              ) : null}
+              )}
+
               <View style={uiStyles.section}>
-                <SectionTitle>Session performance</SectionTitle>
+                <SectionTitle>
+                  Training workload · {performanceResource.data.workload.from} to{" "}
+                  {performanceResource.data.workload.to}
+                </SectionTitle>
+                <Panel>
+                  <Text style={uiStyles.value}>
+                    {performanceResource.data.workload.sessionsCompleted} completed sessions ·{" "}
+                    {performanceResource.data.workload.byIntensity.LIGHT} light ·{" "}
+                    {performanceResource.data.workload.byIntensity.HEAVY} heavy
+                  </Text>
+                  <Text style={uiStyles.muted}>
+                    Planned {performanceResource.data.workload.plannedDistanceM.toLocaleString()} m
+                    · actual {performanceResource.data.workload.actualDistanceM.toLocaleString()} m
+                    · {Math.round(performanceResource.data.workload.actualDurationSeconds / 60)}{" "}
+                    actual minutes
+                  </Text>
+                </Panel>
+              </View>
+
+              {performanceResource.data.thresholds ? (
+                <View style={uiStyles.section}>
+                  <SectionTitle>Heart-rate and speed thresholds</SectionTitle>
+                  <Panel style={{ gap: 6 }}>
+                    <Text style={uiStyles.label}>
+                      Source: {formatEnum(performanceResource.data.thresholds.source)}
+                    </Text>
+                    <Text style={uiStyles.muted}>
+                      Warning {performanceResource.data.thresholds.activeLimits.heartRateWarningBpm}{" "}
+                      bpm · critical{" "}
+                      {performanceResource.data.thresholds.activeLimits.heartRateCriticalBpm} bpm ·
+                      max speed {performanceResource.data.thresholds.activeLimits.maxSpeedMps} m/s
+                    </Text>
+                    {performanceResource.data.thresholds.profiles.map((profile) => (
+                      <Text key={profile.id} style={uiStyles.label}>
+                        {profile.profileName} · v{profile.ruleVersion} ·{" "}
+                        {formatDateTime(profile.effectiveFrom)}
+                        {profile.effectiveTo ? ` – ${formatDateTime(profile.effectiveTo)}` : ""}
+                      </Text>
+                    ))}
+                    {roleId === "trainer" ? (
+                      <SecondaryButton
+                        label="Set horse-specific thresholds"
+                        icon="options-outline"
+                        onPress={() => {
+                          setThresholdWarning(
+                            String(
+                              performanceResource.data?.thresholds?.activeLimits
+                                .heartRateWarningBpm ?? 220,
+                            ),
+                          );
+                          setThresholdCritical(
+                            String(
+                              performanceResource.data?.thresholds?.activeLimits
+                                .heartRateCriticalBpm ?? 240,
+                            ),
+                          );
+                          setThresholdSpeed(
+                            String(
+                              performanceResource.data?.thresholds?.activeLimits.maxSpeedMps ?? 18,
+                            ),
+                          );
+                          setThresholdEditorOpen((value) => !value);
+                        }}
+                      />
+                    ) : null}
+                  </Panel>
+                  {thresholdEditorOpen && roleId === "trainer" ? (
+                    <Panel style={{ gap: 10 }}>
+                      <Field label="Profile name">
+                        <NativeInput value={thresholdName} onChangeText={setThresholdName} />
+                      </Field>
+                      <Field label="Heart rate warning (1–300 bpm)">
+                        <NativeInput
+                          value={thresholdWarning}
+                          onChangeText={setThresholdWarning}
+                          keyboardType="number-pad"
+                        />
+                      </Field>
+                      <Field label="Heart rate critical (1–300 bpm)">
+                        <NativeInput
+                          value={thresholdCritical}
+                          onChangeText={setThresholdCritical}
+                          keyboardType="number-pad"
+                        />
+                      </Field>
+                      <Field label="Maximum speed (1–30 m/s)">
+                        <NativeInput
+                          value={thresholdSpeed}
+                          onChangeText={setThresholdSpeed}
+                          keyboardType="decimal-pad"
+                        />
+                      </Field>
+                      <PrimaryButton
+                        label={savingThreshold ? "Saving…" : "Create threshold version"}
+                        disabled={savingThreshold}
+                        onPress={() => void saveHorseThresholds()}
+                      />
+                    </Panel>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {performanceResource.data.alerts.length ? (
+                <View style={uiStyles.section}>
+                  <SectionTitle>Recent sensor alerts</SectionTitle>
+                  {performanceResource.data.alerts.map((alert, index) => (
+                    <Panel key={`${alert.sessionParticipantId}:${alert.recordedAt}:${index}`}>
+                      <View style={uiStyles.row}>
+                        <Text
+                          style={[
+                            uiStyles.value,
+                            {
+                              color:
+                                alert.alertLevel === "CRITICAL"
+                                  ? colors.destructive
+                                  : colors.monitor,
+                            },
+                          ]}
+                        >
+                          {alert.alertLevel}
+                        </Text>
+                        <Text style={uiStyles.label}>{formatDateTime(alert.recordedAt)}</Text>
+                      </View>
+                      <Text style={uiStyles.muted}>
+                        {alert.sessionName ?? "Training session"} · {alert.heartRateBpm} bpm ·{" "}
+                        {alert.speedMps.toFixed(2)} m/s
+                      </Text>
+                    </Panel>
+                  ))}
+                </View>
+              ) : null}
+
+              <View style={uiStyles.section}>
+                <SectionTitle>Session performance summaries</SectionTitle>
                 {performanceResource.data.sessions.length ? (
                   performanceResource.data.sessions.map((session) => (
                     <Panel key={session.sessionId}>
-                      <Text style={uiStyles.value}>
-                        {new Date(session.scheduledAt).toLocaleString()}
-                      </Text>
+                      <Text style={uiStyles.value}>{formatDateTime(session.scheduledAt)}</Text>
                       <Text style={uiStyles.muted}>
                         Heart rate {session.avgHeartRateBpm} avg / {session.maxHeartRateBpm} max ·
                         Speed {(session.avgSpeedMps * 3.6).toFixed(1)} avg /{" "}
@@ -965,16 +1299,6 @@ export default function HorseProfile() {
                   />
                 )}
               </View>
-              {performanceResource.data.summary.recentMetrics.length > 1 ? (
-                <ChartSection
-                  title="Speed history"
-                  data={performanceResource.data.summary.recentMetrics.map((point) => ({
-                    speed: point.speedMps * 3.6,
-                  }))}
-                  valueKey="speed"
-                  color={colors.primary}
-                />
-              ) : null}
             </>
           ) : null}
         </>
@@ -1047,7 +1371,7 @@ export default function HorseProfile() {
                   ["Medical cases", String(medicalResource.data.cases.items.length)],
                   [
                     "Other horse costs",
-                    "No per-horse Backend endpoint for training, feed or stable costs",
+                    "Daily fees and care surcharges appear in owner cost reports; supplies are reported for the club",
                   ],
                 ]}
               />
@@ -1231,14 +1555,37 @@ export default function HorseProfile() {
           </Panel>
         </View>
       ) : null}
-      {visibleTab === "Timeline" && horseResource.data ? (
-        <Panel>
-          <SectionTitle>Timeline unavailable</SectionTitle>
-          <Text>
-            The Backend audit-log endpoints currently return HTTP 501, so this screen cannot show an
-            authoritative horse timeline.
-          </Text>
-        </Panel>
+      {visibleTab === "Timeline" && roleId === "manager" && horseResource.data ? (
+        <View style={uiStyles.section}>
+          <SectionTitle>Horse activity</SectionTitle>
+          <AsyncStateView
+            isLoading={auditResource.isLoading}
+            error={auditResource.error}
+            onRetry={() => void auditResource.retry()}
+            empty={Boolean(auditResource.data && auditResource.data.length === 0)}
+            emptyLabel="No audit activity is recorded for this horse."
+          />
+          {auditResource.data?.length ? (
+            <Panel>
+              {auditResource.data.map((entry, index) => (
+                <TimelineItem
+                  key={entry.id}
+                  time={formatDateTime(entry.createdAt)}
+                  title={`${entry.action} · ${formatEnum(entry.entityType)}`}
+                  detail={[
+                    entry.actor?.fullName ?? "System",
+                    entry.feature ? formatEnum(entry.feature) : null,
+                    entry.reason,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  tone={index === 0 ? colors.primary : colors.training}
+                  last={index === (auditResource.data?.length ?? 0) - 1}
+                />
+              ))}
+            </Panel>
+          ) : null}
+        </View>
       ) : null}
     </Screen>
   );

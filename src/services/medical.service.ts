@@ -38,6 +38,7 @@ export type VisitInputDto = {
   }[];
   injuries?: {
     bodyRegion: string;
+    position: { x: number; y: number; z: number };
     injuryType: string;
     recoveryStatus: string;
     notes?: string;

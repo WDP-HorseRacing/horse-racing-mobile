@@ -25,7 +25,7 @@ export default function LiveTraining() {
   const latest = window[window.length - 1];
   const abnormal = latest.hr > 180;
   return (
-    <Screen role={role} title={horse.name} subtitle="Live training · sensor vest #A14" back>
+    <Screen role={role} title={horse.name} subtitle="Live training · sensor vest #A14" back fallbackHref={`/${role}/horses` as any}>
       <View style={styles.live}>
         <View style={styles.dot} />
         <Text style={styles.liveText}>Streaming live</Text>

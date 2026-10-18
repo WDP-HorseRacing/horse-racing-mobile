@@ -26,8 +26,15 @@ export default function Profile() {
     .substring(0, 2)
     .toUpperCase() ?? "R";
 
-  // Modules they can access based on nav array
-  const modules = profile.nav.map((item) => item.label);
+  // Include destinations outside the bottom bar so moving a module does not hide it.
+  const modules = [
+    ...new Set(
+      [
+        ...profile.nav.filter((item) => item.action !== "more"),
+        ...profile.secondary,
+      ].map((item) => item.label),
+    ),
+  ];
 
   const systemItems = [
     { key: "Notifications", value: "Critical alerts always on" },

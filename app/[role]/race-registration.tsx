@@ -13,6 +13,7 @@ import { useApiResource } from "@/hooks/useApiResource";
 import { horseService } from "@/services/horse.service";
 import { racingService } from "@/services/racing.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
+import { safeBack } from "@/utils/navigation";
 
 const allowedRoles: RoleId[] = ["trainer", "manager", "owner"];
 
@@ -42,7 +43,7 @@ export default function RaceRegistration() {
     try {
       await racingService.registerHorse(token, race.id, horse.id);
       Alert.alert(t("Registration submitted"), `${horse.name} · ${race.name}`, [
-        { text: t("Done"), onPress: () => router.back() },
+        { text: t("Done"), onPress: () => safeBack(`/${role}` as Href) },
       ]);
     } catch (error) {
       Alert.alert(t("Registration failed"), extractErrorMessage(error));
@@ -52,7 +53,7 @@ export default function RaceRegistration() {
   };
 
   return (
-    <Screen role={role} title="Race registration" subtitle="Server eligibility and race selection" back refreshing={horsesResource.isRefreshing || racesResource.isRefreshing} onRefresh={() => { void horsesResource.refresh(); void racesResource.refresh(); }}>
+    <Screen role={role} title="Race registration" subtitle="Server eligibility and race selection" back fallbackHref={`/${role}` as Href} refreshing={horsesResource.isRefreshing || racesResource.isRefreshing} onRefresh={() => { void horsesResource.refresh(); void racesResource.refresh(); }}>
       <View style={uiStyles.section}>
         <SectionTitle>Select horse</SectionTitle>
         <AsyncStateView isLoading={horsesResource.isLoading} error={horsesResource.error} onRetry={() => void horsesResource.retry()} empty={!horsesResource.isLoading && !horsesResource.error && horses.length === 0} emptyLabel="No horses eligible for race registration." />

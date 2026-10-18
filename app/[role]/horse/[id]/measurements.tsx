@@ -174,6 +174,7 @@ export default function BodyMeasurements() {
       title="Body measurements"
       subtitle={horseResource.data?.name ?? "Horse profile"}
       back
+      fallbackHref={`/${role}/horse/${id}` as any}
       refreshing={
         resource.isRefreshing || horseResource.isRefreshing || permissionsResource.isRefreshing
       }

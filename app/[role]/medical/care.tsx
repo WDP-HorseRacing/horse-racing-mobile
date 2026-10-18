@@ -69,7 +69,7 @@ export default function CareSchedules() {
     [selectedHorseId, token],
   );
   const resource = useApiResource(loadSchedule, Boolean(token && selectedHorseId && canView));
-  useRefreshOnFocus(resource.refresh);
+  useRefreshOnFocus(resource.revalidate);
   const loadHorses = useCallback(
     () =>
       horseService.list(token!, "", {

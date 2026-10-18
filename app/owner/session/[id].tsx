@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { View, StyleSheet } from "react-native";
+import { Alert, Linking, View, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import { Panel, getUiStyles } from "@/components/ui";
+import { Panel, SecondaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
@@ -46,7 +46,11 @@ export default function OwnerSessionDetail() {
     <Screen
       role="owner"
       title={session?.title ?? "Training session"}
-      subtitle={resource.data ? `${resource.data.horseName} · ${session?.scheduledStartLabel}` : "Session details"}
+      subtitle={
+        resource.data
+          ? `${resource.data.horseName} · ${session?.scheduledStartLabel}`
+          : "Session details"
+      }
       back
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
@@ -65,27 +69,41 @@ export default function OwnerSessionDetail() {
             <Panel style={styles.grid}>
               <DetailCell label="Training class" value={session.className} />
               <DetailCell label="Plan" value={session.planName} />
-              <DetailCell label="Distance" value={session.distanceM == null ? "—" : formatDistance(session.distanceM)} />
+              <DetailCell
+                label="Distance"
+                value={session.distanceM == null ? "—" : formatDistance(session.distanceM)}
+              />
               <DetailCell label="Scheduled duration" value={`${session.durationMin} min`} />
               <DetailCell label="Surface" value={session.surface ?? "—"} />
               <DetailCell label="Intensity" value={session.intensity ?? "—"} />
               <DetailCell label="Location" value={session.location ?? "—"} />
-              <DetailCell label="Assigned groom" value={resource.data!.participant.assignedGroomName ?? session.groomName ?? "—"} />
+              <DetailCell
+                label="Assigned groom"
+                value={resource.data!.participant.assignedGroomName ?? session.groomName ?? "—"}
+              />
             </Panel>
           </View>
 
           <View style={uiStyles.section}>
             <SectionTitle>Status</SectionTitle>
             <Panel>
-              <Text style={{ ...uiStyles.value, color: completed ? colors.primary : colors.foreground }}>
+              <Text
+                style={{ ...uiStyles.value, color: completed ? colors.primary : colors.foreground }}
+              >
                 {resource.data!.participant.status.replaceAll("_", " ")}
               </Text>
-              {session.subjectName ? <Text style={uiStyles.muted}>{session.subjectName}</Text> : null}
+              {session.subjectName ? (
+                <Text style={uiStyles.muted}>{session.subjectName}</Text>
+              ) : null}
               {resource.data!.participant.trainingLocked ? (
-                <Text style={{ ...uiStyles.muted, color: colors.destructive }}>Training lock is active for this horse.</Text>
+                <Text style={{ ...uiStyles.muted, color: colors.destructive }}>
+                  Training lock is active for this horse.
+                </Text>
               ) : null}
               {resource.data!.participant.ineligibilityReason ? (
-                <Text style={{ ...uiStyles.muted, color: colors.destructive }}>{resource.data!.participant.ineligibilityReason}</Text>
+                <Text style={{ ...uiStyles.muted, color: colors.destructive }}>
+                  {resource.data!.participant.ineligibilityReason}
+                </Text>
               ) : null}
             </Panel>
           </View>
@@ -93,20 +111,44 @@ export default function OwnerSessionDetail() {
           {completed ? (
             <View style={uiStyles.section}>
               <SectionTitle>Trial results</SectionTitle>
-              {session.trials.length ? session.trials.map((trial) => (
-                <Panel key={`${session.participantId}:${trial.attemptNo}`}>
-                  <View style={uiStyles.row}>
-                    <Text style={uiStyles.value}>Attempt {trial.attemptNo}</Text>
-                    <Text style={uiStyles.value}>{formatDurationMs(trial.elapsedMs)}</Text>
-                  </View>
-                  {trial.targetTimeMs == null ? null : (
-                    <Text style={uiStyles.muted}>Target {formatDurationMs(trial.targetTimeMs)}</Text>
-                  )}
-                  {trial.notes ? <Text style={uiStyles.muted}>{trial.notes}</Text> : null}
-                  {trial.videoUrl ? <Text style={{ ...uiStyles.label, color: colors.primary }}>Video available</Text> : null}
+              {session.trials.length ? (
+                session.trials.map((trial) => (
+                  <Panel key={`${session.participantId}:${trial.attemptNo}`}>
+                    <View style={uiStyles.row}>
+                      <Text style={uiStyles.value}>Attempt {trial.attemptNo}</Text>
+                      <Text style={uiStyles.value}>{formatDurationMs(trial.elapsedMs)}</Text>
+                    </View>
+                    {trial.targetTimeMs == null ? null : (
+                      <Text style={uiStyles.muted}>
+                        Target {formatDurationMs(trial.targetTimeMs)}
+                      </Text>
+                    )}
+                    {trial.notes ? <Text style={uiStyles.muted}>{trial.notes}</Text> : null}
+                    {trial.videoUrl ? (
+                      <Text style={{ ...uiStyles.label, color: colors.primary }}>
+                        Video available
+                      </Text>
+                    ) : null}
+                    {trial.videoUrl ? (
+                      <SecondaryButton
+                        label="Watch trial video"
+                        icon="play-circle-outline"
+                        onPress={() =>
+                          void Linking.openURL(trial.videoUrl!).catch(() =>
+                            Alert.alert(
+                              "Could not open video",
+                              "Refresh the session and try again.",
+                            ),
+                          )
+                        }
+                      />
+                    ) : null}
+                  </Panel>
+                ))
+              ) : (
+                <Panel>
+                  <Text style={uiStyles.muted}>No trial timing has been recorded.</Text>
                 </Panel>
-              )) : (
-                <Panel><Text style={uiStyles.muted}>No trial timing has been recorded.</Text></Panel>
               )}
             </View>
           ) : null}
@@ -116,8 +158,12 @@ export default function OwnerSessionDetail() {
               <SectionTitle>Trainer evaluation</SectionTitle>
               <Panel>
                 <Text style={uiStyles.value}>Score {session.evaluation.score}</Text>
-                <Text style={uiStyles.muted}>{session.evaluation.evaluatorName ?? "Head Trainer"}</Text>
-                {session.evaluation.comment ? <Text style={styles.quote}>{session.evaluation.comment}</Text> : null}
+                <Text style={uiStyles.muted}>
+                  {session.evaluation.evaluatorName ?? "Head Trainer"}
+                </Text>
+                {session.evaluation.comment ? (
+                  <Text style={styles.quote}>{session.evaluation.comment}</Text>
+                ) : null}
               </Panel>
             </View>
           ) : null}
@@ -140,12 +186,13 @@ function DetailCell({ label, value }: { label: string; value: string }) {
 
 const stylesForCell = StyleSheet.create({ cell: { width: "45%", marginBottom: space.sm } });
 
-const getStyles = (colors: any) => StyleSheet.create({
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: space.md },
-  quote: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontStyle: "italic",
-    marginTop: space.md,
-  },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: space.md },
+    quote: {
+      color: colors.foreground,
+      fontSize: 15,
+      fontStyle: "italic",
+      marginTop: space.md,
+    },
+  });

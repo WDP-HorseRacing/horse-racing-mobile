@@ -6,8 +6,12 @@ export type RoleConfig = {
   person: string;
   scope: string;
   workLabel: string;
-  nav: { label: string; icon: string; path: string }[];
+  nav: { label: string; icon: string; path?: string; action?: "more" }[];
+  /** Less frequently used destinations. These stay reachable outside the bottom bar. */
+  secondary: { label: string; icon: string; path: string; description: string }[];
 };
+
+export const MAX_BOTTOM_NAV_ITEMS = 5;
 
 export const roleOrder: RoleId[] = ["trainer", "groom", "vet", "owner", "manager"];
 
@@ -22,8 +26,22 @@ export const roles: Record<RoleId, RoleConfig> = {
       { label: "Home", icon: "home-outline", path: "/trainer" },
       { label: "Horses", icon: "grid-outline", path: "/trainer/horses" },
       { label: "Training", icon: "calendar-outline", path: "/trainer/training" },
-      { label: "Alerts", icon: "notifications-outline", path: "/trainer/alerts" },
-      { label: "Profile", icon: "person-outline", path: "/profile/trainer" },
+      { label: "Incidents", icon: "alert-circle-outline", path: "/trainer/incidents" },
+      { label: "More", icon: "ellipsis-horizontal", action: "more" },
+    ],
+    secondary: [
+      {
+        label: "Alerts",
+        icon: "notifications-outline",
+        path: "/trainer/alerts",
+        description: "Review club notifications and alerts.",
+      },
+      {
+        label: "Supplies",
+        icon: "cube-outline",
+        path: "/trainer/inventory",
+        description: "View and manage supplies.",
+      },
     ],
   },
   groom: {
@@ -35,9 +53,23 @@ export const roles: Record<RoleId, RoleConfig> = {
     nav: [
       { label: "Home", icon: "home-outline", path: "/groom" },
       { label: "Tasks", icon: "checkmark-circle-outline", path: "/groom/tasks" },
+      { label: "Training", icon: "calendar-outline", path: "/groom/training" },
       { label: "Stable", icon: "map-outline", path: "/groom/stable" },
-      { label: "Report", icon: "camera-outline", path: "/groom/report" },
-      { label: "Inventory", icon: "cube-outline", path: "/groom/inventory" },
+      { label: "More", icon: "ellipsis-horizontal", action: "more" },
+    ],
+    secondary: [
+      {
+        label: "Report",
+        icon: "camera-outline",
+        path: "/groom/report",
+        description: "Report a stable incident or concern.",
+      },
+      {
+        label: "Inventory",
+        icon: "cube-outline",
+        path: "/groom/inventory",
+        description: "Check supplies and submit a stock request.",
+      },
     ],
   },
   vet: {
@@ -49,9 +81,23 @@ export const roles: Record<RoleId, RoleConfig> = {
     nav: [
       { label: "Home", icon: "home-outline", path: "/vet" },
       { label: "Horses", icon: "grid-outline", path: "/vet/horses" },
+      { label: "Incidents", icon: "alert-circle-outline", path: "/vet/incidents" },
       { label: "Medical", icon: "medkit-outline", path: "/vet/medical" },
-      { label: "Alerts", icon: "notifications-outline", path: "/vet/alerts" },
-      { label: "Profile", icon: "person-outline", path: "/profile/vet" },
+      { label: "More", icon: "ellipsis-horizontal", action: "more" },
+    ],
+    secondary: [
+      {
+        label: "Alerts",
+        icon: "notifications-outline",
+        path: "/vet/alerts",
+        description: "Review medical and club notifications.",
+      },
+      {
+        label: "Supplies",
+        icon: "cube-outline",
+        path: "/vet/inventory",
+        description: "View and manage medical supplies.",
+      },
     ],
   },
   owner: {
@@ -65,7 +111,15 @@ export const roles: Record<RoleId, RoleConfig> = {
       { label: "Horses", icon: "grid-outline", path: "/owner/horses" },
       { label: "Training", icon: "calendar-outline", path: "/owner/training" },
       { label: "Racing", icon: "trophy-outline", path: "/owner/racing" },
-      { label: "Reports", icon: "bar-chart-outline", path: "/owner/reports" },
+      { label: "More", icon: "ellipsis-horizontal", action: "more" },
+    ],
+    secondary: [
+      {
+        label: "Reports",
+        icon: "bar-chart-outline",
+        path: "/owner/reports",
+        description: "Review your horse and account reports.",
+      },
     ],
   },
   manager: {
@@ -78,8 +132,64 @@ export const roles: Record<RoleId, RoleConfig> = {
       { label: "Home", icon: "home-outline", path: "/manager" },
       { label: "Horses", icon: "grid-outline", path: "/manager/horses" },
       { label: "Operations", icon: "business-outline", path: "/manager/operations" },
-      { label: "Reports", icon: "bar-chart-outline", path: "/manager/reports" },
-      { label: "Profile", icon: "person-outline", path: "/profile/manager" },
+      { label: "Incidents", icon: "alert-circle-outline", path: "/manager/incidents" },
+      { label: "More", icon: "ellipsis-horizontal", action: "more" },
+    ],
+    secondary: [
+      {
+        label: "Supplies",
+        icon: "cube-outline",
+        path: "/manager/inventory",
+        description: "Manage medical supplies and feed stock.",
+      },
+      {
+        label: "Staff",
+        icon: "people-outline",
+        path: "/manager/staff",
+        description: "View and manage club personnel.",
+      },
+      {
+        label: "Access Control",
+        icon: "shield-checkmark-outline",
+        path: "/manager/access",
+        description: "Configure roles, permissions, and scope.",
+      },
+      {
+        label: "Care task types",
+        icon: "list-outline",
+        path: "/manager/care-task-types",
+        description: "Configure the club's care task catalog.",
+      },
+      {
+        label: "Surcharges",
+        icon: "cash-outline",
+        path: "/manager/surcharges",
+        description: "Review and apply care surcharges.",
+      },
+      {
+        label: "Daily fees",
+        icon: "pricetag-outline",
+        path: "/manager/daily-fees",
+        description: "Manage daily boarding fee rates.",
+      },
+      {
+        label: "Reports",
+        icon: "bar-chart-outline",
+        path: "/manager/reports",
+        description: "Review club costs and owner charges.",
+      },
+      {
+        label: "Training management",
+        icon: "calendar-outline",
+        path: "/manager/training",
+        description: "Review training class performance.",
+      },
+      {
+        label: "Medical overview",
+        icon: "medkit-outline",
+        path: "/manager/medical",
+        description: "Review medical cases and checkups.",
+      },
     ],
   },
 };

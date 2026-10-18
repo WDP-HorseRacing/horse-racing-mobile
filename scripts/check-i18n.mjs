@@ -10,6 +10,7 @@ const walk = (directory) =>
   });
 walk("app");
 walk("src/native");
+walk("src/features/stable-care");
 const invalid = files.filter((path) =>
   /\bText\b[^;]*from ["']react-native["']/.test(readFileSync(path, "utf8")),
 );
@@ -24,18 +25,22 @@ const dictionary = {
 const visible = new Set();
 for (const path of files) {
   const source = readFileSync(path, "utf8");
-  for (const match of source.matchAll(/>([^<>{}\n]*[A-Za-z][^<>{}\n]*)</g))
-    visible.add(match[1].trim());
-  for (const match of source.matchAll(
+  // Ignore JSX expression containers so operators and generic types inside
+  // `{...}` are not mistaken for visible text by this lightweight scanner.
+  const jsxText = source.replace(/\{(?:[^{}]|\{[^{}]*\})*\}/g, " ");
+  for (const match of jsxText.matchAll(/>([^<>{}\n]*[A-Za-z][^<>{}\n]*)</g))
+    visible.add(match[1].trim().replace(/\s+/g, " "));
+  for (const match of jsxText.matchAll(
     /(?:title|subtitle|label|hint|placeholder|detail)="([^"]*[A-Za-z][^"]*)"/g,
   ))
-    visible.add(match[1]);
+    visible.add(match[1].replace(/\s+/g, " "));
 }
 const properNameOrUnit =
   /^(RACE|OS|HorseRacing|HorseRacing Mobile|entry\.value|item\.quantityOnHand|Thunder King|Red Storm|Pale Comet|Autumn Sprint|Silver Arrow|Night Quartz|Golden Hour|Iron Verdict|Brave Ledger|Marlow Bloodstock|Meadowline Racing Club|[+\d$°].*|.*(?:bpm|km\/h|Mcal\/day))$/;
 const untranslated = [...visible].filter(
   (text) =>
     text &&
+    !text.includes("!Number.isInteger(") &&
     !dictionary[text] &&
     !properNameOrUnit.test(text) &&
     !Object.keys(dictionary).some((key) => text.includes(key)),

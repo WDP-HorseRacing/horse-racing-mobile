@@ -134,7 +134,14 @@ export default function AccessControl() {
 
   if (editingRole) {
     return (
-      <Screen role="manager" title={editingRole.name} subtitle="Configure RBAC settings" back>
+      <Screen
+        role="manager"
+        title={editingRole.name}
+        subtitle="Configure RBAC settings"
+        back
+        onBack={() => setEditingRole(null)}
+        fallbackHref="/manager/operations"
+      >
         <View style={uiStyles.section}>
           <SectionTitle>Role Information</SectionTitle>
           <Panel>
@@ -198,7 +205,7 @@ export default function AccessControl() {
   }
 
   return (
-    <Screen role="manager" title="Access Control" subtitle="Manage roles, access scope, and system permissions" back>
+    <Screen role="manager" title="Access Control" subtitle="Manage roles, access scope, and system permissions" back fallbackHref="/manager/operations">
       <View style={uiStyles.section}>
         <SectionTitle>System Roles</SectionTitle>
         {rolesList.map((role) => {

@@ -66,6 +66,8 @@ const { mapHealthStatus, mapHorseSummary } = loadTypeScript(
 );
 const { getLoginFeedback } = loadTypeScript(join(root, "src/features/auth/login-feedback.ts"));
 const { medicalService } = loadTypeScript(join(root, "src/services/medical.service.ts"));
+const { stableCareService } = loadTypeScript(join(root, "src/services/stable-care.service.ts"));
+const { reportsService } = loadTypeScript(join(root, "src/services/reports.service.ts"));
 const { clubDate, filterHorsesBySearch, isValidIsoDate, validateHorseIdentity } = loadTypeScript(
   join(root, "src/utils/horse-validation.ts"),
 );
@@ -78,6 +80,10 @@ const {
   parseNonNegativeInteger,
   toClubDateTime,
 } = loadTypeScript(join(root, "src/features/medical/medical-validation.ts"));
+const { clubDateTimeToIso, classWeekNumber, isParticipantWindowOpen, parseTrialDurationMs } =
+  loadTypeScript(join(root, "src/features/training/training-utils.ts"));
+const { hasFeedingMealDuplicate, isDateOnly, isValidCareTaskRange, isValidChecklistRange } =
+  loadTypeScript(join(root, "src/features/stable-care/stable-care-validation.ts"));
 
 test("login feedback exposes authentication failures even without a session token", () => {
   const authError = new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
@@ -279,6 +285,47 @@ test("training mapper preserves backend status, distance, and elapsed duration",
   assert.equal(session.durationMin, 45);
   assert.equal(session.trials[0].elapsedMs, 72500);
   assert.ok(session.trials[0].elapsedLabel);
+});
+
+test("training schedule timestamps use the club timezone and reject impossible dates", () => {
+  assert.equal(clubDateTimeToIso("2026-10-17", "00:30"), "2026-10-16T17:30:00.000Z");
+  assert.equal(clubDateTimeToIso("2026-02-30", "06:00"), null);
+  assert.equal(clubDateTimeToIso("2026-10-17", "24:00"), null);
+});
+
+test("class schedule weeks and participant windows follow Backend boundaries", () => {
+  assert.equal(classWeekNumber("2026-10-17", "2026-10-23"), 1);
+  assert.equal(classWeekNumber("2026-10-17", "2026-10-24"), 2);
+  const start = "2026-10-17T06:00:00+07:00";
+  const end = "2026-10-17T07:00:00+07:00";
+  assert.equal(
+    isParticipantWindowOpen(start, end, "check-in", Date.parse("2026-10-16T22:29:59Z")),
+    false,
+  );
+  assert.equal(
+    isParticipantWindowOpen(start, end, "check-in", Date.parse("2026-10-16T22:30:00Z")),
+    true,
+  );
+  assert.equal(
+    isParticipantWindowOpen(start, end, "ready", Date.parse("2026-10-16T22:44:59Z")),
+    false,
+  );
+  assert.equal(
+    isParticipantWindowOpen(start, end, "ready", Date.parse("2026-10-16T22:45:00Z")),
+    true,
+  );
+  assert.equal(
+    isParticipantWindowOpen(start, end, "ready", Date.parse("2026-10-17T00:00:01Z")),
+    false,
+  );
+});
+
+test("trial time entry converts mm:ss.t into the integer millisecond DTO", () => {
+  assert.equal(parseTrialDurationMs("01:24.5"), 84_500);
+  assert.equal(parseTrialDurationMs("60:00"), 3_600_000);
+  assert.equal(parseTrialDurationMs("60:00.1"), null);
+  assert.equal(parseTrialDurationMs("00:00.0"), null);
+  assert.equal(parseTrialDurationMs("1:60.0"), null);
 });
 
 test("horse health mapper keeps the backend health categories distinct", () => {
@@ -511,4 +558,90 @@ test("care completion sends the next occurrence to the Backend, without client-s
   assert.equal(observed.url, "http://127.0.0.1:9876/api/v1/care-schedules/schedule-1/complete");
   assert.equal(observed.options.method, "POST");
   assert.deepEqual(JSON.parse(observed.options.body), { nextDueAt });
+});
+
+test("stable care date validation matches the Backend's inclusive day limits", () => {
+  assert.equal(isDateOnly("2024-02-29"), true);
+  assert.equal(isDateOnly("2025-02-29"), false);
+  assert.equal(isDateOnly("2026-02-30"), false);
+  assert.equal(isValidCareTaskRange("2026-10-17", "2027-10-17", "2026-10-17"), true);
+  assert.equal(isValidCareTaskRange("2026-10-17", "2027-10-18", "2026-10-17"), false);
+  assert.equal(isValidCareTaskRange("2026-10-16", "2026-10-17", "2026-10-17"), false);
+  assert.equal(isValidChecklistRange("2026-10-01", "2026-10-31"), true);
+  assert.equal(isValidChecklistRange("2026-10-01", "2026-11-01"), false);
+});
+
+test("stable care prevents duplicate feed items within a meal", () => {
+  const existing = [{ meal: "NOON", supplyItemId: "feed-1", quantity: 2 }];
+  assert.equal(hasFeedingMealDuplicate(existing, "NOON", "feed-1"), true);
+  assert.equal(hasFeedingMealDuplicate(existing, "EVENING", "feed-1"), false);
+  assert.equal(hasFeedingMealDuplicate(existing, "NOON", "feed-2"), false);
+});
+
+test("stable care and cost reports use the Backend routes and request payloads", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const observed = [];
+  globalThis.fetch = async (url, options) => {
+    observed.push({ url, options });
+    return new Response("{}", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  await stableCareService.createFeedingPlans("token", {
+    horseIds: ["horse-1"],
+    items: [{ meal: "NOON", supplyItemId: "feed-1", quantity: 2 }],
+  });
+  await stableCareService.listChecklists("token", "horse-1", "2026-10-10", "2026-10-16");
+  await stableCareService.tickChecklistItem("token", "item-1", { done: false, note: null });
+  await stableCareService.reportIncident("token", {
+    horseId: "horse-1",
+    description: "Horse is limping",
+    urgent: true,
+    photoMediaId: "asset-1",
+  });
+  await stableCareService.applySurcharge("token", "surcharge-1");
+  await reportsService.getOwnerCosts("token", "2026-10-01", "2026-10-16");
+
+  assert.deepEqual(
+    observed.map(({ url, options }) => [
+      url,
+      options.method ?? "GET",
+      options.body ? JSON.parse(options.body) : null,
+    ]),
+    [
+      [
+        "http://127.0.0.1:9876/api/v1/feeding-plans",
+        "POST",
+        { horseIds: ["horse-1"], items: [{ meal: "NOON", supplyItemId: "feed-1", quantity: 2 }] },
+      ],
+      [
+        "http://127.0.0.1:9876/api/v1/horses/horse-1/checklists?from=2026-10-10&to=2026-10-16",
+        "GET",
+        null,
+      ],
+      ["http://127.0.0.1:9876/api/v1/checklist-items/item-1", "PATCH", { done: false, note: null }],
+      [
+        "http://127.0.0.1:9876/api/v1/incidents",
+        "POST",
+        {
+          horseId: "horse-1",
+          description: "Horse is limping",
+          urgent: true,
+          photoMediaId: "asset-1",
+        },
+      ],
+      ["http://127.0.0.1:9876/api/v1/horse-surcharges/surcharge-1/apply", "POST", null],
+      [
+        "http://127.0.0.1:9876/api/v1/reports/owner/costs?from=2026-10-01&to=2026-10-16",
+        "GET",
+        null,
+      ],
+    ],
+  );
 });

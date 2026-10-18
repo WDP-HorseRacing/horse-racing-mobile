@@ -79,7 +79,14 @@ export default function StaffManagement() {
 
   if (isAdding) {
     return (
-      <Screen role="manager" title={editingPerson ? "Edit staff" : "Add staff"} subtitle={editingPerson?.fullName ?? "New club account"} back>
+      <Screen
+        role="manager"
+        title={editingPerson ? "Edit staff" : "Add staff"}
+        subtitle={editingPerson?.fullName ?? "New club account"}
+        back
+        onBack={() => setIsAdding(false)}
+        fallbackHref="/manager/operations"
+      >
         <Field label="Full name"><NativeInput value={name} onChangeText={setName} placeholder="e.g. Nguyen Van A" /></Field>
         {!editingPerson ? (
           <>
@@ -111,6 +118,7 @@ export default function StaffManagement() {
       title="Staff"
       subtitle="Manage club accounts and roles"
       back
+      fallbackHref="/manager/operations"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >

@@ -1,4 +1,5 @@
 import type { GroomTodayDto } from "@/adapters/groom.adapter";
+import type { IncidentDto, DailyChecklistDto } from "@/services/stable-care.service";
 import { apiRequest } from "@/services/api-client";
 
 export const groomService = {
@@ -6,11 +7,11 @@ export const groomService = {
     return apiRequest<GroomTodayDto>("/grooms/me/today", { token });
   },
 
-  tickChecklistItem(token: string, itemId: string, done: boolean) {
-    return apiRequest<void>(`/checklist-items/${encodeURIComponent(itemId)}`, {
+  tickChecklistItem(token: string, itemId: string, done: boolean, note?: string | null) {
+    return apiRequest<DailyChecklistDto>(`/checklist-items/${encodeURIComponent(itemId)}`, {
       method: "PATCH",
       token,
-      body: { done },
+      body: { done, ...(note !== undefined ? { note } : {}) },
     });
   },
 
@@ -36,18 +37,10 @@ export const groomService = {
     });
   },
 
-  reportIncident(token: string, input: { horseId: string; description: string; urgent?: boolean; photoMediaId?: string }) {
+  reportIncident(
+    token: string,
+    input: { horseId: string; description: string; urgent?: boolean; photoMediaId?: string },
+  ) {
     return apiRequest<IncidentDto>("/incidents", { method: "POST", token, body: input });
   },
-};
-
-export type IncidentDto = {
-  id: string;
-  horseId: string;
-  horseName: string;
-  description: string;
-  urgent: boolean;
-  status: string;
-  photoUrl: string | null;
-  createdAt: string;
 };

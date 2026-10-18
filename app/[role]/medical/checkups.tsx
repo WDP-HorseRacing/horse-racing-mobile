@@ -53,7 +53,7 @@ export default function PeriodicCheckups() {
     load,
     Boolean(token && role && ["vet", "manager", "trainer"].includes(role)),
   );
-  useRefreshOnFocus(resource.refresh);
+  useRefreshOnFocus(resource.revalidate);
   const selected = resource.data?.find((item) => item.horseId === selectedHorseId) ?? null;
 
   if (!role) return <Redirect href="/" />;

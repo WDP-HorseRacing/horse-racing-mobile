@@ -37,7 +37,7 @@ export default function MedicalCostReport() {
     [query, token],
   );
   const resource = useApiResource(load, Boolean(token && role === "manager"));
-  useRefreshOnFocus(resource.refresh);
+  useRefreshOnFocus(resource.revalidate);
   const loadBarns = useCallback(() => stableService.listBarns(token!), [token]);
   const barnsResource = useApiResource(loadBarns, Boolean(token && role === "manager"));
   const barns = barnsResource.data ?? [];

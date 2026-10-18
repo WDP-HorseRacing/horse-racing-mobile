@@ -109,6 +109,9 @@ export default function MedicalVisitForm() {
   const [injuryType, setInjuryType] = useState("");
   const [recoveryStatus, setRecoveryStatus] = useState("");
   const [injuryNotes, setInjuryNotes] = useState("");
+  const [injuryPositionX, setInjuryPositionX] = useState("");
+  const [injuryPositionY, setInjuryPositionY] = useState("");
+  const [injuryPositionZ, setInjuryPositionZ] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -252,11 +255,30 @@ export default function MedicalVisitForm() {
       );
       return;
     }
-    const injuryStarted = Boolean(bodyRegion || injuryType || recoveryStatus || injuryNotes.trim());
-    if (injuryStarted && (!bodyRegion || !injuryType || !recoveryStatus)) {
+    const injuryStarted = Boolean(
+      bodyRegion ||
+      injuryType ||
+      recoveryStatus ||
+      injuryNotes.trim() ||
+      injuryPositionX.trim() ||
+      injuryPositionY.trim() ||
+      injuryPositionZ.trim(),
+    );
+    if (
+      injuryStarted &&
+      (!bodyRegion ||
+        !injuryType ||
+        !recoveryStatus ||
+        !injuryPositionX.trim() ||
+        !injuryPositionY.trim() ||
+        !injuryPositionZ.trim() ||
+        ![injuryPositionX, injuryPositionY, injuryPositionZ].every((coordinate) =>
+          Number.isFinite(Number(coordinate)),
+        ))
+    ) {
       Alert.alert(
         "Injury details incomplete",
-        "Choose a body region, injury type, and recovery status.",
+        "Choose a body region, injury type, recovery status, and enter numeric X, Y, and Z coordinates.",
       );
       return;
     }
@@ -291,6 +313,11 @@ export default function MedicalVisitForm() {
             injuries: [
               {
                 bodyRegion,
+                position: {
+                  x: Number(injuryPositionX),
+                  y: Number(injuryPositionY),
+                  z: Number(injuryPositionZ),
+                },
                 injuryType,
                 recoveryStatus,
                 ...(injuryNotes.trim() ? { notes: injuryNotes.trim() } : {}),
@@ -324,6 +351,7 @@ export default function MedicalVisitForm() {
       title={caseId ? "Follow-up examination" : "Record examination"}
       subtitle={resource.data?.horse.name ?? "Veterinary visit"}
       back
+      fallbackHref="/vet/medical"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -493,6 +521,34 @@ export default function MedicalVisitForm() {
                   value={recoveryStatus}
                   onChange={setRecoveryStatus}
                 />
+                <Text style={uiStyles.muted}>
+                  Enter the injury point on the horse’s 3D model. All three coordinates are
+                  required.
+                </Text>
+                <Field label="Position X">
+                  <NativeInput
+                    value={injuryPositionX}
+                    onChangeText={setInjuryPositionX}
+                    keyboardType="numbers-and-punctuation"
+                    placeholder="0.0"
+                  />
+                </Field>
+                <Field label="Position Y">
+                  <NativeInput
+                    value={injuryPositionY}
+                    onChangeText={setInjuryPositionY}
+                    keyboardType="numbers-and-punctuation"
+                    placeholder="0.0"
+                  />
+                </Field>
+                <Field label="Position Z">
+                  <NativeInput
+                    value={injuryPositionZ}
+                    onChangeText={setInjuryPositionZ}
+                    keyboardType="numbers-and-punctuation"
+                    placeholder="0.0"
+                  />
+                </Field>
                 <Field label="Injury notes">
                   <NativeInput value={injuryNotes} onChangeText={setInjuryNotes} multiline />
                 </Field>

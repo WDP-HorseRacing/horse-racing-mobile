@@ -66,7 +66,7 @@ export type TrainingSessionView = {
   intensity: string | null;
   status: "planned" | "scheduled" | "in_progress" | "completed" | "cancelled";
   groomName: string | null;
-  trials: Array<TrainingTrialResultDto & { elapsedLabel: string; targetTimeLabel: string | null }>;
+  trials: (TrainingTrialResultDto & { elapsedLabel: string; targetTimeLabel: string | null })[];
   evaluation: HorseTrainingSessionDto["evaluation"];
 };
 
@@ -119,21 +119,23 @@ export function mapOwnerTrialVideos(
   sessions: readonly TrainingSessionView[],
 ): OwnerTrialVideoView[] {
   return sessions
-    .flatMap((session) => session.trials
-      .filter((trial) => Boolean(trial.videoUrl))
-      .map((trial) => ({
-        id: `${session.participantId}:${trial.attemptNo}`,
-        participantId: session.participantId,
-        attemptNo: trial.attemptNo,
-        horseId: session.horseId,
-        horseName: session.horseName,
-        sessionTitle: session.title,
-        date: trial.recordedAt,
-        elapsedMs: trial.elapsedMs,
-        elapsedLabel: trial.elapsedLabel,
-        videoUrl: trial.videoUrl!,
-        notes: trial.notes,
-      })))
+    .flatMap((session) =>
+      session.trials
+        .filter((trial) => Boolean(trial.videoUrl))
+        .map((trial) => ({
+          id: `${session.participantId}:${trial.attemptNo}`,
+          participantId: session.participantId,
+          attemptNo: trial.attemptNo,
+          horseId: session.horseId,
+          horseName: session.horseName,
+          sessionTitle: session.title,
+          date: trial.recordedAt,
+          elapsedMs: trial.elapsedMs,
+          elapsedLabel: trial.elapsedLabel,
+          videoUrl: trial.videoUrl!,
+          notes: trial.notes,
+        })),
+    )
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
@@ -193,11 +195,15 @@ function mapParticipantStatus(
   participantStatus: string,
   sessionStatus: string,
 ): TrainingSessionView["status"] {
-  if (sessionStatus === "CANCELLED" || ["ABSENT", "SKIPPED", "INELIGIBLE", "CANCELLED", "CANCELLED_BY_LOCK"].includes(participantStatus)) {
+  if (
+    sessionStatus === "CANCELLED" ||
+    ["ABSENT", "SKIPPED", "INELIGIBLE", "CANCELLED", "CANCELLED_BY_LOCK"].includes(
+      participantStatus,
+    )
+  ) {
     return "cancelled";
   }
   if (sessionStatus === "COMPLETED" || participantStatus === "COMPLETED") return "completed";
   if (participantStatus === "ONGOING") return "in_progress";
-  if (sessionStatus === "DRAFT") return "planned";
   return "scheduled";
 }

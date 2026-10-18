@@ -11,13 +11,13 @@ import type { RoleId } from "@/types/raceos";
 import { mapHorseSummaryToPrototype, type HorseSummary } from "@/adapters/horse.adapter";
 import { mapGroomTodayToTasks, type GroomTodayDto } from "@/adapters/groom.adapter";
 import { mapMedicalDashboardCases, type MedicalDashboardDto } from "@/adapters/medical.adapter";
-import type { TrainingSessionView } from "@/adapters/training.adapter";
+import type { TrainingClassDto, TrainingSessionDto } from "@/services/training.service";
 import { groomService } from "@/services/groom.service";
-import { formatDate, formatDateTime, formatDistance, formatDurationMs } from "@/utils/formatters";
+import { formatDate, formatDateTime, formatDistance } from "@/utils/formatters";
 
 export type DashboardPayload =
   | { kind: "horses"; horses: HorseSummary[] }
-  | { kind: "training"; sessions: TrainingSessionView[] }
+  | { kind: "training"; classes: TrainingClassDto[]; sessions: TrainingSessionDto[] }
   | { kind: "groom"; today: GroomTodayDto }
   | { kind: "medical"; dashboard: MedicalDashboardDto };
 
@@ -77,30 +77,29 @@ export function RoleDashboard({
           icon="grid-outline"
           onPress={() => router.push(`/${role}/horses` as Href)}
         />
-        {role === "manager" ? <PrimaryButton
-          label="Medical overview"
-          icon="medkit-outline"
-          onPress={() => router.push("/manager/medical" as Href)}
-        /> : null}
+        {role === "manager" ? (
+          <PrimaryButton
+            label="Medical overview"
+            icon="medkit-outline"
+            onPress={() => router.push("/manager/medical" as Href)}
+          />
+        ) : null}
       </>
     );
   }
 
   if (payload.kind === "training") {
     const sessions = payload.sessions;
-    const live = sessions.filter((session) => session.status === "in_progress");
-    const upcoming = sessions.filter(
-      (session) => session.status === "scheduled" || session.status === "planned",
-    );
-    const classes = new Set(sessions.map((session) => session.classId));
+    const live = sessions.filter((session) => session.status === "IN_PROGRESS");
+    const upcoming = sessions.filter((session) => session.status === "SCHEDULED");
     return (
       <>
         <View style={uiStyles.metricGrid}>
-          <Metric label="Classes" value={classes.size} hint="from backend" tone="good" />
+          <Metric label="Classes" value={payload.classes.length} hint="from backend" tone="good" />
           <Metric
             label="Sessions"
             value={sessions.length}
-            hint={`${sessions.filter((session) => session.status === "completed").length} completed`}
+            hint={`${sessions.filter((session) => session.status === "COMPLETED").length} completed`}
           />
           <Metric
             label="Live now"
@@ -115,21 +114,21 @@ export function RoleDashboard({
             <Panel key={session.id}>
               <View style={uiStyles.row}>
                 <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={uiStyles.value}>{session.title}</Text>
+                  <Text style={uiStyles.value}>{session.name}</Text>
                   <Text style={uiStyles.muted}>
-                    {session.horseName} · {session.className}
+                    {payload.classes.find((item) => item.id === session.classId)?.code ?? "Class"} ·{" "}
+                    {payload.classes.find((item) => item.id === session.classId)?.name ?? ""}
                   </Text>
                 </View>
                 <Text style={uiStyles.label}>{session.status.replaceAll("_", " ")}</Text>
               </View>
               <Text style={uiStyles.muted}>
-                {session.scheduledStartLabel}
-                {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
+                {formatDateTime(session.scheduledStartAt)}
+                {session.plannedDistanceM == null
+                  ? ""
+                  : ` · ${formatDistance(session.plannedDistanceM)}`}
                 {session.surface ? ` · ${session.surface}` : ""}
               </Text>
-              {session.targetTimeMs == null ? null : (
-                <Text style={uiStyles.label}>Target {formatDurationMs(session.targetTimeMs)}</Text>
-              )}
             </Panel>
           ))}
           {!sessions.length ? (
@@ -219,9 +218,9 @@ export function RoleDashboard({
           onPress={() => router.push("/groom/tasks" as Href)}
         />
         <PrimaryButton
-          label="Medical examination requests"
-          icon="medkit-outline"
-          onPress={() => router.push("/groom/medical/requests" as Href)}
+          label="Report an incident"
+          icon="camera-outline"
+          onPress={() => router.push("/groom/report" as Href)}
         />
         <PrimaryButton
           label="Assigned care schedules"
@@ -260,11 +259,7 @@ export function RoleDashboard({
         {cases.slice(0, 4).map((medicalCase) => (
           <Pressable
             key={medicalCase.id}
-            onPress={() =>
-              router.push(
-                `/vet/medical/cases/${medicalCase.id}` as Href,
-              )
-            }
+            onPress={() => router.push(`/vet/medical/cases/${medicalCase.id}` as Href)}
           >
             <Panel>
               <TimelineItem

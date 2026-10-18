@@ -1,13 +1,10 @@
 export type AuditLogDto = {
   id: string;
-  actorId: string | null;
-  actor?: { id: string; fullName?: string | null; email?: string | null } | null;
+  actor: { id: string; fullName: string; role: string | null } | null;
   action: string;
   entityType: string;
   entityId: string;
-  beforeData?: Record<string, unknown> | null;
-  afterData?: Record<string, unknown> | null;
-  reason?: string | null;
-  feature?: string | null;
+  reason: string | null;
+  feature: string | null;
   createdAt: string;
 };

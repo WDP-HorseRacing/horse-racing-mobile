@@ -1,12 +1,23 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
-import { Alert, View } from "react-native";
+import { router, useLocalSearchParams, type Href } from "expo-router";
+import { safeBack } from "@/utils/navigation";
+import { Alert, Image, View } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
 import { Text } from "@/components/common/LocalizedText";
 import { useAuth } from "@/context/AuthContext";
 import { AsyncStateView, Screen } from "@/components/common";
-import { Field, NativeInput, Panel, PrimaryButton, Chips, getUiStyles } from "@/components/ui";
+import {
+  Field,
+  NativeInput,
+  Panel,
+  PrimaryButton,
+  SecondaryButton,
+  Chips,
+  getUiStyles,
+} from "@/components/ui";
 import { useApiResource } from "@/hooks/useApiResource";
 import { horseService } from "@/services/horse.service";
+import { mediaService, type LocalMediaAsset } from "@/services/media.service";
 import { usersService } from "@/services/users.service";
 import type { StaffDto } from "@/adapters/staff.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
@@ -51,6 +62,7 @@ export default function EditHorse() {
       title="Edit horse profile"
       subtitle={resource.data?.name ?? ""}
       back
+      fallbackHref={`/manager/horse/${horseId}` as Href}
       refreshing={
         resource.isRefreshing ||
         ownersResource.isRefreshing ||
@@ -134,6 +146,10 @@ function EditHorseForm({
   const [color, setColor] = useState(horse.color ?? "");
   const [microchipId, setMicrochipId] = useState(horse.microchipId ?? "");
   const [dateOfBirth, setDateOfBirth] = useState(horse.dateOfBirth ?? "");
+  const [photo, setPhoto] = useState<LocalMediaAsset | null>(null);
+  const [uploadedPhotoId, setUploadedPhotoId] = useState<string | null>(null);
+  const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [ownerId, setOwnerId] = useState(horse.ownerId ?? "");
   const [sireId, setSireId] = useState(horse.sireId ?? "");
   const [damId, setDamId] = useState(horse.damId ?? "");
@@ -142,6 +158,8 @@ function EditHorseForm({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const savingRef = useRef(false);
+  const loadPhoto = useCallback(() => horseService.getPhotoUrl(token, horseId), [horseId, token]);
+  const photoResource = useApiResource(loadPhoto, Boolean(horse.mediaId));
   const candidateSires = useMemo(
     () =>
       horses.filter(
@@ -187,6 +205,13 @@ function EditHorseForm({
     savingRef.current = true;
     setSaving(true);
     try {
+      let mediaId = uploadedPhotoId;
+      if (photo && !mediaId) {
+        setUploadingPhoto(true);
+        mediaId = await mediaService.uploadHorsePhoto(token, photo);
+        setUploadedPhotoId(mediaId);
+        setUploadingPhoto(false);
+      }
       const updated = await horseService.update(token, horseId, {
         version: horse.version,
         name: name.trim(),
@@ -198,16 +223,31 @@ function EditHorseForm({
         sireId: sireId || null,
         damId: damId || null,
         ...(!horse.ownerId && ownerId ? { ownerId } : {}),
+        ...(mediaId ? { mediaId } : removeExistingPhoto ? { mediaId: null } : {}),
       });
       Alert.alert("Profile saved", updated.name);
-      router.back();
+      safeBack(`/manager/horse/${horseId}` as Href);
     } catch (error) {
       const message = extractErrorMessage(error);
       setFormError(message);
       Alert.alert("Could not save profile", message);
     } finally {
       savingRef.current = false;
+      setUploadingPhoto(false);
       setSaving(false);
+    }
+  };
+
+  const choosePhoto = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["image/jpeg", "image/png", "image/webp"],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhoto(result.assets[0]);
+      setUploadedPhotoId(null);
+      setRemoveExistingPhoto(false);
     }
   };
 
@@ -333,14 +373,69 @@ function EditHorseForm({
       </Panel>
       {formError ? (
         <Panel style={uiStyles.alert}>
-          <Text style={{ color: colors.destructive, fontWeight: "600", fontSize: 13 }}>{formError}</Text>
+          <Text style={{ color: colors.destructive, fontWeight: "600", fontSize: 13 }}>
+            {formError}
+          </Text>
         </Panel>
       ) : null}
       <Panel>
-        <Text style={uiStyles.muted}>Photo upload is currently unavailable in this mobile build.</Text>
+        <View style={{ gap: 12 }}>
+          <Text style={uiStyles.value}>Horse photo</Text>
+          {photo ? (
+            <>
+              <Text style={uiStyles.muted}>{photo.name}</Text>
+              <Image
+                source={{ uri: photo.uri }}
+                style={{ width: 200, height: 150, borderRadius: 12 }}
+                resizeMode="cover"
+              />
+              <SecondaryButton
+                label="Remove selected photo"
+                onPress={() => {
+                  setPhoto(null);
+                  setUploadedPhotoId(null);
+                }}
+              />
+            </>
+          ) : horse.mediaId && !removeExistingPhoto ? (
+            <>
+              {photoResource.data?.url ? (
+                <Image
+                  source={{ uri: photoResource.data.url }}
+                  style={{ width: 200, height: 150, borderRadius: 12 }}
+                  resizeMode="cover"
+                />
+              ) : photoResource.error ? (
+                <Text style={uiStyles.muted}>Could not load the current photo preview.</Text>
+              ) : null}
+              <SecondaryButton
+                label="Remove current photo"
+                onPress={() => setRemoveExistingPhoto(true)}
+                disabled={saving}
+              />
+            </>
+          ) : removeExistingPhoto ? (
+            <Text style={uiStyles.muted}>Current photo will be removed when you save.</Text>
+          ) : null}
+          {removeExistingPhoto ? (
+            <SecondaryButton
+              label="Keep current photo"
+              onPress={() => setRemoveExistingPhoto(false)}
+              disabled={saving}
+            />
+          ) : null}
+          {!photo ? (
+            <SecondaryButton
+              label="Choose replacement photo"
+              onPress={() => void choosePhoto()}
+              disabled={saving}
+            />
+          ) : null}
+          <Text style={uiStyles.muted}>JPEG, PNG, or WebP · up to 10 MB</Text>
+        </View>
       </Panel>
       <PrimaryButton
-        label={saving ? "Saving…" : "Save profile"}
+        label={uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save profile"}
         icon="checkmark"
         disabled={saving}
         onPress={() => void save()}

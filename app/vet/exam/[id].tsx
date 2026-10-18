@@ -80,6 +80,7 @@ export default function Examination() {
         title="Medical case"
         subtitle={medicalCase ? `${medicalCase.horseName} · ${medicalCase.status}` : "Case details"}
         back
+        fallbackHref="/vet/medical"
         refreshing={caseResource.isRefreshing}
         onRefresh={() => void caseResource.refresh()}
       >
@@ -145,7 +146,7 @@ export default function Examination() {
   }
 
   return (
-    <Screen role="vet" title="Examination" subtitle={`${horse.name} · stall ${horse.stall}`} back>
+    <Screen role="vet" title="Examination" subtitle={`${horse.name} · stall ${horse.stall}`} back fallbackHref="/vet/medical">
       {saved ? (
         <View
           style={{

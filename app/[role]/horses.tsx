@@ -65,11 +65,11 @@ export default function Horses() {
     [appliedFilters, serverSearch, token],
   );
   const resource = useApiResource(loadHorses, Boolean(token));
-  const refreshRef = useRef(resource.refresh);
+  const refreshRef = useRef(resource.revalidate);
   const focusedOnce = useRef(false);
   useEffect(() => {
-    refreshRef.current = resource.refresh;
-  }, [resource.refresh]);
+    refreshRef.current = resource.revalidate;
+  }, [resource.revalidate]);
   useFocusEffect(
     useCallback(() => {
       if (focusedOnce.current) void refreshRef.current();

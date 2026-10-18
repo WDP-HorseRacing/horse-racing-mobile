@@ -342,8 +342,12 @@ test("Mobile response DTO fields and JSON shapes agree with Backend success sche
       "GET /training-sessions/{}: response.intensity: Mobile type includes null but Backend schema does not allow null",
       "GET /training-sessions/{}/participants: response[].checkedInAt: Mobile type includes null but Backend schema does not allow null",
     ]);
-    const actualIssues = issues.filter((issue) => !KNOWN_GAPS.has(`${call.method} ${call.path}: ${issue}`));
-    return matches || !actualIssues.length ? [] : [`${call.method} ${call.path}: ${actualIssues.join("; ")}`];
+    const actualIssues = issues.filter(
+      (issue) => !KNOWN_GAPS.has(`${call.method} ${call.path}: ${issue}`),
+    );
+    return matches || !actualIssues.length
+      ? []
+      : [`${call.method} ${call.path}: ${actualIssues.join("; ")}`];
   });
   assert.deepEqual(mismatches, []);
 });
@@ -372,12 +376,7 @@ test("Mobile calls to contract-only routes stay visible as known runtime gaps", 
         : [];
     })
     .sort();
-  assert.deepEqual(actual, [
-    "GET /audit-logs",
-    "GET /races",
-    "GET /reports/club/finance",
-    "POST /races/{id}/registrations",
-  ]);
+  assert.deepEqual(actual, ["GET /races", "POST /races/{id}/registrations"]);
 });
 
 test("Mobile and Backend repositories expose matching OpenAPI version prefix", () => {

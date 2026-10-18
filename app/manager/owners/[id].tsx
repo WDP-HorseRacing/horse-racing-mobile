@@ -26,6 +26,7 @@ export default function HorseOwners() {
       title="Horse owner"
       subtitle={horse?.name ?? "Ownership record"}
       back
+      fallbackHref="/manager/operations"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >

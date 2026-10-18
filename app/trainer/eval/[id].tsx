@@ -8,6 +8,7 @@ import { Screen } from "@/components/common";
 import { trainingService } from "@/services/training.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { useTheme } from "@/hooks/useTheme";
+import { safeBack } from "@/utils/navigation";
 
 const scoreOptions = Array.from({ length: 10 }, (_, index) => String(index + 1));
 
@@ -28,7 +29,7 @@ export default function SessionEvaluation() {
     setSaving(true);
     try {
       await trainingService.createEvaluation(token, participantId, { score: Number(score), ...(comment.trim() ? { comment: comment.trim() } : {}) });
-      Alert.alert("Evaluation saved", "Training session evaluation has been recorded.", [{ text: "OK", onPress: () => router.back() }]);
+      Alert.alert("Evaluation saved", "Training session evaluation has been recorded.", [{ text: "OK", onPress: () => safeBack("/trainer/training") }]);
     } catch (error) {
       Alert.alert("Could not save evaluation", extractErrorMessage(error));
     } finally {
@@ -37,7 +38,7 @@ export default function SessionEvaluation() {
   };
 
   return (
-    <Screen role="trainer" title="Session evaluation" subtitle={horseName ?? "Score the horse’s performance"} back>
+    <Screen role="trainer" title="Session evaluation" subtitle={horseName ?? "Score the horse’s performance"} back fallbackHref="/trainer/training">
       {sessionTitle ? <Panel><Text style={uiStyles.value}>{sessionTitle}</Text><Text style={uiStyles.muted}>{horseName ?? ""}</Text></Panel> : null}
       <Panel><Text style={uiStyles.muted}>Score is from 1 to 10. The evaluation is attached to this session participant.</Text></Panel>
       <View style={{ gap: 18 }}>

@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, type Href } from "expo-router";
+import { safeBack } from "@/utils/navigation";
 import { useCallback, useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
@@ -131,7 +132,7 @@ export default function LifecycleManagement() {
           "Profile restored",
           "The horse has returned to the active list and is pending barn assignment.",
         );
-        router.back();
+        safeBack(`/manager/horse/${id}` as Href);
       } else {
         await horseService.changeLifecycle(token, id, {
           lifecycleStatus: action,
@@ -139,7 +140,7 @@ export default function LifecycleManagement() {
           ...(action === "DECEASED" ? { dateOfDeath } : {}),
         });
         Alert.alert("Lifecycle updated", "Horse profile was refreshed.");
-        router.back();
+        safeBack(`/manager/horse/${id}` as Href);
       }
     } catch (cause) {
       const message = extractErrorMessage(cause);
@@ -169,6 +170,7 @@ export default function LifecycleManagement() {
       title="Lifecycle and profile"
       subtitle={horse?.name ?? "Horse profile"}
       back
+      fallbackHref={`/manager/horse/${id}` as Href}
       refreshing={horseResource.isRefreshing || permissionsResource.isRefreshing}
       onRefresh={() => void Promise.all([horseResource.refresh(), permissionsResource.refresh()])}
     >

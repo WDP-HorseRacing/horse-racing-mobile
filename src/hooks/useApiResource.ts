@@ -7,6 +7,7 @@ export type ApiResourceState<T> = {
   error: unknown;
   retry: () => Promise<void>;
   refresh: () => Promise<void>;
+  revalidate: () => Promise<void>;
 };
 
 export class LatestRequestGuard {
@@ -42,11 +43,11 @@ export function useApiResource<T>(load: () => Promise<T>, enabled = true): ApiRe
   }, []);
 
   const run = useCallback(
-    async (refreshing: boolean) => {
+    async (mode: "initial" | "refresh" | "silent" = "initial") => {
       if (!enabled) return;
       const requestId = requestGuard.begin();
-      if (refreshing) setIsRefreshing(true);
-      else setIsLoading(true);
+      if (mode === "refresh") setIsRefreshing(true);
+      else if (mode === "initial") setIsLoading(true);
       setError(null);
       try {
         const next = await load();
@@ -54,9 +55,13 @@ export function useApiResource<T>(load: () => Promise<T>, enabled = true): ApiRe
       } catch (loadError) {
         if (mounted.current && requestGuard.isCurrent(requestId)) setError(loadError);
       } finally {
-        if (mounted.current && requestGuard.isCurrent(requestId)) {
-          setIsLoading(false);
-          setIsRefreshing(false);
+        if (mounted.current) {
+          if (mode === "refresh" || requestGuard.isCurrent(requestId)) {
+            setIsRefreshing(false);
+          }
+          if (requestGuard.isCurrent(requestId)) {
+            setIsLoading(false);
+          }
         }
       }
     },
@@ -67,7 +72,7 @@ export function useApiResource<T>(load: () => Promise<T>, enabled = true): ApiRe
     const effectId = requestGuard.begin();
     if (enabled) {
       void Promise.resolve().then(() => {
-        if (mounted.current && requestGuard.isCurrent(effectId)) void run(false);
+        if (mounted.current && requestGuard.isCurrent(effectId)) void run("initial");
       });
     } else {
       void Promise.resolve().then(() => {
@@ -80,8 +85,14 @@ export function useApiResource<T>(load: () => Promise<T>, enabled = true): ApiRe
     return () => requestGuard.invalidate();
   }, [enabled, run, requestGuard]);
 
-  const retry = useCallback(() => run(false), [run]);
-  const refresh = useCallback(() => run(true), [run]);
+  const runRef = useRef(run);
+  useEffect(() => {
+    runRef.current = run;
+  }, [run]);
 
-  return { data, isLoading, isRefreshing, error, retry, refresh };
+  const retry = useCallback(() => runRef.current("initial"), []);
+  const refresh = useCallback(() => runRef.current("refresh"), []);
+  const revalidate = useCallback(() => runRef.current("silent"), []);
+
+  return { data, isLoading, isRefreshing, error, retry, refresh, revalidate };
 }

@@ -33,7 +33,7 @@ export default function InjuryMap() {
   const injuries = resource.data?.injuries ?? [];
 
   return (
-    <Screen role="vet" title="Injury history" subtitle={resource.data?.horse.name ?? ""} back refreshing={resource.isRefreshing} onRefresh={() => void resource.refresh()}>
+    <Screen role="vet" title="Injury history" subtitle={resource.data?.horse.name ?? ""} back fallbackHref="/vet/medical" refreshing={resource.isRefreshing} onRefresh={() => void resource.refresh()}>
       <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} empty={!resource.isLoading && !resource.error && injuries.length === 0} emptyLabel="No injuries have been recorded for this horse." />
       {resource.data && injuries.length ? <>
         <Panel><Text style={uiStyles.value}>{resource.data.horse.name}</Text><Text style={uiStyles.muted}>{injuries.length} recorded injury event{injuries.length === 1 ? "" : "s"}</Text></Panel>

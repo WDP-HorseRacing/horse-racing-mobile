@@ -18,19 +18,33 @@ export const usersService = {
     return users;
   },
 
-  create(token: string, input: { fullName: string; email: string; role: StaffRole; password: string }) {
+  create(
+    token: string,
+    input: { fullName: string; email: string; role: StaffRole; password: string },
+  ) {
     return apiRequest<StaffDto>("/users", { method: "POST", token, body: input });
   },
 
   update(token: string, userId: string, input: { fullName?: string; role?: StaffRole }) {
     return apiRequest<StaffDto>(`/users/${encodeURIComponent(userId)}`, {
-      method: "PATCH", token, body: input,
+      method: "PATCH",
+      token,
+      body: input,
     });
   },
 
   setStatus(token: string, userId: string, status: StaffStatus) {
     return apiRequest<StaffDto>(`/users/${encodeURIComponent(userId)}/status`, {
-      method: "PATCH", token, body: { status },
+      method: "PATCH",
+      token,
+      body: { status },
     });
+  },
+
+  handoverHeadTrainer(token: string, userId: string, toHeadTrainerId: string) {
+    return apiRequest<{ barnsMoved: number; plansMoved: number; classesMoved: number }>(
+      `/users/${encodeURIComponent(userId)}/head-trainer-handover`,
+      { method: "POST", token, body: { toHeadTrainerId } },
+    );
   },
 };
