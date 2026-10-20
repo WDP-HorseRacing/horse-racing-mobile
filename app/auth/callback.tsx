@@ -24,24 +24,24 @@ export default function GoogleAuthCallback() {
   const { t } = useI18n();
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const synchronousError = providerError
+    ? t(googleOidcProviderError(providerError))
+    : !code || !state
+      ? t("The Google sign-in response is incomplete. Please try again.")
+      : null;
+  const [asyncError, setAsyncError] = useState<string | null>(null);
+  const errorMessage = synchronousError ?? asyncError;
 
   useEffect(() => {
     let active = true;
-    if (providerError) {
-      setErrorMessage(t(googleOidcProviderError(providerError)));
-    } else if (!code || !state) {
-      setErrorMessage(t("The Google sign-in response is incomplete. Please try again."));
-    } else {
+    if (!synchronousError && code && state) {
       void signInWithGoogle({ code, state })
         .then((role) => {
           if (active) router.replace(`/${role}` as Href);
         })
         .catch((error: unknown) => {
           if (active) {
-            setErrorMessage(
-              t(extractErrorMessage(error, t("Unable to sign in with Google."))),
-            );
+            setAsyncError(t(extractErrorMessage(error, t("Unable to sign in with Google."))));
           }
         });
     }
@@ -49,7 +49,7 @@ export default function GoogleAuthCallback() {
     return () => {
       active = false;
     };
-  }, [code, providerError, signInWithGoogle, state, t]);
+  }, [code, signInWithGoogle, state, synchronousError, t]);
 
   if (errorMessage) {
     return (

@@ -12,10 +12,7 @@ import { radius, space } from "@/config/theme";
 import { extractErrorMessage, extractFieldErrors } from "@/utils/errorHandler";
 import { useTheme } from "@/hooks/useTheme";
 import { getLoginFeedback } from "@/features/auth/login-feedback";
-import {
-  GOOGLE_OIDC_REDIRECT_URI,
-  parseGoogleOidcCallbackUrl,
-} from "@/features/auth/google-oidc";
+import { GOOGLE_OIDC_REDIRECT_URI, parseGoogleOidcCallbackUrl } from "@/features/auth/google-oidc";
 import { authService } from "@/services/auth.service";
 
 WebBrowser.maybeCompleteAuthSession();

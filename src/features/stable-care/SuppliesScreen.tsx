@@ -1,5 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
@@ -351,7 +360,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
   // Remaining calculations for usage modal
   const usedAmount = Number(quantity || 0);
   const availableQty = selectedItem?.quantityOnHand ?? 0;
-  const remainingStock = availableQty - usedAmount;
+  const remainingStock = Math.round((availableQty - usedAmount) * 100) / 100;
   const isUsageOver = usedAmount > availableQty;
   const isUsageBelowThreshold =
     remainingStock <= (selectedItem?.reorderThreshold ?? 0) && remainingStock >= 0;
@@ -376,7 +385,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
         <Metric label="Low stock" value={lowStockCount} tone={lowStockCount ? "warning" : "good"} />
         {canViewRequests ? (
           <Metric
-            label="Pending requests"
+            label="Pending supply requests"
             value={pendingRequestsCount}
             tone={pendingRequestsCount ? "warning" : "good"}
           />
@@ -523,8 +532,8 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                     />
                   </View>
 
-                  {/* Interactive Action Row for Groom & Employees */}
-                  <View style={styles.cardActionsRow}>
+                  {/* Interactive Action Area for Groom & Employees */}
+                  <View style={styles.cardActionsContainer}>
                     {canUse ? (
                       <Pressable
                         accessibilityRole="button"
@@ -532,32 +541,42 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                         onPress={() => openMovement(item, "use")}
                         style={styles.useActionBtn}
                       >
-                        <Ionicons name="remove-circle-outline" size={16} color={colors.primary} />
+                        <Ionicons name="remove-circle-outline" size={17} color={colors.primary} />
                         <Text style={styles.useActionBtnText}>{t("Record use")}</Text>
                       </Pressable>
                     ) : null}
 
-                    {canRequest ? (
+                    <View style={styles.cardSecondaryActionsRow}>
+                      {canRequest ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t("Propose restock")}
+                          onPress={() => openRequest(item)}
+                          style={styles.secondaryActionBtn}
+                        >
+                          <Ionicons name="add-circle-outline" size={15} color={colors.foreground} />
+                          <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
+                            {t("Propose restock")}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={t("Propose restock")}
-                        onPress={() => openRequest(item)}
-                        style={styles.requestActionBtn}
+                        accessibilityLabel={t("Stock details")}
+                        onPress={() => setDetailsItem(item)}
+                        style={styles.secondaryActionBtn}
                       >
-                        <Ionicons name="add-circle-outline" size={16} color={colors.foreground} />
-                        <Text style={styles.secondaryActionBtnText}>{t("Propose restock")}</Text>
+                        <Ionicons
+                          name="document-text-outline"
+                          size={15}
+                          color={colors.foreground}
+                        />
+                        <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
+                          {t("Stock details")}
+                        </Text>
                       </Pressable>
-                    ) : null}
-
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={t("Stock details")}
-                      onPress={() => setDetailsItem(item)}
-                      style={styles.detailsActionBtn}
-                    >
-                      <Ionicons name="document-text-outline" size={16} color={colors.foreground} />
-                      <Text style={styles.secondaryActionBtnText}>{t("Stock details")}</Text>
-                    </Pressable>
+                    </View>
                   </View>
 
                   {/* Manager Controls */}
@@ -765,7 +784,10 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
         statusBarTranslucent
         onRequestClose={closeForm}
       >
-        <View style={styles.modalRoot}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalRoot}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("Close")}
@@ -795,6 +817,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: space.md }}
+              keyboardShouldPersistTaps="handled"
             >
               {/* Available Stock Banner */}
               <View style={styles.infoBanner}>
@@ -863,7 +886,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                         isUsageBelowThreshold && !isUsageOver && { color: colors.monitor },
                       ]}
                     >
-                      {Math.max(0, remainingStock)} {selectedItem?.unit}
+                      {formatQuantity(Math.max(0, remainingStock), selectedItem?.unit ?? "")}
                     </Text>
                   </View>
 
@@ -926,7 +949,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ============================================================== */}
@@ -942,7 +965,10 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
         statusBarTranslucent
         onRequestClose={closeForm}
       >
-        <View style={styles.modalRoot}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalRoot}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("Close")}
@@ -972,16 +998,20 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: space.md }}
+              keyboardShouldPersistTaps="handled"
             >
               {selectedItem ? (
                 <View style={styles.infoBanner}>
-                  <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
+                  <Ionicons name="cube-outline" size={20} color={colors.primary} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.infoBannerLabel}>
-                      {t("Available in stock:")} {selectedItem.quantityOnHand} {selectedItem.unit}
-                    </Text>
-                    <Text style={styles.infoBannerLabel}>
-                      {t("Reorder threshold:")} {selectedItem.reorderThreshold} {selectedItem.unit}
+                    <Text style={styles.infoBannerLabel}>{t("Available in stock:")}</Text>
+                    <Text style={styles.infoBannerValue}>
+                      {formatQuantity(selectedItem.quantityOnHand, selectedItem.unit)}
+                      <Text style={[styles.infoBannerLabel, { fontWeight: "normal" }]}>
+                        {"  ·  "}
+                        {t("reorder threshold")}{" "}
+                        {formatQuantity(selectedItem.reorderThreshold, selectedItem.unit)}
+                      </Text>
                     </Text>
                   </View>
                 </View>
@@ -1063,7 +1093,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ============================================================== */}
@@ -1082,7 +1112,10 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
         statusBarTranslucent
         onRequestClose={closeForm}
       >
-        <View style={styles.modalRoot}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalRoot}
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("Close")}
@@ -1234,7 +1267,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Screen>
   );
@@ -1305,26 +1338,33 @@ function SupplyDetailsModal({
           {/* Quick Metrics Bar */}
           <View style={styles.detailsStatsRow}>
             <View style={styles.detailsStatBox}>
-              <Text style={styles.detailsStatLabel}>{t("In stock")}</Text>
-              <Text style={styles.detailsStatValue}>
-                {item.quantityOnHand} {item.unit}
+              <Text style={styles.detailsStatLabel} numberOfLines={1}>
+                {t("In stock")}
+              </Text>
+              <Text style={styles.detailsStatValue} numberOfLines={1}>
+                {formatQuantity(item.quantityOnHand, item.unit)}
               </Text>
             </View>
 
             <View style={styles.detailsStatBox}>
-              <Text style={styles.detailsStatLabel}>{t("reorder threshold")}</Text>
-              <Text style={styles.detailsStatValue}>
-                {item.reorderThreshold} {item.unit}
+              <Text style={styles.detailsStatLabel} numberOfLines={1}>
+                {t("reorder threshold")}
+              </Text>
+              <Text style={styles.detailsStatValue} numberOfLines={1}>
+                {formatQuantity(item.reorderThreshold, item.unit)}
               </Text>
             </View>
 
             <View style={styles.detailsStatBox}>
-              <Text style={styles.detailsStatLabel}>{t("Status")}</Text>
+              <Text style={styles.detailsStatLabel} numberOfLines={1}>
+                {t("Status")}
+              </Text>
               <Text
                 style={[
                   styles.detailsStatValue,
                   { color: item.lowStock ? colors.monitor : colors.fit },
                 ]}
+                numberOfLines={1}
               >
                 {t(item.lowStock ? "Low stock" : "In stock")}
               </Text>
@@ -1620,6 +1660,12 @@ const getStyles = (colors: any) =>
     },
 
     // Action buttons inside card
+    cardActionsContainer: {
+      gap: space.xs,
+      paddingTop: space.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
     cardActionsRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -1629,22 +1675,40 @@ const getStyles = (colors: any) =>
       borderTopColor: colors.border,
     },
     useActionBtn: {
-      flex: 1.2,
+      width: "100%",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 5,
-      paddingVertical: 9,
-      paddingHorizontal: 8,
+      gap: 6,
+      paddingVertical: 10,
+      paddingHorizontal: space.sm,
       borderRadius: radius.sm,
       backgroundColor: colors.fitSoft,
       borderWidth: 1,
       borderColor: colors.primary,
     },
     useActionBtnText: {
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: "700",
       color: colors.primary,
+    },
+    cardSecondaryActionsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+    },
+    secondaryActionBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      paddingVertical: 9,
+      paddingHorizontal: space.xs,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     requestActionBtn: {
       flex: 1,
@@ -1937,6 +2001,8 @@ const getStyles = (colors: any) =>
     },
     detailsStatBox: {
       flex: 1,
+      minHeight: 56,
+      justifyContent: "center",
       padding: space.sm,
       borderRadius: radius.sm,
       backgroundColor: colors.muted,
@@ -1946,6 +2012,7 @@ const getStyles = (colors: any) =>
     detailsStatLabel: {
       fontSize: 11,
       color: colors.mutedForeground,
+      textTransform: "capitalize",
     },
     detailsStatValue: {
       fontSize: 14,
