@@ -149,6 +149,12 @@ export const roles: Record<RoleId, RoleConfig> = {
         description: "Overview of all barns and stalls.",
       },
       {
+        label: "Training",
+        icon: "calendar-outline",
+        path: "/manager/training",
+        description: "Manage subjects, classes, performance and handover.",
+      },
+      {
         label: "Supplies",
         icon: "cube-outline",
         path: "/manager/inventory",
@@ -189,12 +195,6 @@ export const roles: Record<RoleId, RoleConfig> = {
         icon: "bar-chart-outline",
         path: "/manager/reports",
         description: "Review club costs and owner charges.",
-      },
-      {
-        label: "Training management",
-        icon: "calendar-outline",
-        path: "/manager/training",
-        description: "Review training class performance.",
       },
       {
         label: "Medical overview",

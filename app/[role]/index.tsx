@@ -11,6 +11,8 @@ import { useApiResource } from "@/hooks/useApiResource";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { horseService } from "@/services/horse.service";
+import { stableService } from "@/services/stable.service";
+import { stableCareService } from "@/services/stable-care.service";
 import { trainingService } from "@/services/training.service";
 import { suppliesService } from "@/services/supplies.service";
 import { groomService } from "@/services/groom.service";
@@ -23,12 +25,125 @@ export default function RoleHome() {
   const roleId = isRole(role) ? role : "trainer";
   const loadDashboard = useCallback(async (): Promise<DashboardPayload> => {
     const token = auth.token!;
-    if (roleId === "trainer") {
-      const classes = await trainingService.listClasses(token);
+    if (roleId === "manager") {
+      const now = new Date();
+      const months = Array.from({ length: 6 }, (_, idx) => {
+        const i = 5 - idx;
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const from = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+        const to = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+        const label = `T${d.getMonth() + 1}`;
+        return { key: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`, label, from, to };
+      });
+
+      const [
+        horses,
+        barns,
+        stalls,
+        medical,
+        checkups,
+        costs,
+        incidents,
+        lowStock,
+        pendingSupplyRequests,
+        classes,
+      ] = await Promise.all([
+        horseService.list(token),
+        stableService.listBarns(token),
+        stableService.listStalls(token).catch(() => []),
+        medicalService.getDashboard(token),
+        medicalService.listCheckups(token).catch(() => []),
+        Promise.all(
+          months.map((m) =>
+            medicalService
+              .getCostReport(token, { from: m.from, to: m.to })
+              .then((r) => ({ key: m.key, label: m.label, total: r.totalCost, count: r.caseCount }))
+              .catch(() => ({ key: m.key, label: m.label, total: 0, count: 0 })),
+          ),
+        ),
+        stableCareService.listIncidents(token, { status: "OPEN" }).catch(() => []),
+        suppliesService
+          .listItems(token)
+          .then((items) =>
+            items.filter(
+              (s) =>
+                s.lowStock || (s.reorderThreshold > 0 && s.quantityOnHand <= s.reorderThreshold),
+            ),
+          )
+          .catch(() => []),
+        suppliesService.listRequests(token, { status: "PENDING" }).catch(() => []),
+        trainingService.listClasses(token).catch(() => []),
+      ]);
+
+      const openClasses = classes.filter((c) => c.status === "ACTIVE");
       const sessionGroups = await Promise.all(
-        classes.map((trainingClass) => trainingService.listClassSessions(token, trainingClass.id)),
+        openClasses.map((c) => trainingService.listClassSessions(token, c.id).catch(() => [])),
       );
-      return { kind: "training", classes, sessions: sessionGroups.flat() };
+
+      return {
+        kind: "manager_ops",
+        data: {
+          horses,
+          barns,
+          stalls,
+          medical,
+          checkups,
+          costs,
+          stable: {
+            incidents,
+            lowStock,
+            pendingSupply: pendingSupplyRequests.length,
+          },
+          classes,
+          sessions: sessionGroups.flat(),
+        },
+      };
+    }
+    if (roleId === "trainer") {
+      const [horses, barns, stalls, medical, checkups, incidents, lowStock, classes] =
+        await Promise.all([
+          horseService.list(token, "", { myBarns: true }),
+          stableService.listBarns(token),
+          stableService.listStalls(token).catch(() => []),
+          medicalService.getDashboard(token),
+          medicalService.listCheckups(token).catch(() => []),
+          stableCareService.listIncidents(token, { status: "OPEN" }).catch(() => []),
+          suppliesService
+            .listItems(token)
+            .then((items) =>
+              items.filter(
+                (s) =>
+                  s.lowStock || (s.reorderThreshold > 0 && s.quantityOnHand <= s.reorderThreshold),
+              ),
+            )
+            .catch(() => []),
+          trainingService.listClasses(token).catch(() => []),
+        ]);
+
+      const openClasses = classes.filter((c) => c.status === "ACTIVE");
+      const sessionGroups = await Promise.all(
+        openClasses.map((c) => trainingService.listClassSessions(token, c.id).catch(() => [])),
+      );
+
+      return {
+        kind: "trainer_ops",
+        data: {
+          horses,
+          barns,
+          stalls,
+          medical,
+          checkups,
+          stable: {
+            incidents,
+            lowStock,
+            pendingSupply: 0,
+          },
+          classes,
+          sessions: sessionGroups.flat(),
+        },
+      };
     }
     if (roleId === "groom") {
       const [today, supplies] = await Promise.all([

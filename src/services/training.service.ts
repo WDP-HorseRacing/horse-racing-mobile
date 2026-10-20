@@ -49,13 +49,7 @@ export type TrainingSubjectInput = {
 export type TrainingSubjectCreateInput = Omit<TrainingSubjectInput, "targetTimeMs"> & {
   targetTimeMs?: number;
 };
-export type TrainingSubjectUpdateInput = Partial<
-  Omit<TrainingSubjectInput, "description" | "surface" | "targetTimeMs">
-> & {
-  description?: string | null;
-  surface?: string | null;
-  targetTimeMs?: number | null;
-};
+export type TrainingSubjectUpdateInput = Partial<TrainingSubjectCreateInput>;
 
 export type TrainingPlanSubjectDto = { subject: TrainingSubjectDto; minSessionsPerWeek: number };
 export type TrainingPlanPhaseDto = {

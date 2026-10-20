@@ -93,9 +93,9 @@ function BottomNav({ role }: { role: RoleId }) {
               contentContainerStyle={styles.sheetScrollContent}
               showsVerticalScrollIndicator={false}
             >
-              {roles[role].secondary.map((item) => (
+              {roles[role].secondary.map((item, index) => (
                 <Pressable
-                  key={item.path}
+                  key={`${item.path}-${index}`}
                   accessibilityRole="button"
                   style={styles.moreItem}
                   onPress={() => {

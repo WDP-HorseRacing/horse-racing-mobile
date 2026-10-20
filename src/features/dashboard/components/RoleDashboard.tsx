@@ -18,12 +18,18 @@ import type { SupplyItemDto } from "@/adapters/supplies.adapter";
 import type { TrainingClassDto, TrainingSessionDto } from "@/services/training.service";
 import { groomService } from "@/services/groom.service";
 import { formatDate, formatDateTime, formatDistance, formatQuantity } from "@/utils/formatters";
+import {
+  ManagerTrainerDashboard,
+  type ManagerTrainerDashboardData,
+} from "./ManagerTrainerDashboard";
 
 export type DashboardPayload =
   | { kind: "horses"; horses: HorseSummary[] }
   | { kind: "training"; classes: TrainingClassDto[]; sessions: TrainingSessionDto[] }
   | { kind: "groom"; today: GroomTodayDto; supplies?: SupplyItemDto[] }
-  | { kind: "medical"; dashboard: MedicalDashboardDto };
+  | { kind: "medical"; dashboard: MedicalDashboardDto }
+  | { kind: "manager_ops"; data: ManagerTrainerDashboardData }
+  | { kind: "trainer_ops"; data: ManagerTrainerDashboardData };
 
 export function RoleDashboard({
   role,
@@ -39,6 +45,17 @@ export function RoleDashboard({
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   const { t } = useI18n();
+
+  if (payload.kind === "manager_ops" || payload.kind === "trainer_ops") {
+    return (
+      <ManagerTrainerDashboard
+        role={role}
+        data={payload.data}
+        token={token}
+        onRefresh={onRefresh}
+      />
+    );
+  }
 
   if (payload.kind === "horses") {
     const horses = payload.horses.map(mapHorseSummaryToPrototype);
@@ -77,18 +94,6 @@ export function RoleDashboard({
             />
           ) : null}
         </View>
-        <PrimaryButton
-          label="View all horses"
-          icon="grid-outline"
-          onPress={() => router.push(`/${role}/horses` as Href)}
-        />
-        {role === "manager" ? (
-          <PrimaryButton
-            label="Medical overview"
-            icon="medkit-outline"
-            onPress={() => router.push("/manager/medical" as Href)}
-          />
-        ) : null}
       </>
     );
   }
@@ -159,11 +164,6 @@ export function RoleDashboard({
           label="Stable overview"
           icon="map-outline"
           onPress={() => router.push("/trainer/stable" as Href)}
-        />
-        <PrimaryButton
-          label="Medical overview"
-          icon="medkit-outline"
-          onPress={() => router.push("/trainer/medical" as Href)}
         />
       </>
     );

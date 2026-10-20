@@ -26,6 +26,15 @@ export function formatQuantity(value: number, unit = "", locale = "en-US"): stri
   return unit ? `${amount} ${unit}` : amount;
 }
 
+export function formatCurrency(value: number, currency = "VND", locale = "vi-VN"): string {
+  if (!Number.isFinite(value)) return "0 ₫";
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export function formatDate(value: string | number | Date, locale = "vi-VN"): string {
   const date = asDate(value);
   if (!date) return "—";

@@ -1,18 +1,28 @@
 import { type Href, router } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import { Panel, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
+import {
+  Chips,
+  Field,
+  NativeInput,
+  Panel,
+  PrimaryButton,
+  SecondaryButton,
+  getUiStyles,
+} from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
@@ -25,9 +35,28 @@ import {
 } from "@/services/stable.service";
 import { horseService, type HorseHealthStatusDto } from "@/services/horse.service";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
+import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatEnum } from "@/utils/formatters";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/types/raceos";
+
+function suggestNextStallCode(barnName: string, existingStalls: StallDto[]): string {
+  const prefixMatch = barnName.match(/Khu\s*([A-Za-z0-9]+)/i);
+  const prefix = prefixMatch
+    ? `${prefixMatch[1].toUpperCase()}-`
+    : `${barnName.slice(0, 1).toUpperCase()}-`;
+  let maxNum = 0;
+  for (const s of existingStalls) {
+    if (s.code.toUpperCase().startsWith(prefix)) {
+      const numPart = parseInt(s.code.slice(prefix.length), 10);
+      if (!Number.isNaN(numPart) && numPart > maxNum) {
+        maxNum = numPart;
+      }
+    }
+  }
+  const nextNum = maxNum + 1;
+  return `${prefix}${String(nextNum).padStart(2, "0")}`;
+}
 
 type StablePayload = {
   barns: BarnListItemDto[];
@@ -49,6 +78,27 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
 
   // Selected stall for bottom sheet / modal interaction
   const [selectedStall, setSelectedStall] = useState<StallDto | null>(null);
+
+  // Unassigned tab (Section 4.3): 'barn' = pending barn, 'stall' = pending stall
+  const [unassignedTab, setUnassignedTab] = useState<"barn" | "stall">("barn");
+
+  // Create Barn modal state (Section 4.1)
+  const [showCreateBarnModal, setShowCreateBarnModal] = useState(false);
+  const [newBarnName, setNewBarnName] = useState("");
+  const [newBarnCapacity, setNewBarnCapacity] = useState("9");
+  const [newBarnDescription, setNewBarnDescription] = useState("");
+  const [creatingBarn, setCreatingBarn] = useState(false);
+
+  // Create Stall modal state (Section 4.2)
+  const [showCreateStallModal, setShowCreateStallModal] = useState(false);
+  const [targetBarnForStall, setTargetBarnForStall] = useState<BarnListItemDto | null>(null);
+  const [newStallCode, setNewStallCode] = useState("");
+  const [newStallType, setNewStallType] = useState<"STANDARD" | "ISOLATION" | "RECOVERY">(
+    "STANDARD",
+  );
+  const [newStallDescription, setNewStallDescription] = useState("");
+  const [newStallHasCamera, setNewStallHasCamera] = useState(false);
+  const [creatingStall, setCreatingStall] = useState(false);
 
   const loadStable = useCallback(async (): Promise<StablePayload> => {
     const [barns, grooms] = await Promise.all([
@@ -133,6 +183,11 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
     return pendingStallHorses.filter((h) => h.location.barn?.id === currentBarn.id);
   }, [pendingStallHorses, currentBarn]);
 
+  const selectedHorseInModal = useMemo(() => {
+    if (!selectedStall || !currentBarn) return undefined;
+    return getHorseInStall(selectedStall, currentBarn.id);
+  }, [selectedStall, currentBarn, getHorseInStall]);
+
   // Overview stats for current barn
   const barnMetrics = useMemo(() => {
     const total = currentBarnStalls.length;
@@ -214,8 +269,70 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
     }
   };
 
-  const selectedHorseInModal =
-    selectedStall && currentBarn ? getHorseInStall(selectedStall, currentBarn.id) : null;
+  const openCreateBarnModal = () => {
+    setNewBarnName("");
+    setNewBarnCapacity("9");
+    setNewBarnDescription("");
+    setShowCreateBarnModal(true);
+  };
+
+  const handleCreateBarn = async () => {
+    if (!token || !newBarnName.trim()) return;
+    const cap = Number(newBarnCapacity);
+    if (newBarnCapacity.trim() && (!Number.isInteger(cap) || cap < 1 || cap > 9)) {
+      return Alert.alert(t("Capacity is 1–9 stalls"));
+    }
+    setCreatingBarn(true);
+    try {
+      const created = await stableService.createBarn(token, {
+        name: newBarnName.trim(),
+        capacity: newBarnCapacity.trim() ? cap : 9,
+        description: newBarnDescription.trim() || undefined,
+      });
+      await resource.refresh();
+      setShowCreateBarnModal(false);
+      Alert.alert(t("Create barn"), `${t("Barn")} ${created.name} ${t("done").toLowerCase()}`);
+    } catch (error) {
+      Alert.alert(t("Create barn"), extractErrorMessage(error));
+    } finally {
+      setCreatingBarn(false);
+    }
+  };
+
+  const openCreateStallModal = (barn: BarnListItemDto) => {
+    setTargetBarnForStall(barn);
+    const barnStalls = (payload?.stalls ?? []).filter((s) => s.barnId === barn.id);
+    const suggested = suggestNextStallCode(barn.name, barnStalls);
+    setNewStallCode(suggested);
+    setNewStallType("STANDARD");
+    setNewStallDescription("");
+    setNewStallHasCamera(false);
+    setShowCreateStallModal(true);
+  };
+
+  const handleCreateStall = async () => {
+    if (!token || !targetBarnForStall || !newStallCode.trim()) return;
+    setCreatingStall(true);
+    try {
+      await stableService.createStall(token, {
+        barnId: targetBarnForStall.id,
+        code: newStallCode.trim(),
+        type: newStallType,
+        description: newStallDescription.trim() || undefined,
+        hasCamera: newStallHasCamera,
+      });
+      await resource.refresh();
+      setShowCreateStallModal(false);
+      Alert.alert(
+        t("Create stall"),
+        `${t("Stall")} ${newStallCode.trim()} ${t("done").toLowerCase()}`,
+      );
+    } catch (error) {
+      Alert.alert(t("Create stall"), extractErrorMessage(error));
+    } finally {
+      setCreatingStall(false);
+    }
+  };
 
   return (
     <Screen
@@ -278,6 +395,17 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                   </Pressable>
                 );
               })}
+              {role === "manager" ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add barn"
+                  onPress={openCreateBarnModal}
+                  style={styles.addBarnTabChip}
+                >
+                  <Ionicons name="add" size={15} color={colors.primary} />
+                  <Text style={styles.addBarnTabChipText}>{t("Add barn")}</Text>
+                </Pressable>
+              ) : null}
             </ScrollView>
           </View>
 
@@ -478,7 +606,29 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                           );
                         })}
 
-                        {!barnStalls.length ? (
+                        {role === "manager" ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Add stall"
+                            onPress={() => openCreateStallModal(barn)}
+                            style={({ pressed }) => [
+                              styles.addStallCard,
+                              pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] },
+                            ]}
+                          >
+                            <View style={styles.addStallContent}>
+                              <View style={styles.addStallIconCircle}>
+                                <Ionicons name="add" size={22} color={colors.primary} />
+                              </View>
+                              <Text style={styles.addStallTitle}>{t("Add stall")}</Text>
+                              <Text style={styles.addStallSubtitle} numberOfLines={1}>
+                                {barn.name}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        ) : null}
+
+                        {!barnStalls.length && role !== "manager" ? (
                           <Panel style={{ width: "100%" }}>
                             <Text style={uiStyles.muted}>
                               No stalls are registered in this barn.
@@ -504,23 +654,55 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               </View>
             </View>
 
-            {totalAwaitingPlacement === 0 ? (
-              <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
-                <Ionicons name="checkmark-circle-outline" size={32} color={colors.primary} />
-                <Text style={[uiStyles.muted, { marginTop: 4 }]}>{t("All placed")}</Text>
-              </Panel>
-            ) : (
-              <View style={{ gap: space.sm }}>
-                {/* Horses awaiting Barn placement */}
-                {pendingBarnHorses.length > 0 ? (
-                  <View style={{ gap: space.xs }}>
-                    <Text style={styles.subGroupHeader}>
-                      {t("No barn assigned yet")} ({pendingBarnHorses.length})
-                    </Text>
-                    {pendingBarnHorses.map((horse) => (
-                      <View key={horse.id} style={styles.unassignedHorseCard}>
-                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                          <Text style={styles.unassignedHorseName}>{horse.name}</Text>
+            {/* Segmented control to prevent overlap and distinguish placement tiers */}
+            <View style={styles.segmentContainer}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setUnassignedTab("barn")}
+                style={[styles.segmentBtn, unassignedTab === "barn" && styles.segmentBtnActive]}
+              >
+                <Text
+                  style={[
+                    styles.segmentBtnText,
+                    unassignedTab === "barn" && styles.segmentBtnTextActive,
+                  ]}
+                >
+                  {t("Awaiting barn")} ({pendingBarnHorses.length})
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setUnassignedTab("stall")}
+                style={[styles.segmentBtn, unassignedTab === "stall" && styles.segmentBtnActive]}
+              >
+                <Text
+                  style={[
+                    styles.segmentBtnText,
+                    unassignedTab === "stall" && styles.segmentBtnTextActive,
+                  ]}
+                >
+                  {t("Awaiting stall")} ({pendingStallHorses.length})
+                </Text>
+              </Pressable>
+            </View>
+
+            {unassignedTab === "barn" ? (
+              pendingBarnHorses.length === 0 ? (
+                <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
+                  <Ionicons name="checkmark-circle-outline" size={28} color={colors.primary} />
+                  <Text style={[uiStyles.muted, { marginTop: 4 }]}>
+                    {t("All horses assigned to barns")}
+                  </Text>
+                </Panel>
+              ) : (
+                <View style={{ gap: space.xs }}>
+                  {pendingBarnHorses.map((horse) => (
+                    <View key={horse.id} style={styles.unassignedCard}>
+                      <View style={styles.unassignedCardHeader}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.unassignedHorseName} numberOfLines={1}>
+                            {horse.name}
+                          </Text>
                           <Text style={uiStyles.muted} numberOfLines={1}>
                             {[horse.breed, horse.gender, horse.microchipId]
                               .filter(Boolean)
@@ -528,46 +710,81 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                           </Text>
                         </View>
                         {renderHealthBadge(horse.healthStatus)}
-                        <PrimaryButton
-                          label={role === "manager" ? "Assign or transfer barn" : "Assign barn"}
-                          icon="business-outline"
-                          onPress={() =>
-                            router.push(`/${role}/horse/${horse.id}/placement` as Href)
-                          }
-                          style={{ paddingHorizontal: 10, paddingVertical: 6 }}
-                        />
                       </View>
-                    ))}
-                  </View>
-                ) : null}
-
-                {/* Horses in Barn awaiting Stall placement */}
-                {pendingStallHorses.length > 0 ? (
-                  <View style={{ gap: space.xs, marginTop: space.xs }}>
-                    <Text style={styles.subGroupHeader}>
-                      {t("Barn assigned, waiting for stall")} ({pendingStallHorses.length})
-                    </Text>
-                    {pendingStallHorses.map((horse) => (
-                      <View key={horse.id} style={styles.unassignedHorseCard}>
-                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                          <Text style={styles.unassignedHorseName}>{horse.name}</Text>
-                          <Text style={uiStyles.muted} numberOfLines={1}>
-                            {horse.location.barn?.name ?? t("Barn")}: {t("No stall assigned")}
+                      <View style={styles.unassignedCardFooter}>
+                        <View style={styles.unassignedStatusNote}>
+                          <Ionicons name="alert-circle-outline" size={13} color={colors.monitor} />
+                          <Text
+                            style={[styles.unassignedStatusNoteText, { color: colors.monitor }]}
+                          >
+                            {t("waiting for barn assignment")}
                           </Text>
                         </View>
-                        {renderHealthBadge(horse.healthStatus)}
-                        <PrimaryButton
-                          label="Assign stall and Groom"
-                          icon="people-outline"
+                        <Pressable
+                          accessibilityRole="button"
                           onPress={() =>
                             router.push(`/${role}/horse/${horse.id}/placement` as Href)
                           }
-                          style={{ paddingHorizontal: 10, paddingVertical: 6 }}
-                        />
+                          style={styles.unassignedActionBtn}
+                        >
+                          <Ionicons
+                            name="business-outline"
+                            size={14}
+                            color={colors.primaryForeground}
+                          />
+                          <Text style={styles.unassignedActionBtnText}>{t("Assign barn")}</Text>
+                        </Pressable>
                       </View>
-                    ))}
+                    </View>
+                  ))}
+                </View>
+              )
+            ) : pendingStallHorses.length === 0 ? (
+              <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
+                <Ionicons name="checkmark-circle-outline" size={28} color={colors.primary} />
+                <Text style={[uiStyles.muted, { marginTop: 4 }]}>
+                  {t("All horses assigned to stalls")}
+                </Text>
+              </Panel>
+            ) : (
+              <View style={{ gap: space.xs }}>
+                {pendingStallHorses.map((horse) => (
+                  <View key={horse.id} style={styles.unassignedCard}>
+                    <View style={styles.unassignedCardHeader}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.unassignedHorseName} numberOfLines={1}>
+                          {horse.name}
+                        </Text>
+                        <Text style={uiStyles.muted} numberOfLines={1}>
+                          {horse.location.barn?.name ?? t("Barn")}:{" "}
+                          {[horse.breed, horse.microchipId].filter(Boolean).join(" · ")}
+                        </Text>
+                      </View>
+                      {renderHealthBadge(horse.healthStatus)}
+                    </View>
+                    <View style={styles.unassignedCardFooter}>
+                      <View style={styles.unassignedStatusNote}>
+                        <Ionicons name="home-outline" size={13} color={colors.primary} />
+                        <Text style={[styles.unassignedStatusNoteText, { color: colors.primary }]}>
+                          {horse.location.barn?.name || t("Barn")} ·{" "}
+                          {t("waiting for stall placement")}
+                        </Text>
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => router.push(`/${role}/horse/${horse.id}/placement` as Href)}
+                        style={styles.unassignedActionBtn}
+                      >
+                        <Ionicons
+                          name="checkmark-outline"
+                          size={14}
+                          color={colors.primaryForeground}
+                        />
+                        <Text style={styles.unassignedActionBtnText}>{t("Assign stall")}</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                ) : null}
+                ))}
               </View>
             )}
           </View>
@@ -771,6 +988,165 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                 )}
               </>
             ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* Modal: Create Barn (Section 4.1) */}
+      <Modal
+        visible={showCreateBarnModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => !creatingBarn && setShowCreateBarnModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => !creatingBarn && setShowCreateBarnModal(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.modalTitle}>{t("Create barn")}</Text>
+                <Text style={uiStyles.muted}>{t("Add a new barn zone")}</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                disabled={creatingBarn}
+                onPress={() => setShowCreateBarnModal(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.foreground} />
+              </Pressable>
+            </View>
+
+            <View style={{ gap: space.md }}>
+              <Field label={t("Barn name")}>
+                <NativeInput
+                  value={newBarnName}
+                  onChangeText={setNewBarnName}
+                  placeholder={t("e.g. Barn D")}
+                />
+              </Field>
+
+              <Field label={t("Capacity (max stalls)")}>
+                <NativeInput
+                  value={newBarnCapacity}
+                  onChangeText={setNewBarnCapacity}
+                  placeholder={t("1–9 stalls (default is 9)")}
+                  keyboardType="numeric"
+                />
+              </Field>
+
+              <Field label={t("Description")}>
+                <NativeInput
+                  value={newBarnDescription}
+                  onChangeText={setNewBarnDescription}
+                  placeholder={t("Location, facilities…")}
+                  multiline
+                />
+              </Field>
+
+              <View style={{ gap: space.xs, marginTop: space.xs }}>
+                <PrimaryButton
+                  label={creatingBarn ? t("Creating…") : t("Create barn")}
+                  icon="add"
+                  disabled={creatingBarn || !newBarnName.trim()}
+                  onPress={() => void handleCreateBarn()}
+                />
+                <SecondaryButton
+                  label={t("Cancel")}
+                  disabled={creatingBarn}
+                  onPress={() => setShowCreateBarnModal(false)}
+                />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Modal: Create Stall (Section 4.2) */}
+      <Modal
+        visible={showCreateStallModal}
+        animationType="fade"
+        transparent
+        onRequestClose={() => !creatingStall && setShowCreateStallModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => !creatingStall && setShowCreateStallModal(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.modalTitle}>{t("Create stall")}</Text>
+                <Text style={uiStyles.muted}>
+                  {t("Add stall to")} {targetBarnForStall?.name}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                disabled={creatingStall}
+                onPress={() => setShowCreateStallModal(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.foreground} />
+              </Pressable>
+            </View>
+
+            <View style={{ gap: space.md }}>
+              <Field label={t("Stall code")}>
+                <NativeInput
+                  value={newStallCode}
+                  onChangeText={setNewStallCode}
+                  placeholder="A-01"
+                />
+              </Field>
+
+              <Field label={t("Stall type")}>
+                <Chips
+                  options={["STANDARD", "ISOLATION", "RECOVERY"]}
+                  value={newStallType}
+                  onChange={(val) => setNewStallType(val as any)}
+                />
+              </Field>
+
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <Text style={styles.switchTitle}>{t("Stall has surveillance camera")}</Text>
+                  <Text style={uiStyles.muted}>{t("New stalls are available by default")}</Text>
+                </View>
+                <Switch
+                  value={newStallHasCamera}
+                  onValueChange={setNewStallHasCamera}
+                  disabled={creatingStall}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                />
+              </View>
+
+              <Field label={t("Description")}>
+                <NativeInput
+                  value={newStallDescription}
+                  onChangeText={setNewStallDescription}
+                  placeholder={t("Notes, camera angle…")}
+                  multiline
+                />
+              </Field>
+
+              <View style={{ gap: space.xs, marginTop: space.xs }}>
+                <PrimaryButton
+                  label={creatingStall ? t("Creating…") : t("Create stall")}
+                  icon="add"
+                  disabled={creatingStall || !newStallCode.trim()}
+                  onPress={() => void handleCreateStall()}
+                />
+                <SecondaryButton
+                  label={t("Cancel")}
+                  disabled={creatingStall}
+                  onPress={() => setShowCreateStallModal(false)}
+                />
+              </View>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1055,5 +1431,150 @@ const getStyles = (colors: any) =>
       paddingTop: space.xs,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
+    },
+    addBarnTabChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: space.md,
+      paddingVertical: 7,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderStyle: "dashed",
+      backgroundColor: colors.surface,
+    },
+    addBarnTabChipText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    addStallCard: {
+      width: "48%",
+      minHeight: 126,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: space.md,
+      borderRadius: radius.md,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: colors.primary,
+      backgroundColor: colors.fitSoft,
+    },
+    addStallContent: {
+      alignItems: "center",
+      gap: 4,
+    },
+    addStallIconCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.primary,
+      marginBottom: 2,
+    },
+    addStallTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.primary,
+      textAlign: "center",
+    },
+    addStallSubtitle: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      textAlign: "center",
+    },
+    segmentContainer: {
+      flexDirection: "row",
+      backgroundColor: colors.muted,
+      borderRadius: radius.md,
+      padding: 3,
+      gap: 4,
+    },
+    segmentBtn: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.sm,
+    },
+    segmentBtnActive: {
+      backgroundColor: colors.surface,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    segmentBtnText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    segmentBtnTextActive: {
+      color: colors.foreground,
+      fontWeight: "700",
+    },
+    unassignedCard: {
+      padding: space.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: space.sm,
+    },
+    unassignedCardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: space.sm,
+    },
+    unassignedCardFooter: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: space.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      gap: space.sm,
+    },
+    unassignedStatusNote: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    unassignedStatusNoteText: {
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    unassignedActionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+    },
+    unassignedActionBtnText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.primaryForeground,
+    },
+    switchRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: space.xs,
+      gap: space.md,
+    },
+    switchTitle: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.foreground,
     },
   });

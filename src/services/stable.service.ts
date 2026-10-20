@@ -29,9 +29,56 @@ export type GroomWorkloadDto = {
   activeHorseCount: number;
 };
 
+export type CreateBarnInput = {
+  name: string;
+  description?: string;
+  capacity?: number;
+  status?: string;
+};
+
+export type UpdateBarnInput = {
+  name?: string;
+  description?: string;
+  capacity?: number;
+  headTrainerId?: string | null;
+  status?: string;
+};
+
+export type CreateStallInput = {
+  barnId: string;
+  code: string;
+  type?: string;
+  description?: string;
+  hasCamera?: boolean;
+};
+
+export type UpdateStallInput = {
+  code?: string;
+  type?: string;
+  description?: string;
+  hasCamera?: boolean;
+  status?: string;
+};
+
 export const stableService = {
   listBarns(token: string) {
     return apiRequest<BarnListItemDto[]>("/barns", { token });
+  },
+
+  createBarn(token: string, input: CreateBarnInput) {
+    return apiRequest<BarnListItemDto>("/barns", {
+      method: "POST",
+      token,
+      body: input,
+    });
+  },
+
+  updateBarn(token: string, barnId: string, input: UpdateBarnInput) {
+    return apiRequest<BarnListItemDto>(`/barns/${encodeURIComponent(barnId)}`, {
+      method: "PATCH",
+      token,
+      body: input,
+    });
   },
 
   listStalls(token: string) {
@@ -41,6 +88,29 @@ export const stableService = {
   listBarnStalls(token: string, barnId: string) {
     const query = new URLSearchParams({ barnId });
     return apiRequest<StallDto[]>(`/stalls?${query.toString()}`, { token });
+  },
+
+  createStall(token: string, input: CreateStallInput) {
+    return apiRequest<StallDto>("/stalls", {
+      method: "POST",
+      token,
+      body: input,
+    });
+  },
+
+  updateStall(token: string, stallId: string, input: UpdateStallInput) {
+    return apiRequest<StallDto>(`/stalls/${encodeURIComponent(stallId)}`, {
+      method: "PATCH",
+      token,
+      body: input,
+    });
+  },
+
+  deleteStall(token: string, stallId: string) {
+    return apiRequest<void>(`/stalls/${encodeURIComponent(stallId)}`, {
+      method: "DELETE",
+      token,
+    });
   },
 
   listGroomWorkload(token: string) {
