@@ -26,8 +26,9 @@ export default function OwnerTrialDetail() {
     [id, resource.data],
   );
   const attemptValue = Array.isArray(attemptNo) ? attemptNo[0] : attemptNo;
-  const trial = session?.trials.find((item) => item.attemptNo === Number(attemptValue))
-    ?? session?.trials.find((item) => Boolean(item.videoUrl));
+  const trial =
+    session?.trials.find((item) => item.attemptNo === Number(attemptValue)) ??
+    session?.trials.find((item) => Boolean(item.videoUrl));
   const player = useVideoPlayer(trial?.videoUrl || "", (videoPlayer) => {
     videoPlayer.loop = false;
   });
@@ -36,7 +37,11 @@ export default function OwnerTrialDetail() {
     <Screen
       role="owner"
       title="Trial video"
-      subtitle={session ? `${session.horseName} · ${formatDateTime(trial?.recordedAt ?? session.scheduledStartAt)}` : undefined}
+      subtitle={
+        session
+          ? `${session.horseName} · ${formatDateTime(trial?.recordedAt ?? session.scheduledStartAt)}`
+          : undefined
+      }
       back
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
@@ -58,42 +63,74 @@ export default function OwnerTrialDetail() {
               <VideoView style={styles.video} player={player} nativeControls />
             </View>
           ) : (
-            <Panel><Text style={uiStyles.muted}>No video is attached to this trial attempt.</Text></Panel>
+            <Panel>
+              <Text style={uiStyles.muted}>No video is attached to this trial attempt.</Text>
+            </Panel>
           )}
           <View style={uiStyles.section}>
             <SectionTitle>Trial summary</SectionTitle>
             <Panel style={{ gap: space.md }}>
               <View style={uiStyles.row}>
-                <Text style={uiStyles.muted}>Horse</Text>
-                <Text style={uiStyles.value}>{session.horseName}</Text>
+                <Text style={[uiStyles.muted, { flexShrink: 0 }]}>Horse</Text>
+                <Text
+                  style={[uiStyles.value, { flex: 1, minWidth: 0, textAlign: "right" }]}
+                  numberOfLines={1}
+                >
+                  {session.horseName}
+                </Text>
               </View>
               <View style={uiStyles.row}>
-                <Text style={uiStyles.muted}>Session</Text>
-                <Text style={uiStyles.value}>{session.title}</Text>
+                <Text style={[uiStyles.muted, { flexShrink: 0 }]}>Session</Text>
+                <Text
+                  style={[uiStyles.value, { flex: 1, minWidth: 0, textAlign: "right" }]}
+                  numberOfLines={1}
+                >
+                  {session.title}
+                </Text>
               </View>
               <View style={uiStyles.row}>
-                <Text style={uiStyles.muted}>Attempt</Text>
-                <Text style={uiStyles.value}>{trial.attemptNo}</Text>
+                <Text style={[uiStyles.muted, { flexShrink: 0 }]}>Attempt</Text>
+                <Text style={[uiStyles.value, { flexShrink: 0 }]}>{trial.attemptNo}</Text>
               </View>
               <View style={uiStyles.row}>
-                <Text style={uiStyles.muted}>Recorded</Text>
-                <Text style={uiStyles.value}>{formatDateTime(trial.recordedAt)}</Text>
+                <Text style={[uiStyles.muted, { flexShrink: 0 }]}>Recorded</Text>
+                <Text
+                  style={[uiStyles.value, { flex: 1, minWidth: 0, textAlign: "right" }]}
+                  numberOfLines={1}
+                >
+                  {formatDateTime(trial.recordedAt)}
+                </Text>
               </View>
               {session.distanceM !== null ? (
                 <View style={uiStyles.row}>
-                  <Text style={uiStyles.muted}>Distance</Text>
-                  <Text style={uiStyles.value}>{formatDistance(session.distanceM)}</Text>
+                  <Text style={[uiStyles.muted, { flexShrink: 0 }]}>Distance</Text>
+                  <Text style={[uiStyles.value, { flexShrink: 0 }]}>
+                    {formatDistance(session.distanceM)}
+                  </Text>
                 </View>
               ) : null}
               {session.surface ? (
                 <View style={uiStyles.row}>
-                  <Text style={uiStyles.muted}>Surface</Text>
-                  <Text style={uiStyles.value}>{session.surface}</Text>
+                  <Text style={[uiStyles.muted, { flexShrink: 0 }]}>Surface</Text>
+                  <Text
+                    style={[uiStyles.value, { flex: 1, minWidth: 0, textAlign: "right" }]}
+                    numberOfLines={1}
+                  >
+                    {session.surface}
+                  </Text>
                 </View>
               ) : null}
               <View style={uiStyles.row}>
-                <Text style={uiStyles.muted}>Elapsed time</Text>
-                <Text style={{ ...uiStyles.value, color: colors.primary }}>{trial.elapsedLabel}</Text>
+                <Text style={[uiStyles.muted, { flexShrink: 0 }]}>Elapsed time</Text>
+                <Text
+                  style={[
+                    uiStyles.value,
+                    { color: colors.primary, flex: 1, minWidth: 0, textAlign: "right" },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {trial.elapsedLabel}
+                </Text>
               </View>
               {trial.notes ? <Text style={uiStyles.muted}>{trial.notes}</Text> : null}
             </Panel>
@@ -104,14 +141,15 @@ export default function OwnerTrialDetail() {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  videoContainer: {
-    width: "100%",
-    height: (Dimensions.get("window").width - space.xl * 2) * 0.56,
-    maxHeight: 360,
-    backgroundColor: colors.elevated,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  video: { width: "100%", height: "100%" },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    videoContainer: {
+      width: "100%",
+      height: (Dimensions.get("window").width - space.xl * 2) * 0.56,
+      maxHeight: 360,
+      backgroundColor: colors.elevated,
+      borderRadius: 14,
+      overflow: "hidden",
+    },
+    video: { width: "100%", height: "100%" },
+  });

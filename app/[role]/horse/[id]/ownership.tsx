@@ -172,7 +172,9 @@ export default function HorseOwnership() {
                   {period.endedAt ? new Date(period.endedAt).toLocaleString() : "Current"}
                 </Text>
                 {period.reason ? <Text style={uiStyles.muted}>Reason: {period.reason}</Text> : null}
-                {period.recordedBy ? <Text style={uiStyles.muted}>Recorded by {period.recordedBy.fullName}</Text> : null}
+                {period.recordedBy ? (
+                  <Text style={uiStyles.muted}>Recorded by {period.recordedBy.fullName}</Text>
+                ) : null}
               </Panel>
             ))
           ) : (

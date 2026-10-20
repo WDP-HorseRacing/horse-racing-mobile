@@ -119,8 +119,12 @@ export default function MedicalCostReport() {
               >
                 <Panel>
                   <View style={uiStyles.row}>
-                    <Text style={uiStyles.value}>{item.horseName}</Text>
-                    <Text style={uiStyles.value}>{item.totalCost.toLocaleString()} VND</Text>
+                    <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                      {item.horseName}
+                    </Text>
+                    <Text style={[uiStyles.value, { flexShrink: 0 }]}>
+                      {item.totalCost.toLocaleString()} VND
+                    </Text>
                   </View>
                   <Text style={uiStyles.muted}>
                     {item.caseCount} closed {item.caseCount === 1 ? "case" : "cases"}

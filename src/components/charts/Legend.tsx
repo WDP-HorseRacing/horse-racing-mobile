@@ -5,15 +5,13 @@ import { useTheme } from "@/hooks/useTheme";
 
 export function Legend({ items }: { items: { label: string; color: string }[] }) {
   const { colors } = useTheme();
-  
+
   return (
     <View style={styles.container}>
       {items.map((i) => (
         <View key={i.label} style={styles.legendItem}>
           <View style={[styles.colorBox, { backgroundColor: i.color }]} />
-          <Text style={[styles.labelText, { color: colors.mutedForeground }]}>
-            {i.label}
-          </Text>
+          <Text style={[styles.labelText, { color: colors.mutedForeground }]}>{i.label}</Text>
         </View>
       ))}
     </View>

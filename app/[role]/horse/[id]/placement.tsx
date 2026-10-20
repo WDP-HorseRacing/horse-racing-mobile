@@ -1,4 +1,4 @@
-import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
+import { Redirect, useLocalSearchParams, type Href } from "expo-router";
 import { safeBack } from "@/utils/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";

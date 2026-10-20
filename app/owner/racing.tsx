@@ -28,10 +28,12 @@ export default function OwnerRacing() {
 
   const loadHistory = useCallback(async (): Promise<OwnerRaceResultView[]> => {
     const horses = await horseService.list(token!);
-    const resultsByHorse = await Promise.all(horses.map(async (horse) => {
-      const results = await racingService.listHorseResults(token!, horse.id);
-      return results.map((result) => mapOwnerRaceResult(horse.id, horse.name, result));
-    }));
+    const resultsByHorse = await Promise.all(
+      horses.map(async (horse) => {
+        const results = await racingService.listHorseResults(token!, horse.id);
+        return results.map((result) => mapOwnerRaceResult(horse.id, horse.name, result));
+      }),
+    );
     return resultsByHorse.flat().sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt));
   }, [token]);
   const historyResource = useApiResource(loadHistory, Boolean(token));
@@ -43,7 +45,8 @@ export default function OwnerRacing() {
     [trainingResource.data],
   );
   const completedResults = (historyResource.data ?? []).filter(
-    (result) => result.raceStatus === "COMPLETED" || result.placing !== null || result.timeSeconds !== null,
+    (result) =>
+      result.raceStatus === "COMPLETED" || result.placing !== null || result.timeSeconds !== null,
   );
   const upcomingRaces = (racesResource.data ?? []).filter(
     (race) => !["COMPLETED", "CANCELLED"].includes(race.status),
@@ -53,7 +56,9 @@ export default function OwnerRacing() {
     <Screen
       role="owner"
       title="Racing"
-      refreshing={racesResource.isRefreshing || historyResource.isRefreshing || trainingResource.isRefreshing}
+      refreshing={
+        racesResource.isRefreshing || historyResource.isRefreshing || trainingResource.isRefreshing
+      }
       onRefresh={() => {
         void racesResource.refresh();
         void historyResource.refresh();
@@ -76,11 +81,15 @@ export default function OwnerRacing() {
             {upcomingRaces.map((race) => (
               <Panel key={race.id}>
                 <View style={uiStyles.row}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={uiStyles.value}>{race.name}</Text>
-                    <Text style={uiStyles.muted}>{race.status.replaceAll("_", " ")}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={uiStyles.value} numberOfLines={1}>
+                      {race.name}
+                    </Text>
+                    <Text style={uiStyles.muted} numberOfLines={1}>
+                      {race.status.replaceAll("_", " ")}
+                    </Text>
                   </View>
-                  <Text style={{ ...uiStyles.label, color: colors.primary }}>
+                  <Text style={{ ...uiStyles.label, color: colors.primary, flexShrink: 0 }}>
                     {new Intl.DateTimeFormat("vi-VN", {
                       timeZone: "Asia/Ho_Chi_Minh",
                       dateStyle: "medium",
@@ -103,17 +112,30 @@ export default function OwnerRacing() {
             {completedResults.map((result) => (
               <Panel key={result.registrationId}>
                 <View style={uiStyles.row}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={uiStyles.value}>{result.horseName}</Text>
-                    <Text style={uiStyles.muted}>{result.raceName} · {result.scheduledAtLabel}</Text>
-                    <Text style={uiStyles.label}>{result.registrationStatus.replaceAll("_", " ")}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={uiStyles.value} numberOfLines={1}>
+                      {result.horseName}
+                    </Text>
+                    <Text style={uiStyles.muted} numberOfLines={1}>
+                      {result.raceName} · {result.scheduledAtLabel}
+                    </Text>
+                    <Text style={uiStyles.label}>
+                      {result.registrationStatus.replaceAll("_", " ")}
+                    </Text>
                   </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={{ ...uiStyles.value, color: result.placing === 1 ? colors.primary : colors.foreground }}>
+                  <View style={{ alignItems: "flex-end", flexShrink: 0 }}>
+                    <Text
+                      style={{
+                        ...uiStyles.value,
+                        color: result.placing === 1 ? colors.primary : colors.foreground,
+                      }}
+                    >
                       {result.placing ? `#${result.placing}` : "—"}
                     </Text>
                     <Text style={uiStyles.muted}>
-                      {result.timeSeconds === null ? "No time" : formatDurationMs(result.timeSeconds * 1000)}
+                      {result.timeSeconds === null
+                        ? "No time"
+                        : formatDurationMs(result.timeSeconds * 1000)}
                     </Text>
                   </View>
                 </View>
@@ -134,7 +156,11 @@ export default function OwnerRacing() {
           {trials.map((trial) => (
             <Pressable
               key={trial.id}
-              onPress={() => router.push(`/owner/trial/${trial.participantId}?attemptNo=${trial.attemptNo}` as Href)}
+              onPress={() =>
+                router.push(
+                  `/owner/trial/${trial.participantId}?attemptNo=${trial.attemptNo}` as Href,
+                )
+              }
               style={{
                 backgroundColor: colors.surface,
                 borderWidth: 1,
@@ -145,13 +171,26 @@ export default function OwnerRacing() {
                 gap: space.md,
               }}
             >
-              <View style={{ width: 60, height: 60, borderRadius: radius.sm, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+              <View
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: radius.sm,
+                  backgroundColor: colors.background,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Ionicons name="play-circle" size={32} color={colors.primary} />
               </View>
               <View style={{ flex: 1, justifyContent: "center" }}>
                 <Text style={uiStyles.value}>{trial.horseName}</Text>
-                <Text style={uiStyles.muted}>{trial.sessionTitle} · {trial.date}</Text>
-                <Text style={uiStyles.label}>Attempt {trial.attemptNo} · {trial.elapsedLabel}</Text>
+                <Text style={uiStyles.muted}>
+                  {trial.sessionTitle} · {trial.date}
+                </Text>
+                <Text style={uiStyles.label}>
+                  Attempt {trial.attemptNo} · {trial.elapsedLabel}
+                </Text>
               </View>
             </Pressable>
           ))}

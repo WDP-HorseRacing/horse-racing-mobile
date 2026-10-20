@@ -58,15 +58,21 @@ export function HorseRow({
       )}
       <View style={styles.horseCopy}>
         <View style={styles.rowTitle}>
-          <Text style={styles.horseName}>{horse.name}</Text>
+          <Text style={styles.horseName} numberOfLines={1} ellipsizeMode="tail">
+            {horse.name}
+          </Text>
           <StatusBadge status={horse.status} />
         </View>
-        {horseId ? <Text style={styles.id}>ID · {horseId}</Text> : null}
-        <Text style={styles.rowMeta}>
+        {horseId ? (
+          <Text style={styles.id} numberOfLines={1} ellipsizeMode="middle">
+            ID · {horseId}
+          </Text>
+        ) : null}
+        <Text style={styles.rowMeta} numberOfLines={1} ellipsizeMode="tail">
           {horse.age ? `${horse.age} yo ` : ""}
           {horse.sex} · {location ?? `Stall ${horse.stall}`}
         </Text>
-        <Text style={styles.rowMeta} numberOfLines={1}>
+        <Text style={styles.rowMeta} numberOfLines={1} ellipsizeMode="tail">
           {[lifecycleStatus, aptitude, horse.lastSession].filter(Boolean).join(" · ")}
         </Text>
       </View>
@@ -93,11 +99,23 @@ const getStyles = (colors: any) =>
       borderRadius: radius.md,
       alignItems: "center",
       justifyContent: "center",
+      flexShrink: 0,
     },
-    photo: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.elevated },
-    horseCopy: { flex: 1, gap: 3 },
-    rowTitle: { flexDirection: "row", alignItems: "center", gap: space.sm },
-    horseName: { flexShrink: 1, color: colors.foreground, fontSize: 15, fontWeight: "700" },
+    photo: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.md,
+      backgroundColor: colors.elevated,
+      flexShrink: 0,
+    },
+    horseCopy: { flex: 1, minWidth: 0, gap: 3 },
+    rowTitle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: space.sm,
+    },
+    horseName: { flex: 1, minWidth: 0, color: colors.foreground, fontSize: 15, fontWeight: "700" },
     rowMeta: { color: colors.mutedForeground, fontSize: 11 },
     id: { color: colors.mutedForeground, fontSize: 10, fontFamily: "monospace" },
     pressed: { opacity: 0.7 },

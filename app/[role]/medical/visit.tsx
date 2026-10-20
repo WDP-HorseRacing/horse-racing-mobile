@@ -1,12 +1,14 @@
 import { Redirect, router, type Href, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { Chips, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { radius, space } from "@/config/theme";
 import { isRole } from "@/features/auth/roles";
 import { horseService } from "@/services/horse.service";
 import {
@@ -85,6 +87,7 @@ export default function MedicalVisitForm() {
   const { token } = useAuth();
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const now = clubDateTimeParts();
   const [kind, setKind] = useState<"ROUTINE" | "REQUEST">(initialKind);
   const [conclusion, setConclusion] = useState<"NORMAL" | "ISSUE">("NORMAL");
@@ -376,37 +379,215 @@ export default function MedicalVisitForm() {
             ) : null}
           </Panel>
           {!caseId ? (
-            <Chips
-              options={["ROUTINE", "REQUEST"]}
-              value={kind}
-              onChange={(value) => setKind(value as "ROUTINE" | "REQUEST")}
-            />
+            <View style={uiStyles.section}>
+              <SectionTitle>Examination type</SectionTitle>
+              <View style={styles.segmentedSelectorRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setKind("ROUTINE")}
+                  style={[
+                    styles.segmentedOptionCard,
+                    kind === "ROUTINE" && styles.segmentedOptionCardActive,
+                  ]}
+                >
+                  <View style={styles.segmentedHeaderRow}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={20}
+                      color={kind === "ROUTINE" ? colors.primary : colors.mutedForeground}
+                    />
+                    {kind === "ROUTINE" ? (
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                    ) : null}
+                  </View>
+                  <Text
+                    style={[
+                      styles.segmentedCardTitle,
+                      kind === "ROUTINE" && { color: colors.primary, fontWeight: "700" },
+                    ]}
+                  >
+                    Routine checkup
+                  </Text>
+                  <Text style={styles.segmentedCardHint} numberOfLines={2}>
+                    Routine checkup (does not require a prior request)
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    if (!pendingRequests.length) {
+                      Alert.alert(
+                        "No pending requests",
+                        "No pending requests for this horse. Please choose Routine checkup.",
+                      );
+                      return;
+                    }
+                    setKind("REQUEST");
+                  }}
+                  style={[
+                    styles.segmentedOptionCard,
+                    kind === "REQUEST" && styles.segmentedOptionCardActive,
+                    !pendingRequests.length && { opacity: 0.5 },
+                  ]}
+                >
+                  <View style={styles.segmentedHeaderRow}>
+                    <Ionicons
+                      name="alert-circle-outline"
+                      size={20}
+                      color={kind === "REQUEST" ? colors.primary : colors.mutedForeground}
+                    />
+                    {kind === "REQUEST" ? (
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                    ) : null}
+                  </View>
+                  <Text
+                    style={[
+                      styles.segmentedCardTitle,
+                      kind === "REQUEST" && { color: colors.primary, fontWeight: "700" },
+                    ]}
+                  >
+                    On-demand examination
+                  </Text>
+                  <Text style={styles.segmentedCardHint} numberOfLines={2}>
+                    Resolve an existing incident request
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           ) : null}
+
           {!caseId ? (
-            <Chips
-              options={["NORMAL", "ISSUE"]}
-              value={conclusion}
-              onChange={(value) => setConclusion(value as "NORMAL" | "ISSUE")}
-            />
+            <View style={uiStyles.section}>
+              <SectionTitle>Clinical conclusion</SectionTitle>
+              <View style={styles.segmentedSelectorRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setConclusion("NORMAL")}
+                  style={[
+                    styles.segmentedOptionCard,
+                    conclusion === "NORMAL" && styles.segmentedOptionCardActive,
+                  ]}
+                >
+                  <View style={styles.segmentedHeaderRow}>
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={20}
+                      color={conclusion === "NORMAL" ? colors.primary : colors.mutedForeground}
+                    />
+                    {conclusion === "NORMAL" ? (
+                      <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                    ) : null}
+                  </View>
+                  <Text
+                    style={[
+                      styles.segmentedCardTitle,
+                      conclusion === "NORMAL" && { color: colors.primary, fontWeight: "700" },
+                    ]}
+                  >
+                    Normal
+                  </Text>
+                  <Text style={styles.segmentedCardHint} numberOfLines={2}>
+                    Normal health, no case opened
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setConclusion("ISSUE")}
+                  style={[
+                    styles.segmentedOptionCard,
+                    conclusion === "ISSUE" && styles.segmentedOptionCardActiveIssue,
+                  ]}
+                >
+                  <View style={styles.segmentedHeaderRow}>
+                    <Ionicons
+                      name="warning-outline"
+                      size={20}
+                      color={conclusion === "ISSUE" ? colors.destructive : colors.mutedForeground}
+                    />
+                    {conclusion === "ISSUE" ? (
+                      <Ionicons name="checkmark-circle" size={18} color={colors.destructive} />
+                    ) : null}
+                  </View>
+                  <Text
+                    style={[
+                      styles.segmentedCardTitle,
+                      conclusion === "ISSUE" && { color: colors.destructive, fontWeight: "700" },
+                    ]}
+                  >
+                    Issue
+                  </Text>
+                  <Text
+                    style={[
+                      styles.segmentedCardHint,
+                      conclusion === "ISSUE" && { color: colors.destructive },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    Issue detected, treatment case opened
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           ) : null}
+
           {!caseId && kind === "REQUEST" ? (
             <View style={uiStyles.section}>
               <SectionTitle>Pending requests for this horse</SectionTitle>
-              {(pendingRequests as ExamRequestDto[]).map((request) => (
-                <Pressable key={request.id} onPress={() => toggleRequest(request.id)}>
-                  <Panel>
-                    <View style={uiStyles.row}>
-                      <Text style={uiStyles.value}>
-                        {request.urgent ? "Urgent · " : ""}
-                        {request.description}
-                      </Text>
-                      <Text style={uiStyles.label}>
-                        {selectedRequests.includes(request.id) ? "Selected" : "Select"}
-                      </Text>
-                    </View>
-                  </Panel>
-                </Pressable>
-              ))}
+              {(pendingRequests as ExamRequestDto[]).map((request) => {
+                const isSelected = selectedRequests.includes(request.id);
+                return (
+                  <Pressable
+                    key={request.id}
+                    accessibilityRole="button"
+                    onPress={() => toggleRequest(request.id)}
+                  >
+                    <Panel
+                      style={[
+                        styles.requestCard,
+                        isSelected && {
+                          borderColor: colors.primary,
+                          borderWidth: 2,
+                          backgroundColor: colors.fitSoft,
+                        },
+                      ]}
+                    >
+                      <View style={uiStyles.row}>
+                        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            {request.urgent ? (
+                              <View style={styles.urgentMiniBadge}>
+                                <Text style={styles.urgentMiniBadgeText}>URGENT</Text>
+                              </View>
+                            ) : null}
+                            <Text
+                              style={[
+                                uiStyles.value,
+                                { flex: 1, minWidth: 0 },
+                                isSelected && { color: colors.primary },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {request.description}
+                            </Text>
+                          </View>
+                          <Text style={uiStyles.muted}>
+                            {formatDateTime(request.createdAt)}
+                            {request.requestedBy ? ` · ${request.requestedBy}` : ""}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                          size={24}
+                          color={isSelected ? colors.primary : colors.mutedForeground}
+                          style={{ flexShrink: 0, marginLeft: 8 }}
+                        />
+                      </View>
+                    </Panel>
+                  </Pressable>
+                );
+              })}
               {!pendingRequests.length ? (
                 <Text style={uiStyles.muted}>There are no pending requests for this horse.</Text>
               ) : null}
@@ -443,13 +624,40 @@ export default function MedicalVisitForm() {
                 />
               </Field>
             ))}
-            <Chips
-              options={["Do not confirm abnormal readings", "Confirm abnormal readings"]}
-              value={
-                confirmAbnormal ? "Confirm abnormal readings" : "Do not confirm abnormal readings"
-              }
-              onChange={(value) => setConfirmAbnormal(value.startsWith("Confirm"))}
-            />
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setConfirmAbnormal(!confirmAbnormal)}
+              style={[
+                styles.confirmAbnormalCard,
+                confirmAbnormal && {
+                  borderColor: colors.primary,
+                  backgroundColor: colors.fitSoft,
+                  borderWidth: 1.5,
+                },
+              ]}
+            >
+              <Ionicons
+                name={confirmAbnormal ? "checkbox" : "square-outline"}
+                size={22}
+                color={confirmAbnormal ? colors.primary : colors.mutedForeground}
+              />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={[
+                    uiStyles.value,
+                    { fontSize: 14 },
+                    confirmAbnormal && { color: colors.primary },
+                  ]}
+                >
+                  {confirmAbnormal
+                    ? "Confirm abnormal readings"
+                    : "Do not confirm abnormal readings"}
+                </Text>
+                <Text style={uiStyles.muted}>
+                  Confirm if values exceed standard reference limits
+                </Text>
+              </View>
+            </Pressable>
           </View>
           <Field label="Diagnosis and findings">
             <NativeInput value={diagnosis} onChangeText={setDiagnosis} multiline />
@@ -577,3 +785,72 @@ export default function MedicalVisitForm() {
     </Screen>
   );
 }
+
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    segmentedSelectorRow: {
+      flexDirection: "row",
+      gap: space.sm,
+    },
+    segmentedOptionCard: {
+      flex: 1,
+      padding: space.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+    },
+    segmentedOptionCardActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.fitSoft,
+      borderWidth: 2,
+    },
+    segmentedOptionCardActiveIssue: {
+      borderColor: colors.destructive,
+      backgroundColor: colors.injuredSoft,
+      borderWidth: 2,
+    },
+    segmentedHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 2,
+    },
+    segmentedCardTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    segmentedCardHint: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      lineHeight: 16,
+    },
+    requestCard: {
+      gap: space.sm,
+    },
+    urgentMiniBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+      backgroundColor: colors.destructive,
+    },
+    urgentMiniBadgeText: {
+      color: "#FFFFFF",
+      fontSize: 9,
+      fontWeight: "800",
+      letterSpacing: 0.5,
+    },
+    confirmAbnormalCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.md,
+      padding: space.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: space.xs,
+    },
+  });

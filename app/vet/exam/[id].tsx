@@ -146,7 +146,13 @@ export default function Examination() {
   }
 
   return (
-    <Screen role="vet" title="Examination" subtitle={`${horse.name} · stall ${horse.stall}`} back fallbackHref="/vet/medical">
+    <Screen
+      role="vet"
+      title="Examination"
+      subtitle={`${horse.name} · stall ${horse.stall}`}
+      back
+      fallbackHref="/vet/medical"
+    >
       {saved ? (
         <View
           style={{

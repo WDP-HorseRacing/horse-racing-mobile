@@ -47,7 +47,11 @@ function BottomNav({ role }: { role: RoleId }) {
                 size={21}
                 color={active ? colors.primary : colors.mutedForeground}
               />
-              <Text style={[styles.navLabel, active && styles.navLabelActive]} numberOfLines={1}>
+              <Text
+                style={[styles.navLabel, active && styles.navLabelActive]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {t(item.label)}
               </Text>
             </Pressable>
@@ -182,8 +186,10 @@ export function Screen({
           </Pressable>
         ) : null}
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>{t(title)}</Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            {t(title)}
+          </Text>
+          <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
             {subtitle ?? `${t(cfg.label)} · ${cfg.scope}`}
           </Text>
         </View>
@@ -256,8 +262,9 @@ const getStyles = (colors: any) =>
       justifyContent: "center",
       borderRadius: radius.sm,
       backgroundColor: colors.elevated,
+      flexShrink: 0,
     },
-    headerCopy: { flex: 1 },
+    headerCopy: { flex: 1, minWidth: 0 },
     title: { color: colors.foreground, fontSize: 21, fontWeight: "700", letterSpacing: -0.4 },
     subtitle: { color: colors.mutedForeground, fontSize: 11, marginTop: 3 },
     avatar: {
@@ -269,10 +276,12 @@ const getStyles = (colors: any) =>
       backgroundColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
+      flexShrink: 0,
     },
     avatarText: { color: colors.foreground, fontSize: 11, fontWeight: "700" },
     language: {
       minWidth: 38,
+      flexShrink: 0,
       height: 34,
       paddingHorizontal: 8,
       borderRadius: radius.sm,
@@ -360,7 +369,7 @@ const getStyles = (colors: any) =>
       borderRadius: radius.sm,
       backgroundColor: colors.fitSoft,
     },
-    moreItemCopy: { flex: 1, gap: 3 },
+    moreItemCopy: { flex: 1, minWidth: 0, gap: 3 },
     moreItemTitle: { color: colors.foreground, fontSize: 14, fontWeight: "700" },
     moreItemDescription: { color: colors.mutedForeground, fontSize: 11, lineHeight: 15 },
     signOutMenuItem: {
@@ -376,11 +385,18 @@ const getStyles = (colors: any) =>
     signOutMenuText: { color: colors.destructive, fontSize: 14, fontWeight: "700" },
     navItem: {
       flex: 1,
+      minWidth: 0,
       alignItems: "center",
       justifyContent: "center",
       gap: 3,
       paddingTop: space.sm,
+      paddingHorizontal: 2,
     },
-    navLabel: { color: colors.mutedForeground, fontSize: 10, fontWeight: "600" },
+    navLabel: {
+      color: colors.mutedForeground,
+      fontSize: 10,
+      fontWeight: "600",
+      textAlign: "center",
+    },
     navLabelActive: { color: colors.primary },
   });

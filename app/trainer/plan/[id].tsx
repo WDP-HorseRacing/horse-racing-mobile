@@ -229,8 +229,10 @@ export default function TrainingClassDetail() {
             <>
               <Panel style={{ gap: 8 }}>
                 <View style={ui.row}>
-                  <Text style={ui.value}>{payload.trainingClass.status.replaceAll("_", " ")}</Text>
-                  <Text style={ui.label}>
+                  <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                    {payload.trainingClass.status.replaceAll("_", " ")}
+                  </Text>
+                  <Text style={[ui.label, { flexShrink: 0 }]}>
                     {payload.trainingClass.raceAptitude ?? "All race aptitudes"}
                   </Text>
                 </View>
@@ -404,8 +406,10 @@ export default function TrainingClassDetail() {
                 payload.enrollments.map((horse) => (
                   <Panel key={horse.id} style={{ gap: 5 }}>
                     <View style={ui.row}>
-                      <Text style={[ui.value, { flex: 1 }]}>{horse.horseName}</Text>
-                      <Text style={ui.label}>{horse.status}</Text>
+                      <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                        {horse.horseName}
+                      </Text>
+                      <Text style={[ui.label, { flexShrink: 0 }]}>{horse.status}</Text>
                     </View>
                     <Text style={ui.muted}>
                       Enrolled {formatDateTime(horse.enrolledAt)}
@@ -580,8 +584,12 @@ export default function TrainingClassDetail() {
                   >
                     <Panel style={{ gap: 5 }}>
                       <View style={ui.row}>
-                        <Text style={[ui.value, { flex: 1 }]}>{session.name}</Text>
-                        <Text style={ui.label}>{session.status.replaceAll("_", " ")}</Text>
+                        <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                          {session.name}
+                        </Text>
+                        <Text style={[ui.label, { flexShrink: 0 }]}>
+                          {session.status.replaceAll("_", " ")}
+                        </Text>
                       </View>
                       <Text style={ui.muted}>
                         {formatDateTime(session.scheduledStartAt)} →{" "}

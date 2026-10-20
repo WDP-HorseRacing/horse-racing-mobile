@@ -461,9 +461,11 @@ export default function TrainingSessionDetail() {
                 return (
                   <Panel key={participant.id} style={{ gap: 9 }}>
                     <View style={ui.row}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={ui.value}>{participant.horseName}</Text>
-                        <Text style={ui.muted}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={ui.value} numberOfLines={1} ellipsizeMode="tail">
+                          {participant.horseName}
+                        </Text>
+                        <Text style={ui.muted} numberOfLines={1}>
                           {participant.status.replaceAll("_", " ")}
                           {participant.assignedGroomName
                             ? ` · ${participant.assignedGroomName}`
@@ -472,7 +474,12 @@ export default function TrainingSessionDetail() {
                       </View>
                       {participant.trainingLocked ? (
                         <Text
-                          style={{ color: colors.destructive, fontSize: 11, fontWeight: "700" }}
+                          style={{
+                            color: colors.destructive,
+                            fontSize: 11,
+                            fontWeight: "700",
+                            flexShrink: 0,
+                          }}
                         >
                           LOCKED
                         </Text>

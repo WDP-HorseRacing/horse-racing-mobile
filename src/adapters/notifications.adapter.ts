@@ -29,12 +29,20 @@ export type HorseAlertPageDto = {
 };
 
 export type NotificationView = NotificationDto & { createdAtLabel: string };
-export type HorseAlertView = HorseAlertDto & { horseId: string; horseName: string; recordedAtLabel: string };
+export type HorseAlertView = HorseAlertDto & {
+  horseId: string;
+  horseName: string;
+  recordedAtLabel: string;
+};
 
 export function mapNotification(item: NotificationDto): NotificationView {
   return { ...item, createdAtLabel: formatDateTime(item.createdAt) };
 }
 
-export function mapHorseAlert(horseId: string, horseName: string, item: HorseAlertDto): HorseAlertView {
+export function mapHorseAlert(
+  horseId: string,
+  horseName: string,
+  item: HorseAlertDto,
+): HorseAlertView {
   return { ...item, horseId, horseName, recordedAtLabel: formatDateTime(item.recordedAt) };
 }

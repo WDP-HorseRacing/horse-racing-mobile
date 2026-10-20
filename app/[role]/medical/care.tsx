@@ -296,8 +296,10 @@ export default function CareSchedules() {
             {schedules.map((schedule) => (
               <Panel key={schedule.id}>
                 <View style={uiStyles.row}>
-                  <Text style={uiStyles.value}>{schedule.type.replaceAll("_", " ")}</Text>
-                  <Text style={uiStyles.label}>{schedule.status}</Text>
+                  <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                    {schedule.type.replaceAll("_", " ")}
+                  </Text>
+                  <Text style={[uiStyles.label, { flexShrink: 0 }]}>{schedule.status}</Text>
                 </View>
                 <Text style={uiStyles.muted}>
                   Due {formatDateTime(schedule.dueAt)} · assigned{" "}

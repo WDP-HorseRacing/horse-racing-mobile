@@ -80,7 +80,8 @@ export type InventoryItem = {
 };
 export type StaffMember = { name: string; role: string; status: string; scope: string };
 
-export type PermissionCategory = "Horses" | "Training" | "Health" | "Staff" | "Inventory" | "Racing" | "Reports" | "Operations";
+export type PermissionCategory =
+  "Horses" | "Training" | "Health" | "Staff" | "Inventory" | "Racing" | "Reports" | "Operations";
 
 export type ActionPermission = {
   view: boolean;
@@ -91,7 +92,8 @@ export type ActionPermission = {
   lock?: boolean;
 };
 
-export type RoleAccessScope = "Entire Club" | "Assigned Stable" | "Assigned Horses" | "Assigned Area";
+export type RoleAccessScope =
+  "Entire Club" | "Assigned Stable" | "Assigned Horses" | "Assigned Area";
 
 export type RoleAccess = {
   id: RoleId;

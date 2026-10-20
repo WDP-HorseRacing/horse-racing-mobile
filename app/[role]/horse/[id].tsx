@@ -23,6 +23,7 @@ import { isRole } from "@/features/auth/roles";
 import { space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { trainingService } from "@/services/training.service";
@@ -53,6 +54,7 @@ const tabsByRole: Record<RoleId, string[]> = {
 
 export default function HorseProfile() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
   const {
@@ -349,7 +351,17 @@ export default function HorseProfile() {
     <Screen
       role={roleId}
       title={horse.name}
-      subtitle={`${roleId} view · ${horseResource.data ? "backend profile" : "demo profile"}`}
+      subtitle={`${t(
+        (
+          {
+            manager: "Manager",
+            trainer: "Trainer",
+            vet: "Vet",
+            groom: "Groom",
+            owner: "Owner",
+          } as const
+        )[roleId],
+      )} · ${t(horseResource.data ? "Backend profile" : "Demo profile")}`}
       back
       fallbackHref={`/${roleId}/horses` as any}
       refreshing={
@@ -393,13 +405,19 @@ export default function HorseProfile() {
             />
           ) : null}
           <View style={styles.flex}>
-            <Text style={styles.name}>{horse.name}</Text>
-            {horseResource.data ? <Text style={styles.horseId}>Horse ID · {horse.id}</Text> : null}
-            <Text style={uiStyles.muted}>
+            <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+              {horse.name}
+            </Text>
+            {horseResource.data ? (
+              <Text style={styles.horseId} numberOfLines={1} ellipsizeMode="middle">
+                Horse ID · {horse.id}
+              </Text>
+            ) : null}
+            <Text style={uiStyles.muted} numberOfLines={1}>
               {horse.age ? `${horse.age} yo ` : ""}
               {horse.sex} · {horse.breed} · {horse.color}
             </Text>
-            <Text style={uiStyles.muted}>
+            <Text style={uiStyles.muted} numberOfLines={1}>
               Stall {horse.stall} ·{" "}
               {horse.weight ? formatWeight(horse.weight) : "Weight not recorded"} · {horse.owner}
             </Text>
@@ -563,6 +581,15 @@ export default function HorseProfile() {
                 icon="leaf-outline"
                 onPress={() => router.push(`/${roleId}/horse/${horse.id}/stable-care` as Href)}
               />
+              {["trainer", "groom", "manager"].includes(roleId) && !horseResource.data.isDeleted ? (
+                <PrimaryButton
+                  label="Request examination"
+                  icon="medkit-outline"
+                  onPress={() =>
+                    router.push(`/${roleId}/medical/requests?horseId=${horse.id}` as Href)
+                  }
+                />
+              ) : null}
               {permissionsResource.data?.canEditProfile &&
               roleId === "manager" &&
               !horseResource.data.isDeleted ? (
@@ -692,12 +719,16 @@ export default function HorseProfile() {
                   <Panel>
                     <View style={uiStyles.row}>
                       <View style={styles.flex}>
-                        <Text style={uiStyles.value}>{session.title}</Text>
-                        <Text style={uiStyles.muted}>
+                        <Text style={uiStyles.value} numberOfLines={1}>
+                          {session.title}
+                        </Text>
+                        <Text style={uiStyles.muted} numberOfLines={1}>
                           {session.className} · {session.planName}
                         </Text>
                       </View>
-                      <Text style={uiStyles.label}>{session.status.replaceAll("_", " ")}</Text>
+                      <Text style={[uiStyles.label, { flexShrink: 0 }]}>
+                        {session.status.replaceAll("_", " ")}
+                      </Text>
                     </View>
                     <Text style={uiStyles.muted}>
                       {session.scheduledStartLabel}
@@ -928,8 +959,12 @@ export default function HorseProfile() {
                 medicalResource.data.careSchedules.map((schedule) => (
                   <Panel key={schedule.id}>
                     <View style={uiStyles.row}>
-                      <Text style={uiStyles.value}>{schedule.type.replaceAll("_", " ")}</Text>
-                      <Text style={uiStyles.label}>{schedule.status.replaceAll("_", " ")}</Text>
+                      <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                        {schedule.type.replaceAll("_", " ")}
+                      </Text>
+                      <Text style={[uiStyles.label, { flexShrink: 0 }]}>
+                        {schedule.status.replaceAll("_", " ")}
+                      </Text>
                     </View>
                     <Text style={uiStyles.muted}>
                       Due {new Date(schedule.dueAt).toLocaleString()}
@@ -1251,16 +1286,21 @@ export default function HorseProfile() {
                           style={[
                             uiStyles.value,
                             {
+                              flex: 1,
+                              minWidth: 0,
                               color:
                                 alert.alertLevel === "CRITICAL"
                                   ? colors.destructive
                                   : colors.monitor,
                             },
                           ]}
+                          numberOfLines={1}
                         >
                           {alert.alertLevel}
                         </Text>
-                        <Text style={uiStyles.label}>{formatDateTime(alert.recordedAt)}</Text>
+                        <Text style={[uiStyles.label, { flexShrink: 0 }]}>
+                          {formatDateTime(alert.recordedAt)}
+                        </Text>
                       </View>
                       <Text style={uiStyles.muted}>
                         {alert.sessionName ?? "Training session"} · {alert.heartRateBpm} bpm ·{" "}
@@ -1496,11 +1536,13 @@ export default function HorseProfile() {
           {raceResults.map((result) => (
             <Panel key={result.name}>
               <View style={uiStyles.row}>
-                <View>
-                  <Text style={uiStyles.value}>{result.name}</Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={uiStyles.value} numberOfLines={1}>
+                    {result.name}
+                  </Text>
                   <Text style={uiStyles.muted}>{result.date}</Text>
                 </View>
-                <Text style={{ ...uiStyles.value, color: colors.primary }}>
+                <Text style={{ ...uiStyles.value, color: colors.primary, flexShrink: 0 }}>
                   {result.place} · {result.prize}
                 </Text>
               </View>
@@ -1635,7 +1677,7 @@ function isUuid(value: string | string[] | undefined): value is string {
 const getStyles = (colors: any) =>
   StyleSheet.create({
     hero: { gap: space.lg },
-    flex: { flex: 1, gap: 4 },
+    flex: { flex: 1, minWidth: 0, gap: 4 },
     name: { color: colors.foreground, fontSize: 25, fontWeight: "800" },
     photo: { width: 72, height: 72, borderRadius: 16, backgroundColor: colors.elevated },
     horseId: { color: colors.mutedForeground, fontSize: 10, fontFamily: "monospace" },

@@ -87,10 +87,13 @@ export default function TrainerTraining() {
               >
                 <Panel style={{ gap: 8 }}>
                   <View style={ui.row}>
-                    <Text style={[ui.value, { flex: 1 }]}>{trainingClass.name}</Text>
+                    <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                      {trainingClass.name}
+                    </Text>
                     <Text
                       style={[
                         ui.label,
+                        { flexShrink: 0 },
                         trainingClass.status === "ACTIVE" && { color: colors.primary },
                       ]}
                     >
@@ -137,8 +140,12 @@ export default function TrainerTraining() {
                 >
                   <Panel style={{ gap: 6 }}>
                     <View style={ui.row}>
-                      <Text style={[ui.value, { flex: 1 }]}>{session.name}</Text>
-                      <Text style={ui.label}>{session.status.replaceAll("_", " ")}</Text>
+                      <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                        {session.name}
+                      </Text>
+                      <Text style={[ui.label, { flexShrink: 0 }]}>
+                        {session.status.replaceAll("_", " ")}
+                      </Text>
                     </View>
                     <Text style={ui.muted}>
                       {trainingClass?.code ?? "Class"} · {formatDateTime(session.scheduledStartAt)}

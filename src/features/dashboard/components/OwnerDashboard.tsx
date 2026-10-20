@@ -10,8 +10,8 @@ import { SectionTitle } from "@/components/common/SectionTitle";
 import { useTheme } from "@/hooks/useTheme";
 
 export function OwnerDashboard() {
-    const { colors } = useTheme();
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const mine = horses.filter((horse) => horse.owner === "Marlow Bloodstock");
   return (
     <>

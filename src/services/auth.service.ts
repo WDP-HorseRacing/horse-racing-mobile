@@ -1,10 +1,16 @@
 import { apiRequest } from "@/services/api-client";
+import { API_BASE_URL } from "@/config/api";
 
 export type AuthTokens = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
   tokenType: string;
+};
+
+export type GoogleOidcCallback = {
+  code: string;
+  state: string;
 };
 
 export type AuthUser = {
@@ -17,6 +23,15 @@ export type AuthUser = {
 };
 
 export const authService = {
+  googleOidcStartUrl() {
+    return `${API_BASE_URL}/auth/oidc/google/mobile`;
+  },
+
+  exchangeGoogleOidcCode(query: GoogleOidcCallback) {
+    const search = new URLSearchParams({ code: query.code, state: query.state });
+    return apiRequest<AuthTokens>(`/auth/oidc/google/callback?${search.toString()}`);
+  },
+
   login(email: string, password: string) {
     return apiRequest<AuthTokens>("/auth/login", {
       method: "POST",
@@ -39,6 +54,14 @@ export const authService = {
     return apiRequest<void>("/auth/logout", {
       method: "POST",
       body: { refreshToken },
+    });
+  },
+
+  changePassword(token: string, currentPassword: string, newPassword: string) {
+    return apiRequest<void>("/auth/change-password", {
+      method: "POST",
+      token,
+      body: { currentPassword, newPassword },
     });
   },
 };

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Alert, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
 import {
@@ -255,7 +255,11 @@ export default function TrialResultEntry() {
             }
             onPress={() => void save()}
           />
-          <SecondaryButton label="Cancel" icon="close" onPress={() => safeBack("/trainer/training")} />
+          <SecondaryButton
+            label="Cancel"
+            icon="close"
+            onPress={() => safeBack("/trainer/training")}
+          />
         </>
       ) : null}
     </Screen>

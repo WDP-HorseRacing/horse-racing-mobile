@@ -26,10 +26,7 @@ export function formatQuantity(value: number, unit = "", locale = "en-US"): stri
   return unit ? `${amount} ${unit}` : amount;
 }
 
-export function formatDate(
-  value: string | number | Date,
-  locale = "vi-VN",
-): string {
+export function formatDate(value: string | number | Date, locale = "vi-VN"): string {
   const date = asDate(value);
   if (!date) return "—";
   return new Intl.DateTimeFormat(locale, {
@@ -40,10 +37,7 @@ export function formatDate(
   }).format(date);
 }
 
-export function formatDateTime(
-  value: string | number | Date,
-  locale = "vi-VN",
-): string {
+export function formatDateTime(value: string | number | Date, locale = "vi-VN"): string {
   const date = asDate(value);
   if (!date) return "—";
   return new Intl.DateTimeFormat(locale, {
@@ -57,10 +51,7 @@ export function formatDateTime(
   }).format(date);
 }
 
-export function formatTime(
-  value: string | number | Date,
-  locale = "vi-VN",
-): string {
+export function formatTime(value: string | number | Date, locale = "vi-VN"): string {
   const date = asDate(value);
   if (!date) return "—";
   return new Intl.DateTimeFormat(locale, {
@@ -109,4 +100,3 @@ export function formatEnum(value: string | null | undefined): string {
   }
   return clean;
 }
-

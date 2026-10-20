@@ -31,6 +31,12 @@ export const roles: Record<RoleId, RoleConfig> = {
     ],
     secondary: [
       {
+        label: "Stable",
+        icon: "home-outline",
+        path: "/trainer/stable",
+        description: "Barn, stall and Groom assignments.",
+      },
+      {
         label: "Alerts",
         icon: "notifications-outline",
         path: "/trainer/alerts",
@@ -53,16 +59,16 @@ export const roles: Record<RoleId, RoleConfig> = {
     nav: [
       { label: "Home", icon: "home-outline", path: "/groom" },
       { label: "Tasks", icon: "checkmark-circle-outline", path: "/groom/tasks" },
-      { label: "Training", icon: "calendar-outline", path: "/groom/training" },
       { label: "Stable", icon: "map-outline", path: "/groom/stable" },
+      { label: "Incidents", icon: "alert-circle-outline", path: "/groom/report" },
       { label: "More", icon: "ellipsis-horizontal", action: "more" },
     ],
     secondary: [
       {
-        label: "Report",
-        icon: "camera-outline",
-        path: "/groom/report",
-        description: "Report a stable incident or concern.",
+        label: "Training",
+        icon: "calendar-outline",
+        path: "/groom/training",
+        description: "View and record training sessions.",
       },
       {
         label: "Inventory",
@@ -136,6 +142,12 @@ export const roles: Record<RoleId, RoleConfig> = {
       { label: "More", icon: "ellipsis-horizontal", action: "more" },
     ],
     secondary: [
+      {
+        label: "Stable",
+        icon: "home-outline",
+        path: "/manager/stable",
+        description: "Overview of all barns and stalls.",
+      },
       {
         label: "Supplies",
         icon: "cube-outline",

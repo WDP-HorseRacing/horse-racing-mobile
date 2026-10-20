@@ -7,9 +7,9 @@ import { space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 
 export function Field({ label, children }: PropsWithChildren<{ label: string }>) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const uiStyles = getUiStyles(colors);
   const { t } = useI18n();
   return (
     <View style={styles.field}>
@@ -19,6 +19,7 @@ export function Field({ label, children }: PropsWithChildren<{ label: string }>)
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  field: { gap: space.sm },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    field: { gap: space.sm },
+  });

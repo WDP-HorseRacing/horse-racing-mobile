@@ -18,10 +18,7 @@ export default function OwnerTraining() {
   const uiStyles = getUiStyles(colors);
   const { token } = useAuth();
   const [tab, setTab] = useState("Schedule");
-  const loadSessions = useCallback(
-    () => trainingService.listAllVisibleSessions(token!),
-    [token],
-  );
+  const loadSessions = useCallback(() => trainingService.listAllVisibleSessions(token!), [token]);
   const resource = useApiResource(loadSessions, Boolean(token));
   const sessions = resource.data ?? [];
   const upcomingSessions = sessions.filter(
@@ -43,13 +40,17 @@ export default function OwnerTraining() {
     >
       <Chips options={["Schedule", "History"]} value={tab} onChange={setTab} />
       <View style={uiStyles.section}>
-        <SectionTitle>{tab === "Schedule" ? "Upcoming / Today" : "Completed sessions"}</SectionTitle>
+        <SectionTitle>
+          {tab === "Schedule" ? "Upcoming / Today" : "Completed sessions"}
+        </SectionTitle>
         <AsyncStateView
           isLoading={resource.isLoading}
           error={resource.error}
           onRetry={() => void resource.retry()}
           empty={Boolean(resource.data && visibleSessions.length === 0)}
-          emptyLabel={tab === "Schedule" ? "No upcoming training sessions." : "No completed sessions."}
+          emptyLabel={
+            tab === "Schedule" ? "No upcoming training sessions." : "No completed sessions."
+          }
         />
         {visibleSessions.map((session) => (
           <OwnerSessionRow key={session.participantId} session={session} />
@@ -99,10 +100,16 @@ function OwnerSessionRow({ session }: { session: TrainingSessionView }) {
       </View>
       <View style={styles.flex}>
         <View style={uiStyles.row}>
-          <Text style={[uiStyles.value, { flex: 1 }]} numberOfLines={1}>
+          <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
             {session.horseName} · {session.title}
           </Text>
-          <Text style={[styles.status, session.status === "completed" && styles.complete]}>
+          <Text
+            style={[
+              styles.status,
+              session.status === "completed" && styles.complete,
+              { flexShrink: 0 },
+            ]}
+          >
             {t(session.status)}
           </Text>
         </View>
@@ -116,39 +123,40 @@ function OwnerSessionRow({ session }: { session: TrainingSessionView }) {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  flex: { flex: 1, gap: 4 },
-  session: {
-    flexDirection: "row",
-    gap: space.md,
-    padding: space.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  date: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.sm,
-    backgroundColor: colors.fitSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  day: { color: colors.primary, fontSize: 18, fontWeight: "800" },
-  status: {
-    color: colors.monitor,
-    backgroundColor: colors.monitorSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "capitalize",
-    overflow: "hidden",
-  },
-  complete: {
-    color: colors.primary,
-    backgroundColor: colors.fitSoft,
-  },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    flex: { flex: 1, minWidth: 0, gap: 4 },
+    session: {
+      flexDirection: "row",
+      gap: space.md,
+      padding: space.md,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    date: {
+      width: 48,
+      height: 48,
+      borderRadius: radius.sm,
+      backgroundColor: colors.fitSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    day: { color: colors.primary, fontSize: 18, fontWeight: "800" },
+    status: {
+      color: colors.monitor,
+      backgroundColor: colors.monitorSoft,
+      borderRadius: radius.pill,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      fontSize: 10,
+      fontWeight: "700",
+      textTransform: "capitalize",
+      overflow: "hidden",
+    },
+    complete: {
+      color: colors.primary,
+      backgroundColor: colors.fitSoft,
+    },
+  });

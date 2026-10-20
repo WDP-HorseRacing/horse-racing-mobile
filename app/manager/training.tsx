@@ -399,10 +399,10 @@ export default function ManagerTraining() {
           {payload.classes.map(({ trainingClass, sessions, horses, progress }) => (
             <Panel key={trainingClass.id} style={{ gap: 7 }}>
               <View style={ui.row}>
-                <Text style={[ui.value, { flex: 1 }]}>
+                <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
                   {trainingClass.code} · {trainingClass.name}
                 </Text>
-                <Text style={ui.label}>{trainingClass.status}</Text>
+                <Text style={[ui.label, { flexShrink: 0 }]}>{trainingClass.status}</Text>
               </View>
               <Text style={ui.muted}>
                 {formatDate(trainingClass.startDate)} – {formatDate(trainingClass.endDate)} · plan{" "}
@@ -521,8 +521,10 @@ export default function ManagerTraining() {
               >
                 <Panel style={{ gap: 6 }}>
                   <View style={ui.row}>
-                    <Text style={[ui.value, { flex: 1 }]}>{horseName}</Text>
-                    <Text style={ui.label}>
+                    <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                      {horseName}
+                    </Text>
+                    <Text style={[ui.label, { flexShrink: 0 }]}>
                       {summary ? `${summary.sessionsTracked} sessions` : "No performance data"}
                     </Text>
                   </View>

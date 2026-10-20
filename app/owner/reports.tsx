@@ -9,6 +9,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { reportsService } from "@/services/reports.service";
 import { isDateOnly } from "@/features/stable-care/stable-care-validation";
 import { clubDate } from "@/utils/horse-validation";
+import { space } from "@/config/theme";
 
 export default function OwnerReports() {
   const { colors } = useTheme();
@@ -94,8 +95,13 @@ function Row({ label, value, strong = false }: { label: string; value: string; s
   const ui = getUiStyles(colors);
   return (
     <View style={ui.row}>
-      <Text style={strong ? ui.value : ui.muted}>{label}</Text>
-      <Text style={ui.value}>{value}</Text>
+      <Text
+        style={[strong ? ui.value : ui.muted, { flex: 1, minWidth: 0, paddingRight: space.sm }]}
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
+      <Text style={[ui.value, { flexShrink: 0 }]}>{value}</Text>
     </View>
   );
 }

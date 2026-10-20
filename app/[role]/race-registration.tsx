@@ -1,4 +1,4 @@
-import { type Href, Redirect, router, useLocalSearchParams } from "expo-router";
+import { type Href, Redirect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
@@ -53,19 +53,77 @@ export default function RaceRegistration() {
   };
 
   return (
-    <Screen role={role} title="Race registration" subtitle="Server eligibility and race selection" back fallbackHref={`/${role}` as Href} refreshing={horsesResource.isRefreshing || racesResource.isRefreshing} onRefresh={() => { void horsesResource.refresh(); void racesResource.refresh(); }}>
+    <Screen
+      role={role}
+      title="Race registration"
+      subtitle="Server eligibility and race selection"
+      back
+      fallbackHref={`/${role}` as Href}
+      refreshing={horsesResource.isRefreshing || racesResource.isRefreshing}
+      onRefresh={() => {
+        void horsesResource.refresh();
+        void racesResource.refresh();
+      }}
+    >
       <View style={uiStyles.section}>
         <SectionTitle>Select horse</SectionTitle>
-        <AsyncStateView isLoading={horsesResource.isLoading} error={horsesResource.error} onRetry={() => void horsesResource.retry()} empty={!horsesResource.isLoading && !horsesResource.error && horses.length === 0} emptyLabel="No horses eligible for race registration." />
-        {horses.length ? <Chips options={horses.map((item) => `${item.name} · ${item.id.slice(0, 6)}`)} value={horse ? `${horse.name} · ${horse.id.slice(0, 6)}` : ""} onChange={(value) => setHorseId(horses.find((item) => `${item.name} · ${item.id.slice(0, 6)}` === value)?.id ?? "")} /> : null}
+        <AsyncStateView
+          isLoading={horsesResource.isLoading}
+          error={horsesResource.error}
+          onRetry={() => void horsesResource.retry()}
+          empty={!horsesResource.isLoading && !horsesResource.error && horses.length === 0}
+          emptyLabel="No horses eligible for race registration."
+        />
+        {horses.length ? (
+          <Chips
+            options={horses.map((item) => `${item.name} · ${item.id.slice(0, 6)}`)}
+            value={horse ? `${horse.name} · ${horse.id.slice(0, 6)}` : ""}
+            onChange={(value) =>
+              setHorseId(
+                horses.find((item) => `${item.name} · ${item.id.slice(0, 6)}` === value)?.id ?? "",
+              )
+            }
+          />
+        ) : null}
       </View>
       <View style={uiStyles.section}>
         <SectionTitle>Select race</SectionTitle>
-        <AsyncStateView isLoading={racesResource.isLoading} error={racesResource.error} onRetry={() => void racesResource.retry()} empty={!racesResource.isLoading && !racesResource.error && races.length === 0} emptyLabel="No races are available." />
-        {races.length ? <Chips options={races.map((item) => `${item.name} · ${item.id.slice(0, 6)}`)} value={race ? `${race.name} · ${race.id.slice(0, 6)}` : ""} onChange={(value) => setRaceId(races.find((item) => `${item.name} · ${item.id.slice(0, 6)}` === value)?.id ?? "")} /> : null}
+        <AsyncStateView
+          isLoading={racesResource.isLoading}
+          error={racesResource.error}
+          onRetry={() => void racesResource.retry()}
+          empty={!racesResource.isLoading && !racesResource.error && races.length === 0}
+          emptyLabel="No races are available."
+        />
+        {races.length ? (
+          <Chips
+            options={races.map((item) => `${item.name} · ${item.id.slice(0, 6)}`)}
+            value={race ? `${race.name} · ${race.id.slice(0, 6)}` : ""}
+            onChange={(value) =>
+              setRaceId(
+                races.find((item) => `${item.name} · ${item.id.slice(0, 6)}` === value)?.id ?? "",
+              )
+            }
+          />
+        ) : null}
       </View>
-      {horse || race ? <Panel><Text style={uiStyles.value}>{t("Registration details")}</Text><Text style={uiStyles.muted}>{t("Horse")}: {horse?.name ?? "—"}</Text><Text style={uiStyles.muted}>{t("Race")}: {race?.name ?? "—"}</Text></Panel> : null}
-      <PrimaryButton label={saving ? "Submitting…" : "Submit registration"} icon="flag" onPress={() => void submit()} disabled={!horse || !race || saving} />
+      {horse || race ? (
+        <Panel>
+          <Text style={uiStyles.value}>{t("Registration details")}</Text>
+          <Text style={uiStyles.muted}>
+            {t("Horse")}: {horse?.name ?? "—"}
+          </Text>
+          <Text style={uiStyles.muted}>
+            {t("Race")}: {race?.name ?? "—"}
+          </Text>
+        </Panel>
+      ) : null}
+      <PrimaryButton
+        label={saving ? "Submitting…" : "Submit registration"}
+        icon="flag"
+        onPress={() => void submit()}
+        disabled={!horse || !race || saving}
+      />
     </Screen>
   );
 }

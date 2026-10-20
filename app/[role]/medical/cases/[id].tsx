@@ -224,11 +224,13 @@ export default function MedicalCaseDetail() {
                   onPress={() => router.push(`/${role}/medical/visits/${visit.id}` as Href)}
                 >
                   <View style={uiStyles.row}>
-                    <Text style={uiStyles.value}>
+                    <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
                       {visit.kind.replaceAll("_", " ")} ·{" "}
                       {visit.conclusion ?? visit.diagnosis ?? "Visit"}
                     </Text>
-                    <Text style={uiStyles.label}>{formatDateTime(visit.examDate)}</Text>
+                    <Text style={[uiStyles.label, { flexShrink: 0 }]}>
+                      {formatDateTime(visit.examDate)}
+                    </Text>
                   </View>
                   <Text style={uiStyles.muted}>
                     {visit.diagnosis ?? "No diagnosis"} ·{" "}

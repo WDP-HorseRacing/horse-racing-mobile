@@ -9,9 +9,9 @@ import { space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 
 export default function Flow() {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const uiStyles = getUiStyles(colors);
   return (
     <SafeAreaView style={styles.safe}>
       <View style={{ position: "absolute", right: 18, top: 54, zIndex: 10 }}>
@@ -36,15 +36,16 @@ export default function Flow() {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  content: {
-    padding: space.lg,
-    paddingBottom: 60,
-    gap: space.md,
-    maxWidth: 620,
-    width: "100%",
-    alignSelf: "center",
-  },
-  title: { color: colors.foreground, fontSize: 28, fontWeight: "800" },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    content: {
+      padding: space.lg,
+      paddingBottom: 60,
+      gap: space.md,
+      maxWidth: 620,
+      width: "100%",
+      alignSelf: "center",
+    },
+    title: { color: colors.foreground, fontSize: 28, fontWeight: "800" },
+  });

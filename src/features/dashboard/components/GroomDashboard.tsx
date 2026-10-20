@@ -12,8 +12,8 @@ import { getUiStyles } from "@/components/ui/styles";
 import { useTheme } from "@/hooks/useTheme";
 
 export function GroomDashboard() {
-    const { colors } = useTheme();
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const { tasks, completeTask } = useRaceOS();
   const done = tasks.filter((task) => task.done).length;
   const next = tasks.find((task) => !task.done);

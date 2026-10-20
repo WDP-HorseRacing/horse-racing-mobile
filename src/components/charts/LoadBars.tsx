@@ -23,8 +23,9 @@ export function LoadBars({
   const mappedData = data.map((item, index) => {
     const val = Number(item[yKey] ?? 0);
     const label = String(item[xKey] ?? "");
-    const shouldShowLabel = index === 0 || index === data.length - 1 || index % Math.ceil(data.length / 4) === 0;
-    
+    const shouldShowLabel =
+      index === 0 || index === data.length - 1 || index % Math.ceil(data.length / 4) === 0;
+
     return {
       value: val,
       label: shouldShowLabel ? label : "",
@@ -33,9 +34,9 @@ export function LoadBars({
     };
   });
 
-  const values = mappedData.map(d => d.value);
+  const values = mappedData.map((d) => d.value);
   const maxVal = values.length > 0 ? Math.max(...values) : 100;
-  
+
   const noOfSections = 4;
   const stepValue = Math.ceil(maxVal / noOfSections);
   const calculatedMax = stepValue * noOfSections;
@@ -85,11 +86,11 @@ export function LoadBars({
                   borderRadius: 6,
                   borderWidth: 1,
                   borderColor: colors.borderStrong,
-                  justifyContent: 'center',
-                  alignItems: 'center',
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
               >
-                <Text style={{ color: colors.popoverForeground, fontSize: 12, fontWeight: 'bold' }}>
+                <Text style={{ color: colors.popoverForeground, fontSize: 12, fontWeight: "bold" }}>
                   {items[0].value}
                 </Text>
               </View>

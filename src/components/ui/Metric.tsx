@@ -15,8 +15,8 @@ export function Metric({
   hint?: string;
   tone?: "default" | "good" | "warning" | "danger";
 }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { t } = useI18n();
   const toneColor =
     tone === "good"
@@ -28,26 +28,41 @@ export function Metric({
           : colors.foreground;
   return (
     <View style={styles.metric}>
-      <Text style={styles.metricLabel}>{t(label)}</Text>
-      <Text style={[styles.metricValue, { color: toneColor }]}>{value}</Text>
-      {hint ? <Text style={styles.metricHint}>{t(hint)}</Text> : null}
+      <Text style={styles.metricLabel} numberOfLines={2} ellipsizeMode="tail">
+        {t(label)}
+      </Text>
+      <Text
+        style={[styles.metricValue, { color: toneColor }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        ellipsizeMode="tail"
+      >
+        {value}
+      </Text>
+      {hint ? (
+        <Text style={styles.metricHint} numberOfLines={1} ellipsizeMode="tail">
+          {t(hint)}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  metric: {
-    flexGrow: 1,
-    flexBasis: "45%",
-    minHeight: 104,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: space.md,
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  metricLabel: { color: colors.mutedForeground, fontSize: 11 },
-  metricValue: { fontSize: 26, fontWeight: "700", letterSpacing: -0.7 },
-  metricHint: { color: colors.mutedForeground, fontSize: 10 },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    metric: {
+      flexGrow: 1,
+      flexBasis: "45%",
+      minWidth: 0,
+      minHeight: 104,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: space.md,
+      justifyContent: "space-between",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    metricLabel: { color: colors.mutedForeground, fontSize: 11 },
+    metricValue: { fontSize: 26, fontWeight: "700", letterSpacing: -0.7 },
+    metricHint: { color: colors.mutedForeground, fontSize: 10 },
+  });

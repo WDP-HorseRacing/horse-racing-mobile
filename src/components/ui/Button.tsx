@@ -30,6 +30,7 @@ export function PrimaryButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        styles.buttonSpacing,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
         style,
@@ -43,6 +44,7 @@ export function PrimaryButton({
 
 const getStyles = (colors: any) =>
   StyleSheet.create({
+    buttonSpacing: { marginHorizontal: space.xs, marginVertical: space.xs },
     button: {
       minHeight: 52,
       borderRadius: radius.md,
@@ -126,6 +128,7 @@ export function DangerButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.dangerButton,
+        styles.buttonSpacing,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
         style,
@@ -160,6 +163,7 @@ export function SecondaryButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.secondaryButton,
+        styles.buttonSpacing,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.pressed,
         style,

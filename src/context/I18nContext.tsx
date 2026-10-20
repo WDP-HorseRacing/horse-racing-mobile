@@ -1,8 +1,16 @@
-import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from "react";
 import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import vi from "@/data/locales/vi.json";
 import viUi from "@/data/locales/vi-ui.json";
+import viUiExtra from "@/data/locales/vi-ui-extra.json";
 
 export type Language = "en" | "vi";
 
@@ -16,7 +24,7 @@ type I18nValue = {
 const LANGUAGE_STORAGE_KEY = "@raceos/language";
 const I18nContext = createContext<I18nValue | null>(null);
 
-const vietnamese = { ...vi, ...viUi } as Record<string, string>;
+const vietnamese = { ...vi, ...viUi, ...viUiExtra } as Record<string, string>;
 vietnamese["HorseRacing"] = "HorseRacing";
 vietnamese["HorseRacing Mobile"] = "HorseRacing Mobile";
 
@@ -26,11 +34,41 @@ for (const [en, v] of Object.entries(vietnamese)) {
     english[v] = en;
   }
 }
+english["bị khóa"] = "locked";
+english["bị thương"] = "injured";
 english["HorseRacing"] = "HorseRacing";
 english["HorseRacing Mobile"] = "HorseRacing Mobile";
 
 let currentLanguage: Language = "en";
 let currentT: (text: string) => string = (t) => t;
+const templateCache = new WeakMap<Record<string, string>, [string, string][]>();
+
+function translateTemplate(text: string, catalog: Record<string, string>): string | null {
+  let templates = templateCache.get(catalog);
+  if (!templates) {
+    templates = Object.entries(catalog)
+      .filter(([template]) => template.includes("{"))
+      .sort(
+        ([first], [second]) =>
+          second.replace(/\{[^{}]+\}/g, "").length - first.replace(/\{[^{}]+\}/g, "").length,
+      );
+    templateCache.set(catalog, templates);
+  }
+
+  for (const [template, translation] of templates) {
+    const escaped = template
+      .split(/(\{[^{}]+\})/)
+      .map((part) =>
+        /^\{[^{}]+\}$/.test(part) ? "(.+?)" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      )
+      .join("");
+    const match = text.match(new RegExp(`^${escaped}$`));
+    if (!match) continue;
+    let valueIndex = 1;
+    return translation.replace(/\{[^{}]+\}/g, () => match[valueIndex++] ?? "");
+  }
+  return null;
+}
 
 // Global Alert.alert localization hook
 let alertPatched = false;
@@ -59,11 +97,20 @@ function translateToEnglish(text: string): string {
     return `• ${translateToEnglish(text.slice(2))}`;
   }
 
+  const templated = translateTemplate(text, english);
+  if (templated) return templated;
+
   if (text.includes(" · ")) {
     return text
       .split(" · ")
       .map((part) => translateToEnglish(part.trim()))
       .join(" · ");
+  }
+
+  const countMatch = text.match(/^(\d+)\s+(.+)$/);
+  if (countMatch) {
+    const translatedLabel = translateToEnglish(countMatch[2]);
+    if (translatedLabel !== countMatch[2]) return `${countMatch[1]} ${translatedLabel}`;
   }
 
   return text;
@@ -80,6 +127,9 @@ function translateToVietnameseInternal(text: string): string {
   if (text.startsWith("• ")) {
     return `• ${translateToVietnamese(text.slice(2))}`;
   }
+
+  const templated = translateTemplate(text, vietnamese);
+  if (templated) return templated;
 
   // Split compound phrases by " · "
   if (text.includes(" · ")) {
@@ -99,9 +149,16 @@ function translateToVietnameseInternal(text: string): string {
   const wingMatch = text.match(/^A wing · (\d+) horses$/i);
   if (wingMatch) return `Khu A · ${wingMatch[1]} ngựa`;
 
+  const countMatch = text.match(/^(\d+)\s+(.+)$/);
+  if (countMatch) {
+    const translatedLabel = translateToVietnameseInternal(countMatch[2]);
+    if (translatedLabel !== countMatch[2]) return `${countMatch[1]} ${translatedLabel}`;
+  }
+
   const changeStatusMatch = text.match(/^Change (.+) to (active|inactive)\?$/i);
   if (changeStatusMatch) {
-    const statusText = changeStatusMatch[2].toLowerCase() === "active" ? "hoạt động" : "không hoạt động";
+    const statusText =
+      changeStatusMatch[2].toLowerCase() === "active" ? "hoạt động" : "không hoạt động";
     return `Đổi ${changeStatusMatch[1]} sang ${statusText}?`;
   }
 

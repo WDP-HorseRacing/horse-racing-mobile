@@ -8,7 +8,7 @@ import { AuthRouteGate } from "@/features/auth/AuthRouteGate";
 import { useTheme } from "@/hooks/useTheme";
 
 export default function RootLayout() {
-    const { colors, isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   return (
     <SafeAreaProvider>
       <I18nProvider>

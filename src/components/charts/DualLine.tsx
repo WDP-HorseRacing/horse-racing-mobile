@@ -27,8 +27,9 @@ export function DualLine({
     return data.map((item, index) => {
       const val = Number(item[k] ?? 0);
       const label = String(item[xKey] ?? "");
-      const shouldShowLabel = index === 0 || index === data.length - 1 || index % Math.ceil(data.length / 4) === 0;
-      
+      const shouldShowLabel =
+        index === 0 || index === data.length - 1 || index % Math.ceil(data.length / 4) === 0;
+
       return {
         value: val,
         label: shouldShowLabel ? label : "",
@@ -41,11 +42,11 @@ export function DualLine({
   const data2 = mapData(key2?.key);
 
   const screenWidth = Dimensions.get("window").width;
-  const chartWidth = screenWidth - 64; 
+  const chartWidth = screenWidth - 64;
 
-  const allValues = [...data1.map(d => d.value), ...data2.map(d => d.value)];
+  const allValues = [...data1.map((d) => d.value), ...data2.map((d) => d.value)];
   const maxVal = allValues.length > 0 ? Math.max(...allValues) : 100;
-  
+
   // Gifted charts uses stepValue, noOfSections instead of domain [min, max]
   const noOfSections = 4;
   const stepValue = Math.ceil(maxVal / noOfSections);
@@ -96,12 +97,12 @@ export function DualLine({
                   borderRadius: 6,
                   borderWidth: 1,
                   borderColor: colors.borderStrong,
-                  justifyContent: 'center',
-                  alignItems: 'center',
+                  justifyContent: "center",
+                  alignItems: "center",
                 }}
               >
-                <Text style={{ color: colors.popoverForeground, fontSize: 12, fontWeight: 'bold' }}>
-                  {items[0]?.value} {items[1] ? `| ${items[1]?.value}` : ''}
+                <Text style={{ color: colors.popoverForeground, fontSize: 12, fontWeight: "bold" }}>
+                  {items[0]?.value} {items[1] ? `| ${items[1]?.value}` : ""}
                 </Text>
               </View>
             );

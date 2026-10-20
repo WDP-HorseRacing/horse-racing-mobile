@@ -10,7 +10,8 @@ export const notificationsService = {
 
   markRead(token: string, notificationId: string) {
     return apiRequest<unknown>(`/notifications/${encodeURIComponent(notificationId)}/read`, {
-      method: "PATCH", token,
+      method: "PATCH",
+      token,
     });
   },
 
@@ -25,7 +26,8 @@ export const notificationsService = {
     do {
       const query = new URLSearchParams({ page: String(pageNumber), limit: "100" });
       const page = await apiRequest<HorseAlertPageDto>(
-        `/horses/${encodeURIComponent(horseId)}/alerts?${query.toString()}`, { token },
+        `/horses/${encodeURIComponent(horseId)}/alerts?${query.toString()}`,
+        { token },
       );
       items.push(...(page.items ?? []));
       totalPages = page.meta?.totalPages ?? pageNumber;

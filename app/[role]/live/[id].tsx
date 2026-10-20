@@ -4,15 +4,15 @@ import { StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { getHorse, liveSeries } from "@/lib/raceos-data";
 import { isRole } from "@/features/auth/roles";
-import { MiniChart , Metric, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
-import { KeyValue , Screen, SectionTitle } from "@/components/common";
+import { MiniChart, Metric, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import { KeyValue, Screen, SectionTitle } from "@/components/common";
 import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 
 export default function LiveTraining() {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const uiStyles = getUiStyles(colors);
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -25,7 +25,13 @@ export default function LiveTraining() {
   const latest = window[window.length - 1];
   const abnormal = latest.hr > 180;
   return (
-    <Screen role={role} title={horse.name} subtitle="Live training · sensor vest #A14" back fallbackHref={`/${role}/horses` as any}>
+    <Screen
+      role={role}
+      title={horse.name}
+      subtitle="Live training · sensor vest #A14"
+      back
+      fallbackHref={`/${role}/horses` as any}
+    >
       <View style={styles.live}>
         <View style={styles.dot} />
         <Text style={styles.liveText}>Streaming live</Text>
@@ -116,9 +122,9 @@ function Chart({
   color: string;
   caption: string;
 }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
+
   return (
     <View style={uiStyles.section}>
       <SectionTitle>{title}</SectionTitle>
@@ -129,18 +135,19 @@ function Chart({
     </View>
   );
 }
-const getStyles = (colors: any) => StyleSheet.create({
-  live: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    borderRadius: radius.pill,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    backgroundColor: colors.fitSoft,
-  },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  liveText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
-  alertTitle: { color: colors.foreground, fontSize: 22, fontWeight: "800" },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    live: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      borderRadius: radius.pill,
+      paddingHorizontal: space.md,
+      paddingVertical: space.sm,
+      backgroundColor: colors.fitSoft,
+    },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
+    liveText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
+    alertTitle: { color: colors.foreground, fontSize: 22, fontWeight: "800" },
+  });

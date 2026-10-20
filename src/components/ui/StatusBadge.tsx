@@ -7,7 +7,9 @@ import { formatEnum } from "@/utils/formatters";
 
 import type { ThemeColors } from "@/config/theme";
 
-const getStatusPalette = (colors: ThemeColors): Record<HorseStatus, { color: string; background: string }> => ({
+const getStatusPalette = (
+  colors: ThemeColors,
+): Record<HorseStatus, { color: string; background: string }> => ({
   FIT: { color: colors.fit, background: colors.fitSoft },
   "RACE READY": { color: colors.raceReady, background: colors.raceReadySoft },
   TRAINING: { color: colors.training, background: colors.trainingSoft },
@@ -22,12 +24,15 @@ export function StatusBadge({ status }: { status: HorseStatus }) {
   const palette = getStatusPalette(colors)[status];
   return (
     <View style={[styles.badge, { backgroundColor: palette.background }]}>
-      <Text style={[styles.badgeText, { color: palette.color }]}>{formatEnum(status)}</Text>
+      <Text style={[styles.badgeText, { color: palette.color }]} numberOfLines={1}>
+        {formatEnum(status)}
+      </Text>
     </View>
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  badge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    badge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4, flexShrink: 0 },
+    badgeText: { fontSize: 10, fontWeight: "700", letterSpacing: 0.2 },
+  });

@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { space } from "@/config/theme";
 import { isRole } from "@/features/auth/roles";
 import {
   stableCareService,
@@ -262,10 +263,22 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
             {plan.approver ? ` · approved by ${plan.approver.fullName}` : ""}
           </Text>
           {canEdit && plan.status === "DRAFT" ? (
-            <View style={ui.row}>
-              <SecondaryButton label="Edit draft" onPress={() => beginEdit(plan)} />
-              <SecondaryButton label="Delete" onPress={() => remove(plan)} />
-              <PrimaryButton label="Approve" onPress={() => approve(plan)} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+              <SecondaryButton
+                label="Edit draft"
+                style={{ flexGrow: 1 }}
+                onPress={() => beginEdit(plan)}
+              />
+              <SecondaryButton
+                label="Delete"
+                style={{ flexGrow: 1 }}
+                onPress={() => remove(plan)}
+              />
+              <PrimaryButton
+                label="Approve"
+                style={{ flexGrow: 1 }}
+                onPress={() => approve(plan)}
+              />
             </View>
           ) : null}
         </Panel>
@@ -343,12 +356,13 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
           {lines.map((line, index) => (
             <Panel key={`${line.supplyItemId}-${line.meal}-${index}`}>
               <View style={ui.row}>
-                <Text style={ui.value}>
+                <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
                   {MEAL_LABELS[line.meal]} ·{" "}
                   {feedItems.find((item) => item.id === line.supplyItemId)?.name ?? "Feed item"}
                 </Text>
                 <SecondaryButton
                   label="Remove"
+                  style={{ flexShrink: 0 }}
                   onPress={() =>
                     setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))
                   }
@@ -442,8 +456,16 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
       {tasks.map((task) => (
         <Panel key={task.id}>
           <View style={ui.row}>
-            <Text style={ui.value}>{task.taskType.name}</Text>
-            {canAssign ? <SecondaryButton label="Remove" onPress={() => remove(task)} /> : null}
+            <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+              {task.taskType.name}
+            </Text>
+            {canAssign ? (
+              <SecondaryButton
+                label="Remove"
+                style={{ flexShrink: 0 }}
+                onPress={() => remove(task)}
+              />
+            ) : null}
           </View>
           <Text style={ui.muted}>
             {task.fromDate} → {task.toDate}
@@ -548,11 +570,11 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
           </Text>
           {checklist.items.map((item) => (
             <View key={item.id} style={ui.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={ui.value}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={ui.value} numberOfLines={1}>
                   {item.name} · {item.done ? "Done" : "Incomplete"}
                 </Text>
-                <Text style={ui.muted}>
+                <Text style={ui.muted} numberOfLines={2}>
                   {item.doer
                     ? `${item.doer.fullName}${item.doneAt ? ` · ${formatTime(item.doneAt)}` : ""}`
                     : "Not completed"}
@@ -564,6 +586,7 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
               checklist.status !== "INCOMPLETE" ? (
                 <SecondaryButton
                   label={item.done ? "Undo" : "Done"}
+                  style={{ flexShrink: 0 }}
                   onPress={() => void toggle(item.id, !item.done)}
                 />
               ) : null}
@@ -816,17 +839,20 @@ export function CareTaskTypesScreen() {
               ? "Automatically applies to all horses"
               : "Can be assigned to one horse"}
           </Text>
-          <View style={ui.row}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
             <SecondaryButton
               label={item.active ? "Deactivate" : "Reactivate"}
+              style={{ flexGrow: 1 }}
               onPress={() => void patch(item, { active: !item.active })}
             />
             <SecondaryButton
               label={item.appliesToAll ? "Make individual" : "Apply to all horses"}
+              style={{ flexGrow: 1 }}
               onPress={() => void patch(item, { appliesToAll: !item.appliesToAll })}
             />
             <SecondaryButton
               label={editingTypeId === item.id ? "Cancel rename" : "Rename"}
+              style={{ flexGrow: 1 }}
               onPress={() => {
                 setEditingTypeId(editingTypeId === item.id ? null : item.id);
                 setEditingName(editingTypeId === item.id ? "" : item.name);

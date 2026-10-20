@@ -12,8 +12,8 @@ import { getUiStyles } from "@/components/ui/styles";
 import { useTheme } from "@/hooks/useTheme";
 
 export function VetDashboard() {
-    const { colors } = useTheme();
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const critical = horses.filter((horse) => ["LOCKED", "INJURED"].includes(horse.status));
   return (
     <>
@@ -44,11 +44,15 @@ export function VetDashboard() {
         ].map(([kind, horse, when]) => (
           <Panel key={kind}>
             <View style={uiStyles.row}>
-              <View>
-                <Text style={uiStyles.value}>{kind}</Text>
-                <Text style={uiStyles.muted}>{horse}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={uiStyles.value} numberOfLines={1}>
+                  {kind}
+                </Text>
+                <Text style={uiStyles.muted} numberOfLines={1}>
+                  {horse}
+                </Text>
               </View>
-              <Text style={uiStyles.muted}>{when}</Text>
+              <Text style={[uiStyles.muted, { flexShrink: 0 }]}>{when}</Text>
             </View>
           </Panel>
         ))}

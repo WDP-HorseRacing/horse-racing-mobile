@@ -33,7 +33,9 @@ export function AsyncStateView({
   if (error) {
     return (
       <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Text style={[styles.error, { color: colors.destructive }]}>{extractErrorMessage(error)}</Text>
+        <Text style={[styles.error, { color: colors.destructive }]}>
+          {extractErrorMessage(error)}
+        </Text>
         <Pressable onPress={onRetry} style={[styles.retry, { backgroundColor: colors.fitSoft }]}>
           <Text style={[styles.retryText, { color: colors.primary }]}>Try again</Text>
         </Pressable>
@@ -54,6 +56,11 @@ const styles = StyleSheet.create({
   state: { minHeight: 96, alignItems: "center", justifyContent: "center", gap: space.sm },
   card: { borderWidth: 1, borderRadius: radius.md, padding: space.md, gap: space.md },
   error: { fontSize: 13, lineHeight: 19 },
-  retry: { alignSelf: "flex-start", borderRadius: radius.sm, paddingHorizontal: space.md, paddingVertical: space.sm },
+  retry: {
+    alignSelf: "flex-start",
+    borderRadius: radius.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+  },
   retryText: { fontSize: 13, fontWeight: "700" },
 });

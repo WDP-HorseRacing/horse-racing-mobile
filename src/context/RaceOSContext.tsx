@@ -60,8 +60,8 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
   const [horses, setHorses] = useState(initialHorses);
   const [tasks, setTasks] = useState(groomTasks);
   const [plans, setPlans] = useState<TrainingPlan[]>(initialTrainingPlans);
-  const [trials, setTrials] = useState<Trial[]>(initialTrials);
-  const [trainerRemarks, setTrainerRemarks] = useState<TrainerRemark[]>(initialTrainerRemarks);
+  const [trials] = useState<Trial[]>(initialTrials);
+  const [trainerRemarks] = useState<TrainerRemark[]>(initialTrainerRemarks);
   const [raceRegistrations, setRaceRegistrations] =
     useState<RaceRegistration[]>(initialRaceRegistrations);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -133,7 +133,17 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
           current.includes(horseId) ? current : [...current, horseId],
         ),
     }),
-    [horses, tasks, plans, raceRegistrations, incidents, examinations, lockedHorseIds],
+    [
+      horses,
+      tasks,
+      plans,
+      trials,
+      trainerRemarks,
+      raceRegistrations,
+      incidents,
+      examinations,
+      lockedHorseIds,
+    ],
   );
 
   return <RaceOSContext.Provider value={value}>{children}</RaceOSContext.Provider>;

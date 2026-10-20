@@ -155,9 +155,11 @@ export default function ManagerDailyFees() {
               return (
                 <Panel key={fee.id}>
                   <View style={ui.row}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={ui.value}>{money(fee.dailyFee)} / horse / day</Text>
-                      <Text style={ui.muted}>
+                    <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                      <Text style={ui.value} numberOfLines={1}>
+                        {money(fee.dailyFee)} / horse / day
+                      </Text>
+                      <Text style={ui.muted} numberOfLines={1}>
                         From {fee.effectiveFrom} ·{" "}
                         {isCurrent ? "Current" : isScheduled ? "Scheduled" : "Past rate"}
                       </Text>
@@ -165,6 +167,7 @@ export default function ManagerDailyFees() {
                     {isScheduled ? (
                       <SecondaryButton
                         label={deletingId === fee.id ? "Deleting…" : "Delete"}
+                        style={{ flexShrink: 0 }}
                         disabled={Boolean(deletingId)}
                         onPress={() => confirmDelete(fee)}
                       />

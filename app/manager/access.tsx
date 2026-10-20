@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, StyleSheet, Pressable, ScrollView, Alert } from "react-native";
+import { View, StyleSheet, Pressable, Alert } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { Panel, PrimaryButton, Chips, getUiStyles } from "@/components/ui";
 import { Screen, SectionTitle } from "@/components/common";
@@ -95,7 +95,7 @@ export default function AccessControl() {
 
   const [rolesList, setRolesList] = useState(MOCK_ROLES);
   const [editingRole, setEditingRole] = useState<RoleAccess | null>(null);
-  
+
   // Form State
   const [scope, setScope] = useState<RoleAccessScope>("Entire Club");
   const [permissions, setPermissions] = useState<Record<string, ActionPermission>>({});
@@ -110,11 +110,14 @@ export default function AccessControl() {
     if (editingRole) {
       setRolesList(
         rolesList.map((r) =>
-          r.id === editingRole.id ? { ...r, scope, permissions: permissions as any } : r
-        )
+          r.id === editingRole.id ? { ...r, scope, permissions: permissions as any } : r,
+        ),
       );
       setEditingRole(null);
-      Alert.alert("Permissions updated", `Access control for ${editingRole.name} saved successfully.`);
+      Alert.alert(
+        "Permissions updated",
+        `Access control for ${editingRole.name} saved successfully.`,
+      );
     }
   };
 
@@ -170,14 +173,27 @@ export default function AccessControl() {
             return (
               <Panel key={category} style={{ marginBottom: space.sm }}>
                 <Text style={{ ...uiStyles.value, marginBottom: space.sm }}>{category}</Text>
-                
-                {(["view", "create", "edit", "delete", "approve", "lock"] as (keyof ActionPermission)[]).map((action) => {
+
+                {(
+                  [
+                    "view",
+                    "create",
+                    "edit",
+                    "delete",
+                    "approve",
+                    "lock",
+                  ] as (keyof ActionPermission)[]
+                ).map((action) => {
                   if (catPerms[action] !== undefined) {
                     const isOn = catPerms[action];
                     return (
                       <View key={action} style={styles.permRow}>
-                        <Text style={uiStyles.muted}>
-                          {action.charAt(0).toUpperCase() + action.slice(1)} {category.toLowerCase()}
+                        <Text
+                          style={[uiStyles.muted, { flex: 1, minWidth: 0, paddingRight: space.sm }]}
+                          numberOfLines={2}
+                        >
+                          {action.charAt(0).toUpperCase() + action.slice(1)}{" "}
+                          {category.toLowerCase()}
                         </Text>
                         <Pressable
                           style={[styles.switch, isOn && styles.switchOn]}
@@ -205,7 +221,13 @@ export default function AccessControl() {
   }
 
   return (
-    <Screen role="manager" title="Access Control" subtitle="Manage roles, access scope, and system permissions" back fallbackHref="/manager/operations">
+    <Screen
+      role="manager"
+      title="Access Control"
+      subtitle="Manage roles, access scope, and system permissions"
+      back
+      fallbackHref="/manager/operations"
+    >
       <View style={uiStyles.section}>
         <SectionTitle>System Roles</SectionTitle>
         {rolesList.map((role) => {
@@ -217,11 +239,11 @@ export default function AccessControl() {
             <Pressable key={role.id} onPress={() => openRole(role)}>
               <Panel style={{ marginBottom: space.md }}>
                 <View style={uiStyles.row}>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={uiStyles.value}>{role.name}</Text>
                     <Text style={uiStyles.muted}>{role.description}</Text>
                     <View style={{ height: space.sm }} />
-                    <View style={{ flexDirection: "row", gap: space.md }}>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
                       <Text style={uiStyles.muted}>Scope: {role.scope}</Text>
                       <Text style={uiStyles.muted}>•</Text>
                       <Text style={uiStyles.muted}>{permCount} permissions</Text>
@@ -238,30 +260,32 @@ export default function AccessControl() {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  permRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  switch: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.border,
-  },
-  switchOn: {
-    backgroundColor: colors.primary,
-  },
-  switchText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.mutedForeground,
-  },
-  switchTextOn: {
-    color: "#FFFFFF",
-  },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    permRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    switch: {
+      flexShrink: 0,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      backgroundColor: colors.border,
+    },
+    switchOn: {
+      backgroundColor: colors.primary,
+    },
+    switchText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.mutedForeground,
+    },
+    switchTextOn: {
+      color: "#FFFFFF",
+    },
+  });

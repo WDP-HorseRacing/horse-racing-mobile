@@ -2,8 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const vi = JSON.parse(readFileSync(new URL("../src/data/locales/vi.json", import.meta.url), "utf8"));
-const viUi = JSON.parse(readFileSync(new URL("../src/data/locales/vi-ui.json", import.meta.url), "utf8"));
+const vi = JSON.parse(
+  readFileSync(new URL("../src/data/locales/vi.json", import.meta.url), "utf8"),
+);
+const viUi = JSON.parse(
+  readFileSync(new URL("../src/data/locales/vi-ui.json", import.meta.url), "utf8"),
+);
 
 const vietnamese = { ...vi, ...viUi };
 vietnamese["HorseRacing"] = "HorseRacing";
@@ -58,7 +62,8 @@ function translateToVietnameseInternal(text) {
 
   const changeStatusMatch = text.match(/^Change (.+) to (active|inactive)\?$/i);
   if (changeStatusMatch) {
-    const statusText = changeStatusMatch[2].toLowerCase() === "active" ? "hoạt động" : "không hoạt động";
+    const statusText =
+      changeStatusMatch[2].toLowerCase() === "active" ? "hoạt động" : "không hoạt động";
     return `Đổi ${changeStatusMatch[1]} sang ${statusText}?`;
   }
 
@@ -126,17 +131,11 @@ test("common UI navigation tabs translate accurately both ways", () => {
 });
 
 test("compound strings with · translate parts without mangling names", () => {
-  assert.equal(
-    translateText("24 horses · Meadowline Stable", "vi"),
-    "24 ngựa · Meadowline Stable"
-  );
-  assert.equal(
-    translateText("Meadowline Racing Club", "vi"),
-    "Meadowline Racing Club"
-  );
+  assert.equal(translateText("24 horses · Meadowline Stable", "vi"), "24 ngựa · Meadowline Stable");
+  assert.equal(translateText("Meadowline Racing Club", "vi"), "Meadowline Racing Club");
   assert.equal(
     translateText("Head Trainer · Meadowline Stable", "vi"),
-    "Huấn luyện viên trưởng · Meadowline Stable"
+    "Huấn luyện viên trưởng · Meadowline Stable",
   );
 });
 

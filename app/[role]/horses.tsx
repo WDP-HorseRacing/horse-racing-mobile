@@ -190,10 +190,17 @@ export default function Horses() {
             />
             {filterCount > 0 ? (
               <View style={styles.activeFilters}>
-                <Text style={uiStyles.muted}>
+                <Text
+                  style={[uiStyles.muted, { flex: 1, minWidth: 0, paddingRight: space.sm }]}
+                  numberOfLines={1}
+                >
                   {activeFilterLabels.join(" · ") || `${filterCount} active filters`}
                 </Text>
-                <Pressable accessibilityRole="button" onPress={resetFilters}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={resetFilters}
+                  style={{ flexShrink: 0 }}
+                >
                   <Text style={styles.clearText}>Clear all</Text>
                 </Pressable>
               </View>

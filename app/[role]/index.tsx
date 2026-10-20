@@ -12,6 +12,7 @@ import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { horseService } from "@/services/horse.service";
 import { trainingService } from "@/services/training.service";
+import { suppliesService } from "@/services/supplies.service";
 import { groomService } from "@/services/groom.service";
 import { medicalService } from "@/services/medical.service";
 import { mapHorseSummary } from "@/adapters/horse.adapter";
@@ -30,7 +31,11 @@ export default function RoleHome() {
       return { kind: "training", classes, sessions: sessionGroups.flat() };
     }
     if (roleId === "groom") {
-      return { kind: "groom", today: await groomService.getToday(token) };
+      const [today, supplies] = await Promise.all([
+        groomService.getToday(token),
+        suppliesService.listItems(token).catch(() => []),
+      ]);
+      return { kind: "groom", today, supplies };
     }
     if (roleId === "vet") {
       return { kind: "medical", dashboard: await medicalService.getDashboard(token) };

@@ -10,8 +10,8 @@ import { getUiStyles } from "@/components/ui/styles";
 import { useTheme } from "@/hooks/useTheme";
 
 export function ManagerDashboard() {
-    const { colors } = useTheme();
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const uiStyles = getUiStyles(colors);
   const lowStock = inventory.filter((item) => item.low);
   return (
     <>

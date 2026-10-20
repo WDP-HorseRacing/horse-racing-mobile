@@ -7,9 +7,9 @@ import type { AlertItem } from "@/lib/raceos-data";
 import { useTheme } from "@/hooks/useTheme";
 
 export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const uiStyles = getUiStyles(colors);
   const palette =
     alert.severity === "critical"
       ? { backgroundColor: colors.injuredSoft, borderColor: "#FECACA" }
@@ -26,6 +26,8 @@ export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
           style={[
             styles.alertSeverity,
             {
+              flex: 1,
+              minWidth: 0,
               color:
                 alert.severity === "critical"
                   ? colors.destructive
@@ -34,12 +36,15 @@ export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
                     : colors.training,
             },
           ]}
+          numberOfLines={1}
         >
           {alert.severity}
         </Text>
-        <Text style={uiStyles.muted}>{alert.time}</Text>
+        <Text style={[uiStyles.muted, { flexShrink: 0 }]}>{alert.time}</Text>
       </View>
-      <Text style={uiStyles.value}>{alert.title}</Text>
+      <Text style={uiStyles.value} numberOfLines={2}>
+        {alert.title}
+      </Text>
       <Text style={uiStyles.muted}>
         {alert.horse} — {alert.detail}
       </Text>
@@ -47,7 +52,13 @@ export function AlertCard({ alert, role }: { alert: AlertItem; role: string }) {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  alert: { borderRadius: radius.md, borderWidth: 1, padding: space.lg, gap: space.sm },
-  alertSeverity: { fontSize: 11, fontWeight: "700", textTransform: "capitalize", letterSpacing: 0.3 },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    alert: { borderRadius: radius.md, borderWidth: 1, padding: space.lg, gap: space.sm },
+    alertSeverity: {
+      fontSize: 11,
+      fontWeight: "700",
+      textTransform: "capitalize",
+      letterSpacing: 0.3,
+    },
+  });

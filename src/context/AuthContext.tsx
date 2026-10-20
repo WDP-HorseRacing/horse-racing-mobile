@@ -11,7 +11,12 @@ import {
   type PropsWithChildren,
 } from "react";
 import { ApiError, setUnauthorizedTokenRefreshHandler } from "@/services/api-client";
-import { authService, type AuthTokens, type AuthUser } from "@/services/auth.service";
+import {
+  authService,
+  type AuthTokens,
+  type AuthUser,
+  type GoogleOidcCallback,
+} from "@/services/auth.service";
 import { appRoleFromAuthRoles } from "@/features/auth/role-mapper";
 import type { RoleId } from "@/types/raceos";
 
@@ -32,11 +37,13 @@ type AuthContextValue = {
   isLoading: boolean;
   authError: unknown;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: (query: GoogleOidcCallback) => Promise<RoleId>;
   signOut: () => Promise<void>;
   retrySession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const googleOidcAttempts = new Map<string, Promise<RoleId>>();
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -219,6 +226,52 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const signInWithGoogle = useCallback((query: GoogleOidcCallback) => {
+    const existingAttempt = googleOidcAttempts.get(query.state);
+    if (existingAttempt) return existingAttempt;
+
+    const attempt = (async (): Promise<RoleId> => {
+      setIsLoading(true);
+      setAuthError(null);
+      try {
+        const tokens = await authService.exchangeGoogleOidcCode(query);
+        const nextSession = toStoredSession(tokens);
+        sessionRef.current = nextSession;
+
+        const currentUser = await authService.getMe(nextSession.accessToken);
+        const nextRole = appRoleFromAuthRoles(currentUser.roles);
+        if (!nextRole) {
+          throw new Error("Tài khoản chưa được cấp vai trò sử dụng ứng dụng.");
+        }
+
+        const activeSession = sessionRef.current ?? nextSession;
+        await persistSession(activeSession);
+        setSession(activeSession);
+        setUser(currentUser);
+        return nextRole;
+      } catch (error) {
+        if (sessionRef.current?.accessToken) {
+          sessionRef.current = null;
+          setSession(null);
+          setUser(null);
+          await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+        }
+        setAuthError(error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+
+    googleOidcAttempts.set(query.state, attempt);
+    while (googleOidcAttempts.size > 8) {
+      const oldestState = googleOidcAttempts.keys().next().value;
+      if (!oldestState) break;
+      googleOidcAttempts.delete(oldestState);
+    }
+    return attempt;
+  }, []);
+
   const signOut = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -246,10 +299,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isLoading,
       authError,
       signIn,
+      signInWithGoogle,
       signOut,
       retrySession,
     }),
-    [user, session, role, isLoading, authError, signIn, signOut, retrySession],
+    [user, session, role, isLoading, authError, signIn, signInWithGoogle, signOut, retrySession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

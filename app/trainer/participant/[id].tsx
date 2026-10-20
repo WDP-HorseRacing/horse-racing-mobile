@@ -105,10 +105,13 @@ export default function ParticipantPerformance() {
                 .map((point, index) => (
                   <Panel key={`${point.recordedAt}:${index}`} style={{ gap: 5 }}>
                     <View style={ui.row}>
-                      <Text style={ui.value}>{formatDateTime(point.recordedAt)}</Text>
+                      <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                        {formatDateTime(point.recordedAt)}
+                      </Text>
                       <Text
                         style={{
                           ...ui.label,
+                          flexShrink: 0,
                           color:
                             point.alertLevel === "CRITICAL"
                               ? colors.destructive

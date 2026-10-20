@@ -30,7 +30,11 @@ export default function HorseOwners() {
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
-      <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} />
+      <AsyncStateView
+        isLoading={resource.isLoading}
+        error={resource.error}
+        onRetry={() => void resource.retry()}
+      />
       {horse ? (
         <>
           <View style={uiStyles.section}>
@@ -53,7 +57,8 @@ export default function HorseOwners() {
           <Panel style={{ gap: space.sm }}>
             <Text style={uiStyles.value}>Ownership shares are not supported by the backend.</Text>
             <Text style={uiStyles.muted}>
-              Horse records expose a single ownerId. This screen reads the current owner from the horse API and does not save unsupported percentage allocations.
+              Horse records expose a single ownerId. This screen reads the current owner from the
+              horse API and does not save unsupported percentage allocations.
             </Text>
           </Panel>
         </>

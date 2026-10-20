@@ -56,8 +56,8 @@ Do NOT analyze unstaged changes.
 
 If there are no staged changes:
 
-* Stop the workflow.
-* Tell the user:
+- Stop the workflow.
+- Tell the user:
 
 "No staged changes found. Please run `git add <files>` first."
 
@@ -67,9 +67,9 @@ If staged changes exist, continue.
 
 If there are both staged and unstaged changes:
 
-* Ignore the unstaged changes.
-* Analyze only the staged changes.
-* Do NOT stage or unstage anything.
+- Ignore the unstaged changes.
+- Analyze only the staged changes.
+- Do NOT stage or unstage anything.
 
 ---
 
@@ -98,34 +98,35 @@ type(scope): description
 
 Allowed types:
 
-* feat
-* fix
-* refactor
-* docs
-* test
-* chore
-* build
-* ci
-* perf
-* style
+- feat
+- fix
+- refactor
+- docs
+- test
+- chore
+- build
+- ci
+- perf
+- style
 
 Rules:
 
-* Use the most appropriate type.
-* Use a scope only when it is clearly identifiable.
-* Keep the subject concise.
-* Maximum 72 characters for the subject.
-* Use imperative English.
-* Do not end the subject with a period.
-* Do not use emojis.
-* Do not use vague messages such as:
+- Use the most appropriate type.
+- Use a scope only when it is clearly identifiable.
+- Keep the subject concise.
+- Maximum 72 characters for the subject.
+- Use imperative English.
+- Do not end the subject with a period.
+- Do not use emojis.
+- Do not use vague messages such as:
 
-  * update code
-  * changes
-  * modifications
-  * fix stuff
-  * update project
-* The message must accurately describe the staged changes.
+  - update code
+  - changes
+  - modifications
+  - fix stuff
+  - update project
+
+- The message must accurately describe the staged changes.
 
 ---
 
@@ -162,13 +163,13 @@ Wait for the user's confirmation.
 
 If the user confirms with:
 
-* `y`
-* `yes`
-* `Y`
-* `YES`
-* `confirm`
-* `confirmed`
-* or equivalent confirmation
+- `y`
+- `yes`
+- `Y`
+- `YES`
+- `confirm`
+- `confirmed`
+- or equivalent confirmation
 
 then execute:
 
@@ -214,10 +215,10 @@ The user will push manually.
 
 If the user says no, reject, change, revise, or provides feedback:
 
-* Do NOT create the commit.
-* Generate a revised commit message based on the user's feedback.
-* Show the new message.
-* Ask for confirmation again.
+- Do NOT create the commit.
+- Generate a revised commit message based on the user's feedback.
+- Show the new message.
+- Ask for confirmation again.
 
 ---
 
@@ -225,13 +226,13 @@ If the user says no, reject, change, revise, or provides feedback:
 
 Never automatically:
 
-* run `git add`
-* run `git reset`
-* run `git restore`
-* modify staged files
-* modify project files
-* run `git push`
-* create multiple commits unless explicitly requested
+- run `git add`
+- run `git reset`
+- run `git restore`
+- modify staged files
+- modify project files
+- run `git push`
+- create multiple commits unless explicitly requested
 
 Only execute:
 

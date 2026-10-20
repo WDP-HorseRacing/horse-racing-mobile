@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { router, useLocalSearchParams, type Href } from "expo-router";
+import { useLocalSearchParams, type Href } from "expo-router";
 import { safeBack } from "@/utils/navigation";
 import { Alert, Image, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
@@ -383,7 +383,9 @@ function EditHorseForm({
           <Text style={uiStyles.value}>Horse photo</Text>
           {photo ? (
             <>
-              <Text style={uiStyles.muted}>{photo.name}</Text>
+              <Text style={uiStyles.muted} numberOfLines={1} ellipsizeMode="middle">
+                {photo.name}
+              </Text>
               <Image
                 source={{ uri: photo.uri }}
                 style={{ width: 200, height: 150, borderRadius: 12 }}

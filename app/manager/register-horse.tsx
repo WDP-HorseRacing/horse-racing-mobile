@@ -335,7 +335,9 @@ export default function RegisterHorse() {
                 <Text style={uiStyles.value}>Horse photo (optional)</Text>
                 {photo ? (
                   <>
-                    <Text style={uiStyles.muted}>{photo.name}</Text>
+                    <Text style={uiStyles.muted} numberOfLines={1} ellipsizeMode="middle">
+                      {photo.name}
+                    </Text>
                     <Image
                       source={{ uri: photo.uri }}
                       style={{ width: 200, height: 150, borderRadius: 12 }}

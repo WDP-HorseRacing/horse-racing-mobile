@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "horseracing",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -18,10 +18,7 @@
     "web": {
       "output": "static"
     },
-    "plugins": [
-      "expo-router",
-      "expo-video"
-    ],
+    "plugins": ["expo-router", "expo-video"],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

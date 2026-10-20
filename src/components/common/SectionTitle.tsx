@@ -6,8 +6,8 @@ import { space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 
 export function SectionTitle({ children, action }: PropsWithChildren<{ action?: ReactNode }>) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { t } = useI18n();
   return (
     <View style={styles.sectionTitleRow}>
@@ -19,12 +19,21 @@ export function SectionTitle({ children, action }: PropsWithChildren<{ action?: 
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: space.sm,
-  },
-  sectionTitle: { color: colors.foreground, fontSize: 16, fontWeight: "700", letterSpacing: -0.2 },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    sectionTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: space.sm,
+      marginBottom: space.sm,
+    },
+    sectionTitle: {
+      flex: 1,
+      minWidth: 0,
+      color: colors.foreground,
+      fontSize: 16,
+      fontWeight: "700",
+      letterSpacing: -0.2,
+    },
+  });

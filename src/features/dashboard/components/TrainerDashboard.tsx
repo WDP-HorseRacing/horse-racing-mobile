@@ -3,13 +3,11 @@ import { router, type Href } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
 import { alerts, horses, fitnessTrend } from "@/mocks/raceos";
 import { AlertCard } from "@/features/alerts/components/AlertCard";
-import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { MiniChart } from "@/components/ui/MiniChart";
-import { TimelineItem } from "@/components/common/TimelineItem";
 import { HorseRow } from "@/features/horses/components/HorseRow";
 import { Metric } from "@/components/ui/Metric";
 import { Panel } from "@/components/ui/Panel";
-import { PrimaryButton } from "@/components/ui/Button";
+
 import { SectionTitle } from "@/components/common/SectionTitle";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { getUiStyles } from "@/components/ui/styles";
@@ -17,9 +15,9 @@ import { space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 
 export function TrainerDashboard() {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const uiStyles = getUiStyles(colors);
   const attention = horses.filter((horse) =>
     ["MONITOR", "INJURED", "LOCKED"].includes(horse.status),
   );
@@ -75,11 +73,13 @@ export function TrainerDashboard() {
         {horses.slice(0, 4).map((horse, index) => (
           <Panel key={horse.id}>
             <View style={uiStyles.row}>
-              <View>
-                <Text style={uiStyles.value}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={uiStyles.value} numberOfLines={1}>
                   {["06:00", "06:40", "07:10", "07:40"][index]} · {horse.name}
                 </Text>
-                <Text style={uiStyles.muted}>{horse.lastSession}</Text>
+                <Text style={uiStyles.muted} numberOfLines={1}>
+                  {horse.lastSession}
+                </Text>
               </View>
               <StatusBadge status={horse.status} />
             </View>
@@ -90,18 +90,19 @@ export function TrainerDashboard() {
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  flex: { flex: 1 },
-  live: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.md,
-    padding: space.lg,
-    borderWidth: 1,
-    borderColor: "#A7F3D0",
-    backgroundColor: colors.fitSoft,
-    borderRadius: 16,
-  },
-  liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary },
-  liveValue: { color: colors.training, fontSize: 15, fontWeight: "800" },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    flex: { flex: 1 },
+    live: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.md,
+      padding: space.lg,
+      borderWidth: 1,
+      borderColor: "#A7F3D0",
+      backgroundColor: colors.fitSoft,
+      borderRadius: 16,
+    },
+    liveDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary },
+    liveValue: { color: colors.training, fontSize: 15, fontWeight: "800" },
+  });

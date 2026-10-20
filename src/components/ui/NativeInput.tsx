@@ -18,8 +18,8 @@ export function NativeInput({
   secureTextEntry?: boolean;
   keyboardType?: TextInputProps["keyboardType"];
 }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const { t } = useI18n();
   return (
     <TextInput
@@ -35,16 +35,17 @@ export function NativeInput({
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  input: {
-    minHeight: 48,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.elevated,
-    color: colors.foreground,
-    paddingHorizontal: space.md,
-    fontSize: 14,
-  },
-  multiline: { minHeight: 92, paddingTop: space.md, textAlignVertical: "top" },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    input: {
+      minHeight: 48,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.elevated,
+      color: colors.foreground,
+      paddingHorizontal: space.md,
+      fontSize: 14,
+    },
+    multiline: { minHeight: 92, paddingTop: space.md, textAlignVertical: "top" },
+  });

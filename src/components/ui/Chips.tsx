@@ -18,9 +18,9 @@ export function Chips({
   const styles = getStyles(colors);
   const { t } = useI18n();
   return (
-    <ScrollView 
-      horizontal 
-      showsHorizontalScrollIndicator={false} 
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.chips}
     >
       {options.map((option) => (
@@ -29,7 +29,10 @@ export function Chips({
           onPress={() => onChange(option)}
           style={[styles.chip, value === option && styles.chipActive]}
         >
-          <Text style={[styles.chipText, value === option && styles.chipTextActive]}>
+          <Text
+            style={[styles.chipText, value === option && styles.chipTextActive]}
+            numberOfLines={1}
+          >
             {formatEnum(t(option))}
           </Text>
         </Pressable>
@@ -38,17 +41,18 @@ export function Chips({
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  chips: { flexDirection: "row", gap: space.sm, paddingRight: space.md, paddingVertical: 3 },
-  chip: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: space.md,
-    paddingVertical: 9,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.mutedForeground, fontSize: 12, fontWeight: "600" },
-  chipTextActive: { color: "#FFFFFF" },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    chips: { flexDirection: "row", gap: space.sm, paddingRight: space.md, paddingVertical: 3 },
+    chip: {
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: space.md,
+      paddingVertical: 9,
+    },
+    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    chipText: { color: colors.mutedForeground, fontSize: 12, fontWeight: "600" },
+    chipTextActive: { color: "#FFFFFF" },
+  });

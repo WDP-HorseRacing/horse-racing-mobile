@@ -131,10 +131,14 @@ export default function GroomTraining() {
               return (
                 <Panel key={participant.id} style={{ gap: 8 }}>
                   <View style={ui.row}>
-                    <Text style={[ui.value, { flex: 1 }]}>{participant.horseName}</Text>
-                    <Text style={ui.label}>{participant.status.replaceAll("_", " ")}</Text>
+                    <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                      {participant.horseName}
+                    </Text>
+                    <Text style={[ui.label, { flexShrink: 0 }]}>
+                      {participant.status.replaceAll("_", " ")}
+                    </Text>
                   </View>
-                  <Text style={ui.muted}>
+                  <Text style={ui.muted} numberOfLines={1}>
                     {session.name} · {classCode} {className}
                   </Text>
                   <Text style={ui.label}>

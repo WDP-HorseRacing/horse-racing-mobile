@@ -12,9 +12,9 @@ export function MiniChart({
   color?: string;
   height?: number;
 }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const activeColor = color || colors.primary;
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const activeColor = color || colors.primary;
   const values = data.map((item) => Number(item[valueKey] ?? 0));
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -36,7 +36,8 @@ export function MiniChart({
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  chart: { flexDirection: "row", alignItems: "flex-end", gap: 5 },
-  chartBar: { flex: 1, minWidth: 3, borderRadius: 4, opacity: 0.9 },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    chart: { flexDirection: "row", alignItems: "flex-end", gap: 5 },
+    chartBar: { flex: 1, minWidth: 3, borderRadius: 4, opacity: 0.9 },
+  });

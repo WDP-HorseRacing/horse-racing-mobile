@@ -207,7 +207,9 @@ export default function TrainerPlans() {
               {plans.length ? (
                 plans.map((plan) => (
                   <Panel key={plan.id} style={{ gap: 8 }}>
-                    <Text style={ui.value}>{plan.name}</Text>
+                    <Text style={ui.value} numberOfLines={1} ellipsizeMode="tail">
+                      {plan.name}
+                    </Text>
                     <Text style={ui.muted}>
                       {plan.totalWeeks} weeks · {plan.phases.length} phases · minimum{" "}
                       {plan.minTotalMinutes} minutes
@@ -220,17 +222,17 @@ export default function TrainerPlans() {
                         )
                         .join("  ·  ")}
                     </Text>
-                    <View style={{ flexDirection: "row", gap: 8 }}>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                       <SecondaryButton
                         label="Edit plan"
                         icon="create-outline"
-                        style={{ flex: 1 }}
+                        style={{ flexGrow: 1, minWidth: 120 }}
                         onPress={() => editPlan(plan)}
                       />
                       <SecondaryButton
                         label="Delete"
                         icon="trash-outline"
-                        style={{ flex: 1 }}
+                        style={{ flexGrow: 1, minWidth: 120 }}
                         onPress={() => remove(plan)}
                       />
                     </View>

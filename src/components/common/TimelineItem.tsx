@@ -17,10 +17,10 @@ export function TimelineItem({
   tone?: string;
   last?: boolean;
 }) {
-    const { colors } = useTheme();
-    const styles = getStyles(colors);
-    const uiStyles = getUiStyles(colors);
-    const activeTone = tone || colors.mutedForeground;
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+  const uiStyles = getUiStyles(colors);
+  const activeTone = tone || colors.mutedForeground;
   return (
     <View style={styles.timeline}>
       <View style={styles.timelineRail}>
@@ -29,8 +29,14 @@ export function TimelineItem({
       </View>
       <View style={styles.timelineCopy}>
         <View style={uiStyles.row}>
-          <Text style={uiStyles.value}>{title}</Text>
-          <Text style={uiStyles.muted}>{time}</Text>
+          <Text
+            style={[uiStyles.value, styles.timelineTitle]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {title}
+          </Text>
+          <Text style={[uiStyles.muted, styles.timelineTime]}>{time}</Text>
         </View>
         <Text style={uiStyles.muted}>{detail}</Text>
       </View>
@@ -38,10 +44,19 @@ export function TimelineItem({
   );
 }
 
-const getStyles = (colors: any) => StyleSheet.create({
-  timeline: { flexDirection: "row", gap: space.md },
-  timelineRail: { alignItems: "center", width: 12 },
-  timelineDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
-  timelineLine: { width: 1, flex: 1, minHeight: 44, backgroundColor: colors.border, marginTop: 4 },
-  timelineCopy: { flex: 1, gap: 3, paddingBottom: space.lg },
-});
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    timeline: { flexDirection: "row", gap: space.md },
+    timelineRail: { alignItems: "center", width: 12 },
+    timelineDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+    timelineLine: {
+      width: 1,
+      flex: 1,
+      minHeight: 44,
+      backgroundColor: colors.border,
+      marginTop: 4,
+    },
+    timelineCopy: { flex: 1, minWidth: 0, gap: 3, paddingBottom: space.lg },
+    timelineTitle: { flex: 1, minWidth: 0 },
+    timelineTime: { flexShrink: 0 },
+  });

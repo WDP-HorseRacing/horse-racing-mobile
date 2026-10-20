@@ -44,10 +44,7 @@ export default function Work() {
   const { role } = useLocalSearchParams<{ role: string }>();
   const validRole: RoleId | null = isRole(role) ? role : null;
   const { token } = useAuth();
-  const load = useCallback(
-    () => loadRoleWork(token!, validRole!),
-    [token, validRole],
-  );
+  const load = useCallback(() => loadRoleWork(token!, validRole!), [token, validRole]);
   const resource = useApiResource(load, Boolean(token && validRole));
 
   if (!validRole) return <Redirect href="/" />;
@@ -67,23 +64,21 @@ export default function Work() {
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
-      <AsyncStateView isLoading={resource.isLoading} error={resource.error} onRetry={() => void resource.retry()} />
+      <AsyncStateView
+        isLoading={resource.isLoading}
+        error={resource.error}
+        onRetry={() => void resource.retry()}
+      />
 
       {resource.data?.role === "groom" ? (
         <GroomWork today={resource.data.today} onComplete={completeTask} />
       ) : null}
 
-      {resource.data?.role === "trainer" ? (
-        <TrainerWork sessions={resource.data.sessions} />
-      ) : null}
+      {resource.data?.role === "trainer" ? <TrainerWork sessions={resource.data.sessions} /> : null}
 
-      {resource.data?.role === "vet" ? (
-        <VetWork dashboard={resource.data.dashboard} />
-      ) : null}
+      {resource.data?.role === "vet" ? <VetWork dashboard={resource.data.dashboard} /> : null}
 
-      {resource.data?.role === "owner" ? (
-        <OwnerWork results={resource.data.results} />
-      ) : null}
+      {resource.data?.role === "owner" ? <OwnerWork results={resource.data.results} /> : null}
 
       {resource.data?.role === "manager" ? (
         <ManagerWork
@@ -107,10 +102,12 @@ async function loadRoleWork(token: string, role: RoleId): Promise<WorkPayload> {
       return { role, dashboard: await medicalService.getDashboard(token) };
     case "owner": {
       const horses = await horseService.list(token);
-      const resultsByHorse = await Promise.all(horses.map(async (horse) => {
-        const results = await racingService.listHorseResults(token, horse.id);
-        return results.map((result) => mapOwnerRaceResult(horse.id, horse.name, result));
-      }));
+      const resultsByHorse = await Promise.all(
+        horses.map(async (horse) => {
+          const results = await racingService.listHorseResults(token, horse.id);
+          return results.map((result) => mapOwnerRaceResult(horse.id, horse.name, result));
+        }),
+      );
       return {
         role,
         results: resultsByHorse.flat().sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)),
@@ -143,7 +140,13 @@ async function completeGroomTask(token: string, task: Task) {
   }
 }
 
-function GroomWork({ today, onComplete }: { today: GroomTodayDto; onComplete: (id: string) => Promise<void> }) {
+function GroomWork({
+  today,
+  onComplete,
+}: {
+  today: GroomTodayDto;
+  onComplete: (id: string) => Promise<void>;
+}) {
   const uiStyles = getUiStyles(useTheme().colors);
   const tasks = mapGroomTodayToTasks(today);
   const actionable = tasks.filter((task) => task.actionable !== false);
@@ -152,13 +155,28 @@ function GroomWork({ today, onComplete }: { today: GroomTodayDto; onComplete: (i
     <>
       <View style={uiStyles.metricGrid}>
         <Metric label="Tasks today" value={actionable.length} hint={formatDate(today.date)} />
-        <Metric label="Completed" value={`${completed}/${actionable.length}`} hint="checklist and care" tone="good" />
+        <Metric
+          label="Completed"
+          value={`${completed}/${actionable.length}`}
+          hint="checklist and care"
+          tone="good"
+        />
         <Metric label="Horses in care" value={today.horses.length} hint="assigned to you" />
       </View>
       <View style={uiStyles.section}>
         <SectionTitle>Today</SectionTitle>
-        {tasks.map((task) => <TaskCard key={task.id} task={task} onComplete={onComplete} />)}
-        {!tasks.length ? <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No tasks assigned for today." /> : null}
+        {tasks.map((task) => (
+          <TaskCard key={task.id} task={task} onComplete={onComplete} />
+        ))}
+        {!tasks.length ? (
+          <AsyncStateView
+            isLoading={false}
+            error={null}
+            onRetry={() => undefined}
+            empty
+            emptyLabel="No tasks assigned for today."
+          />
+        ) : null}
       </View>
     </>
   );
@@ -166,19 +184,32 @@ function GroomWork({ today, onComplete }: { today: GroomTodayDto; onComplete: (i
 
 function TrainerWork({ sessions }: { sessions: TrainingSessionView[] }) {
   const uiStyles = getUiStyles(useTheme().colors);
-  const upcoming = sessions.filter((session) => !["completed", "cancelled"].includes(session.status));
+  const upcoming = sessions.filter(
+    (session) => !["completed", "cancelled"].includes(session.status),
+  );
   return (
     <View style={uiStyles.section}>
       <SectionTitle>Upcoming training sessions</SectionTitle>
       {upcoming.map((session) => (
-        <Pressable key={session.participantId} onPress={() => router.push(`/trainer/plan/${session.classId}/session/${session.sessionId}` as Href)}>
+        <Pressable
+          key={session.participantId}
+          onPress={() =>
+            router.push(`/trainer/plan/${session.classId}/session/${session.sessionId}` as Href)
+          }
+        >
           <Panel>
             <View style={uiStyles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={uiStyles.value}>{session.title} · {session.horseName}</Text>
-                <Text style={uiStyles.muted}>{session.className} · {session.scheduledStartLabel}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={uiStyles.value} numberOfLines={1}>
+                  {session.title} · {session.horseName}
+                </Text>
+                <Text style={uiStyles.muted} numberOfLines={1}>
+                  {session.className} · {session.scheduledStartLabel}
+                </Text>
               </View>
-              <Text style={uiStyles.label}>{session.status.replaceAll("_", " ")}</Text>
+              <Text style={[uiStyles.label, { flexShrink: 0 }]}>
+                {session.status.replaceAll("_", " ")}
+              </Text>
             </View>
             <Text style={uiStyles.muted}>
               {session.distanceM == null ? "Distance not set" : formatDistance(session.distanceM)}
@@ -187,7 +218,15 @@ function TrainerWork({ sessions }: { sessions: TrainingSessionView[] }) {
           </Panel>
         </Pressable>
       ))}
-      {!upcoming.length ? <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No upcoming training sessions." /> : null}
+      {!upcoming.length ? (
+        <AsyncStateView
+          isLoading={false}
+          error={null}
+          onRetry={() => undefined}
+          empty
+          emptyLabel="No upcoming training sessions."
+        />
+      ) : null}
     </View>
   );
 }
@@ -195,21 +234,44 @@ function TrainerWork({ sessions }: { sessions: TrainingSessionView[] }) {
 function VetWork({ dashboard }: { dashboard: MedicalDashboardDto }) {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
-  const total = dashboard.openCases.length + dashboard.pendingRequests.length + dashboard.checkups.length;
+  const total =
+    dashboard.openCases.length + dashboard.pendingRequests.length + dashboard.checkups.length;
   return (
     <>
       <View style={uiStyles.metricGrid}>
-        <Metric label="Open cases" value={dashboard.openCases.length} hint="medical dashboard" tone={dashboard.openCases.length ? "warning" : "good"} />
-        <Metric label="Pending requests" value={dashboard.pendingRequests.length} hint="awaiting review" />
-        <Metric label="Checkups due" value={dashboard.checkups.length} hint="overdue or soon" tone={dashboard.checkups.length ? "warning" : "default"} />
+        <Metric
+          label="Open cases"
+          value={dashboard.openCases.length}
+          hint="medical dashboard"
+          tone={dashboard.openCases.length ? "warning" : "good"}
+        />
+        <Metric
+          label="Pending requests"
+          value={dashboard.pendingRequests.length}
+          hint="awaiting review"
+        />
+        <Metric
+          label="Checkups due"
+          value={dashboard.checkups.length}
+          hint="overdue or soon"
+          tone={dashboard.checkups.length ? "warning" : "default"}
+        />
       </View>
       <View style={uiStyles.section}>
         <SectionTitle>Medical work queue</SectionTitle>
         {dashboard.pendingRequests.map((request) => (
           <Panel key={`request:${request.id}`}>
             <View style={uiStyles.row}>
-              <Text style={uiStyles.value}>{request.horseName}</Text>
-              <Text style={{ ...uiStyles.label, color: request.urgent ? colors.destructive : colors.monitor }}>
+              <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                {request.horseName}
+              </Text>
+              <Text
+                style={{
+                  ...uiStyles.label,
+                  flexShrink: 0,
+                  color: request.urgent ? colors.destructive : colors.monitor,
+                }}
+              >
                 {request.urgent ? "Urgent" : "Pending"}
               </Text>
             </View>
@@ -218,9 +280,14 @@ function VetWork({ dashboard }: { dashboard: MedicalDashboardDto }) {
           </Panel>
         ))}
         {dashboard.openCases.map((medicalCase) => (
-          <Pressable key={`case:${medicalCase.caseId}`} onPress={() => router.push(`/vet/medical/cases/${medicalCase.caseId}` as Href)}>
+          <Pressable
+            key={`case:${medicalCase.caseId}`}
+            onPress={() => router.push(`/vet/medical/cases/${medicalCase.caseId}` as Href)}
+          >
             <Panel>
-              <Text style={uiStyles.value}>{medicalCase.horseName} · {medicalCase.initialDiagnosis}</Text>
+              <Text style={uiStyles.value}>
+                {medicalCase.horseName} · {medicalCase.initialDiagnosis}
+              </Text>
               <Text style={uiStyles.muted}>Open case · {formatDateTime(medicalCase.openedAt)}</Text>
             </Panel>
           </Pressable>
@@ -228,15 +295,32 @@ function VetWork({ dashboard }: { dashboard: MedicalDashboardDto }) {
         {dashboard.checkups.map((checkup) => (
           <Panel key={`checkup:${checkup.horseId}`}>
             <View style={uiStyles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={uiStyles.value}>{checkup.horseName} · checkup</Text>
-                <Text style={uiStyles.muted}>{checkup.healthStatus.replaceAll("_", " ")} · {checkup.dueStatus.replaceAll("_", " ")}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={uiStyles.value} numberOfLines={1}>
+                  {checkup.horseName} · checkup
+                </Text>
+                <Text style={uiStyles.muted} numberOfLines={1}>
+                  {checkup.healthStatus.replaceAll("_", " ")} ·{" "}
+                  {checkup.dueStatus.replaceAll("_", " ")}
+                </Text>
               </View>
-              <Text style={uiStyles.label}>{checkup.daysLeft < 0 ? `${Math.abs(checkup.daysLeft)} days overdue` : `${checkup.daysLeft} days`}</Text>
+              <Text style={[uiStyles.label, { flexShrink: 0 }]}>
+                {checkup.daysLeft < 0
+                  ? `${Math.abs(checkup.daysLeft)} days overdue`
+                  : `${checkup.daysLeft} days`}
+              </Text>
             </View>
           </Panel>
         ))}
-        {!total ? <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No medical tasks are due." /> : null}
+        {!total ? (
+          <AsyncStateView
+            isLoading={false}
+            error={null}
+            onRetry={() => undefined}
+            empty
+            emptyLabel="No medical tasks are due."
+          />
+        ) : null}
       </View>
     </>
   );
@@ -250,16 +334,30 @@ function OwnerWork({ results }: { results: OwnerRaceResultView[] }) {
       {results.map((result) => (
         <Panel key={result.registrationId}>
           <View style={uiStyles.row}>
-            <View style={{ flex: 1 }}>
-              <Text style={uiStyles.value}>{result.horseName}</Text>
-              <Text style={uiStyles.muted}>{result.raceName} · {result.scheduledAtLabel}</Text>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={uiStyles.value} numberOfLines={1}>
+                {result.horseName}
+              </Text>
+              <Text style={uiStyles.muted} numberOfLines={1}>
+                {result.raceName} · {result.scheduledAtLabel}
+              </Text>
               <Text style={uiStyles.label}>{result.registrationStatus.replaceAll("_", " ")}</Text>
             </View>
-            <Text style={uiStyles.value}>{result.placing ? `#${result.placing}` : "—"}</Text>
+            <Text style={[uiStyles.value, { flexShrink: 0 }]}>
+              {result.placing ? `#${result.placing}` : "—"}
+            </Text>
           </View>
         </Panel>
       ))}
-      {!results.length ? <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No race results have been recorded for your horses." /> : null}
+      {!results.length ? (
+        <AsyncStateView
+          isLoading={false}
+          error={null}
+          onRetry={() => undefined}
+          empty
+          emptyLabel="No race results have been recorded for your horses."
+        />
+      ) : null}
     </View>
   );
 }
@@ -283,29 +381,49 @@ function ManagerWork({
       <View style={uiStyles.metricGrid}>
         <Metric label="Horses" value={horses.length} hint="visible to the club" />
         <Metric label="Staff" value={staff.length} hint="accounts from backend" />
-        <Metric label="Low stock" value={lowStock.length} hint="below reorder threshold" tone={lowStock.length ? "warning" : "good"} />
+        <Metric
+          label="Low stock"
+          value={lowStock.length}
+          hint="below reorder threshold"
+          tone={lowStock.length ? "warning" : "good"}
+        />
       </View>
       <View style={uiStyles.section}>
         <SectionTitle>Operational exceptions</SectionTitle>
         {lowStock.map((item) => (
           <Panel key={`stock:${item.id}`}>
             <View style={uiStyles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={uiStyles.value}>{item.name}</Text>
-                <Text style={uiStyles.muted}>{item.category.replaceAll("_", " ")} · reorder at {item.reorderThreshold} {item.unit}</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={uiStyles.value} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={uiStyles.muted} numberOfLines={1}>
+                  {item.category.replaceAll("_", " ")} · reorder at {item.reorderThreshold}{" "}
+                  {item.unit}
+                </Text>
               </View>
-              <Text style={uiStyles.label}>{item.quantityOnHand} {item.unit}</Text>
+              <Text style={[uiStyles.label, { flexShrink: 0 }]}>
+                {item.quantityOnHand} {item.unit}
+              </Text>
             </View>
           </Panel>
         ))}
         {pendingRequests.map((request) => (
           <Panel key={`request:${request.id}`}>
             <Text style={uiStyles.value}>{request.item.name} · supply request</Text>
-            <Text style={uiStyles.muted}>{request.quantity} {request.item.unit} requested by {request.requester.fullName}</Text>
+            <Text style={uiStyles.muted}>
+              {request.quantity} {request.item.unit} requested by {request.requester.fullName}
+            </Text>
           </Panel>
         ))}
         {!lowStock.length && !pendingRequests.length ? (
-          <AsyncStateView isLoading={false} error={null} onRetry={() => undefined} empty emptyLabel="No inventory exceptions or pending supply requests." />
+          <AsyncStateView
+            isLoading={false}
+            error={null}
+            onRetry={() => undefined}
+            empty
+            emptyLabel="No inventory exceptions or pending supply requests."
+          />
         ) : null}
       </View>
     </>

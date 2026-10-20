@@ -40,7 +40,9 @@ export default function OwnerRemarkDetail() {
         onRetry={() => void resource.retry()}
       />
       {resource.data && !remark ? (
-        <Panel><Text style={uiStyles.muted}>This training evaluation could not be found.</Text></Panel>
+        <Panel>
+          <Text style={uiStyles.muted}>This training evaluation could not be found.</Text>
+        </Panel>
       ) : null}
       {remark ? (
         <>
@@ -71,7 +73,9 @@ export default function OwnerRemarkDetail() {
           </View>
           <View style={uiStyles.section}>
             <SectionTitle>Professional observation</SectionTitle>
-            <Panel><Text style={{ ...uiStyles.value, lineHeight: 24 }}>{remark.observation}</Text></Panel>
+            <Panel>
+              <Text style={{ ...uiStyles.value, lineHeight: 24 }}>{remark.observation}</Text>
+            </Panel>
           </View>
         </>
       ) : null}

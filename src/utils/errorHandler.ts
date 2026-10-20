@@ -8,7 +8,10 @@ export type ApiErrorShape = {
   errors?: ValidationIssue[];
 };
 
-export function extractErrorMessage(error: unknown, fallback = "Đã xảy ra lỗi. Vui lòng thử lại."): string {
+export function extractErrorMessage(
+  error: unknown,
+  fallback = "Đã xảy ra lỗi. Vui lòng thử lại.",
+): string {
   const shaped = getApiErrorShape(error);
   if (shaped?.errors?.length) return shaped.errors.map((issue) => issue.message).join("\n");
   if (Array.isArray(shaped?.message)) return shaped.message.join("\n");

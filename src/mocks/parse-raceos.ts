@@ -1,4 +1,4 @@
-import type { RaceOSFixture, Trial, TrainerRemark } from "@/types/raceos";
+import type { RaceOSFixture } from "@/types/raceos";
 
 const arrayKeys: (keyof RaceOSFixture)[] = [
   "horses",
@@ -40,7 +40,7 @@ export function parseRaceOSFixture(value: unknown): RaceOSFixture {
     }
   }
   const parsed = value as RaceOSFixture;
-  
+
   // Inject mock dietaryRation for feeding tasks
   parsed.groomTasks = parsed.groomTasks.map((task) => {
     if (task.kind === "Feeding") {
@@ -84,7 +84,7 @@ export function parseRaceOSFixture(value: unknown): RaceOSFixture {
       duration: "00:48.2",
       result: "Target met",
       videoUrl: "https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4",
-    }
+    },
   ];
 
   // Inject mock Trainer Remarks
@@ -98,7 +98,8 @@ export function parseRaceOSFixture(value: unknown): RaceOSFixture {
       trainerName: "Elena Marsh",
       context: "Pre-season Trial",
       performanceSummary: "Excellent form and stamina",
-      observation: "Strong pace control throughout the session. Thunder King showed no signs of fatigue during the final 200m. The new track surface seems to suit his stride perfectly.",
+      observation:
+        "Strong pace control throughout the session. Thunder King showed no signs of fatigue during the final 200m. The new track surface seems to suit his stride perfectly.",
       recommendation: "Keep current workload. Monitor left hind leg just in case.",
     },
     {
@@ -110,8 +111,9 @@ export function parseRaceOSFixture(value: unknown): RaceOSFixture {
       trainerName: "Elena Marsh",
       context: "Phase 2 Speed Training",
       performanceSummary: "Target speed achieved",
-      observation: "Good acceleration in the final section. She was a bit restless in the gates but settled down quickly once running.",
-    }
+      observation:
+        "Good acceleration in the final section. She was a bit restless in the gates but settled down quickly once running.",
+    },
   ];
 
   return parsed;

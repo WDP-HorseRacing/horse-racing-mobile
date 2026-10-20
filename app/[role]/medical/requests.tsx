@@ -224,10 +224,13 @@ export default function ExaminationRequests() {
               }}
             >
               <View style={uiStyles.row}>
-                <Text style={uiStyles.value}>{request.horseName}</Text>
+                <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                  {request.horseName}
+                </Text>
                 <Text
                   style={{
                     ...uiStyles.label,
+                    flexShrink: 0,
                     color:
                       request.status === "PENDING" && request.urgent
                         ? colors.destructive
@@ -356,6 +359,7 @@ export default function ExaminationRequests() {
           {hasPrevious ? (
             <SecondaryButton
               label="Previous page"
+              style={{ flex: 1 }}
               onPress={() => {
                 setSelected(null);
                 setPage((current) => Math.max(1, current - 1));
@@ -365,6 +369,7 @@ export default function ExaminationRequests() {
           {hasMore ? (
             <SecondaryButton
               label="Next page"
+              style={{ flex: 1 }}
               onPress={() => {
                 setSelected(null);
                 setPage((current) => current + 1);

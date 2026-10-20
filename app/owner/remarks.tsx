@@ -19,10 +19,7 @@ export default function OwnerRemarks() {
   const { token } = useAuth();
   const loadTraining = useCallback(() => trainingService.listAllVisibleSessions(token!), [token]);
   const resource = useApiResource(loadTraining, Boolean(token));
-  const remarks = useMemo(
-    () => mapOwnerTrainingRemarks(resource.data ?? []),
-    [resource.data],
-  );
+  const remarks = useMemo(() => mapOwnerTrainingRemarks(resource.data ?? []), [resource.data]);
 
   return (
     <Screen
@@ -48,15 +45,25 @@ export default function OwnerRemarks() {
           >
             <Panel style={{ gap: space.md }}>
               <View style={uiStyles.row}>
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text style={uiStyles.value}>{remark.horseName}</Text>
-                  <Text style={uiStyles.muted}>{remark.sessionTitle} · {formatDateTime(remark.date)}</Text>
+                <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                  <Text style={uiStyles.value} numberOfLines={1}>
+                    {remark.horseName}
+                  </Text>
+                  <Text style={uiStyles.muted} numberOfLines={1}>
+                    {remark.sessionTitle} · {formatDateTime(remark.date)}
+                  </Text>
                 </View>
-                <Text style={{ ...uiStyles.value, color: colors.primary }}>Score {remark.score}</Text>
+                <Text style={{ ...uiStyles.value, color: colors.primary, flexShrink: 0 }}>
+                  Score {remark.score}
+                </Text>
               </View>
               <Text style={uiStyles.muted}>From {remark.trainerName}</Text>
-              <Text style={uiStyles.value} numberOfLines={3}>{remark.observation}</Text>
-              <Text style={{ ...uiStyles.label, color: colors.primary, textAlign: "right" }}>View details →</Text>
+              <Text style={uiStyles.value} numberOfLines={3}>
+                {remark.observation}
+              </Text>
+              <Text style={{ ...uiStyles.label, color: colors.primary, textAlign: "right" }}>
+                View details →
+              </Text>
             </Panel>
           </Pressable>
         ))}
