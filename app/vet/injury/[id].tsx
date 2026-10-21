@@ -11,6 +11,7 @@ import { medicalService } from "@/services/medical.service";
 import { formatDateTime } from "@/utils/formatters";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
+import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
 
 const regionLabels: Record<string, string> = {
   HEAD: "Head",
@@ -69,72 +70,88 @@ export default function InjuryMap() {
             </Text>
           </Panel>
           <View style={uiStyles.section}>
+            <Injury3DMapper
+              horseId={horseId}
+              existingInjuries={injuries}
+              drafts={[]}
+              onDraftsChange={() => undefined}
+              updates={[]}
+              onUpdatesChange={() => undefined}
+              allowNew={false}
+              allowFollowUpUpdates={false}
+            />
+          </View>
+          <View style={uiStyles.section}>
             <SectionTitle>Injury timeline</SectionTitle>
             {injuries.map((injury) => {
-              const statusTone =
-                injury.recoveryStatus === "HEALED"
-                  ? colors.primary
-                  : injury.recoveryStatus === "RECOVERING"
-                    ? colors.monitor
-                    : colors.destructive;
-              const statusBg =
-                injury.recoveryStatus === "HEALED"
-                  ? colors.fitSoft
-                  : injury.recoveryStatus === "RECOVERING"
-                    ? colors.monitorSoft
-                    : colors.injuredSoft;
-
               return (
-                <Pressable
-                  key={injury.id}
-                  disabled={!injury.caseId}
-                  onPress={() =>
-                    injury.caseId && router.push(`/vet/medical/cases/${injury.caseId}` as Href)
-                  }
-                >
-                  <Panel style={{ borderLeftWidth: 3, borderLeftColor: statusTone }}>
-                    <View style={uiStyles.row}>
-                      <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
-                        {regionLabels[injury.bodyRegion] ?? injury.bodyRegion.replaceAll("_", " ")}
-                      </Text>
-                      <View
+                <Panel key={injury.id}>
+                  <Text style={uiStyles.value}>
+                    {regionLabels[injury.bodyRegion] ?? injury.bodyRegion.replaceAll("_", " ")} ·{" "}
+                    {injury.injuryType.replaceAll("_", " ")}
+                  </Text>
+                  <Text style={uiStyles.muted}>
+                    {t("Current status")}: {injury.currentRecoveryStatus.replaceAll("_", " ")}
+                  </Text>
+                  {injury.history.map((event) => {
+                    const statusTone =
+                      event.recoveryStatus === "HEALED"
+                        ? colors.primary
+                        : event.recoveryStatus === "RECOVERING"
+                          ? colors.monitor
+                          : colors.destructive;
+                    const statusBg =
+                      event.recoveryStatus === "HEALED"
+                        ? colors.fitSoft
+                        : event.recoveryStatus === "RECOVERING"
+                          ? colors.monitorSoft
+                          : colors.injuredSoft;
+
+                    return (
+                      <Pressable
+                        key={event.medicalRecordId}
+                        onPress={() =>
+                          router.push(
+                            event.caseId
+                              ? (`/vet/medical/cases/${event.caseId}` as Href)
+                              : (`/vet/medical/visits/${event.medicalRecordId}` as Href),
+                          )
+                        }
                         style={{
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 999,
-                          backgroundColor: statusBg,
+                          marginTop: 8,
+                          borderLeftWidth: 3,
+                          borderLeftColor: statusTone,
+                          paddingLeft: 10,
                         }}
                       >
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontWeight: "700",
-                            color: statusTone,
-                          }}
-                        >
-                          {injury.recoveryStatus.replaceAll("_", " ")}
+                        <View style={uiStyles.row}>
+                          <Text
+                            style={[uiStyles.value, { flex: 1, minWidth: 0 }]}
+                            numberOfLines={1}
+                          >
+                            {formatDateTime(event.examDate)}
+                          </Text>
+                          <View
+                            style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 3,
+                              borderRadius: 999,
+                              backgroundColor: statusBg,
+                            }}
+                          >
+                            <Text style={{ fontSize: 11, fontWeight: "700", color: statusTone }}>
+                              {event.recoveryStatus.replaceAll("_", " ")}
+                            </Text>
+                          </View>
+                        </View>
+                        {event.notes ? <Text style={uiStyles.muted}>{event.notes}</Text> : null}
+                        <Text style={{ ...uiStyles.label, color: colors.primary, marginTop: 4 }}>
+                          {event.caseId ? t("Open medical case") : t("Open examination")}
                         </Text>
-                      </View>
-                    </View>
-                    <Text style={uiStyles.muted}>
-                      {injury.injuryType.replaceAll("_", " ")} · {formatDateTime(injury.examDate)}
-                    </Text>
-                    {injury.notes ? <Text style={uiStyles.muted}>{injury.notes}</Text> : null}
-                    {injury.position ? (
-                      <Text
-                        style={[uiStyles.label, { fontSize: 11, color: colors.mutedForeground }]}
-                      >
-                        {t("Model coordinates:")} ({injury.position.x.toFixed(2)},{" "}
-                        {injury.position.y.toFixed(2)}, {injury.position.z.toFixed(2)})
-                      </Text>
-                    ) : null}
-                    {injury.caseId ? (
-                      <Text style={{ ...uiStyles.label, color: colors.primary, marginTop: 4 }}>
-                        {t("Open medical case")}
-                      </Text>
-                    ) : null}
-                  </Panel>
-                </Pressable>
+                      </Pressable>
+                    );
+                  })}
+                </Panel>
               );
             })}
           </View>

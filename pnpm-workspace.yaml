@@ -4,6 +4,7 @@ packages:
 verifyDepsBeforeRun: false
 
 allowBuilds:
+  esbuild: true
   unrs-resolver: false
 
 onlyBuiltDependencies:

@@ -271,7 +271,6 @@ export const horseService = {
     input: {
       lifecycleStatus: HorseLifecycleStatusDto;
       reason: string;
-      dateOfDeath?: string;
     },
   ) {
     return apiRequest<HorseProfileResponseDto>(

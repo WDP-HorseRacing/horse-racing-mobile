@@ -193,7 +193,10 @@ export default function Stable() {
       ) : null}
 
       {payload && payload.barns.length > 0 ? (
-        <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
+        <View
+          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+          style={{ gap: space.xl }}
+        >
           {/* Barn Selector Horizontal Pills */}
           <View style={styles.barnSelectorContainer}>
             <ScrollView
@@ -275,6 +278,7 @@ export default function Stable() {
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={handleMomentumScrollEnd}
               style={{ width: containerWidth }}
+              contentContainerStyle={{ paddingBottom: space.sm }}
             >
               {payload.barns.map((barn) => {
                 const barnStalls = payload.stalls.filter((s) => s.barnId === barn.id);
@@ -431,7 +435,7 @@ export default function Stable() {
           ) : null}
 
           {/* Section: Awaiting Placement / Unassigned Horses */}
-          <View style={uiStyles.section}>
+          <View style={[uiStyles.section, { marginTop: space.md }]}>
             <View style={uiStyles.row}>
               <SectionTitle>{t("Awaiting placement")}</SectionTitle>
               <View style={styles.pendingCountPill}>
@@ -506,7 +510,7 @@ export default function Stable() {
           </View>
 
           {/* Feeding Round Section */}
-          <View style={uiStyles.section}>
+          <View style={[uiStyles.section, { marginTop: space.md }]}>
             <SectionTitle>Feeding round · {payload.today.date}</SectionTitle>
             {payload.today.horses
               .filter((horse) => horse.feedingPlan?.meals.length)

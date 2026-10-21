@@ -22,7 +22,6 @@ import {
 import type { ExamRequestDto } from "@/adapters/medical.adapter";
 import {
   clubDateTimeParts,
-  isAllowedVisitDateTime,
   isNotPastDateTime,
   isValidDateOnly,
   isValidMedicalMeasurement,
@@ -32,6 +31,17 @@ import {
 } from "@/features/medical/medical-validation";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime } from "@/utils/formatters";
+import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
+import type {
+  InjuryDraftMarker,
+  InjuryUpdateInput,
+} from "@/features/medical/injury-mapper/injury-mapper.types";
+import { rememberInjuryPlacements } from "@/features/medical/injury-mapper/injury-model-metadata";
+import {
+  isValidInjuryDraft,
+  toInjuryUpdateApiInputs,
+  toNewInjuryApiInputs,
+} from "@/features/medical/injury-mapper/injury-mapper-policy";
 
 const measurementInputs: {
   type: MeasurementTypeDto;
@@ -59,46 +69,6 @@ const measurementInputs: {
 ];
 
 const healthStates: HealthStatusDto[] = ["ELIGIBLE", "UNDER_OBSERVATION", "INJURED", "QUARANTINED"];
-
-const bodyRegions = [
-  "HEAD",
-  "NECK",
-  "BACK",
-  "CHEST",
-  "ABDOMEN",
-  "PELVIS",
-  "LEFT_FRONT_LEG",
-  "RIGHT_FRONT_LEG",
-  "LEFT_HIND_LEG",
-  "RIGHT_HIND_LEG",
-  "OTHER",
-];
-
-const injuryTypes = [
-  "FRACTURE",
-  "SPRAIN",
-  "STRAIN",
-  "WOUND",
-  "LACERATION",
-  "INFLAMMATION",
-  "CONTUSION",
-  "INFECTION",
-  "OTHER",
-];
-
-const recoveryStates = ["ACUTE", "RECOVERING", "HEALED"];
-
-const COORDINATE_PRESETS = [
-  { label: "Head", region: "HEAD", x: "0.0", y: "1.5", z: "1.2" },
-  { label: "Neck", region: "NECK", x: "0.0", y: "1.3", z: "0.8" },
-  { label: "Back", region: "BACK", x: "0.0", y: "1.2", z: "0.0" },
-  { label: "Chest", region: "CHEST", x: "0.0", y: "1.0", z: "0.6" },
-  { label: "Abdomen", region: "ABDOMEN", x: "0.0", y: "0.9", z: "-0.2" },
-  { label: "Left front", region: "LEFT_FRONT_LEG", x: "-0.4", y: "0.5", z: "0.6" },
-  { label: "Right front", region: "RIGHT_FRONT_LEG", x: "0.4", y: "0.5", z: "0.6" },
-  { label: "Left hind", region: "LEFT_HIND_LEG", x: "-0.4", y: "0.5", z: "-0.7" },
-  { label: "Right hind", region: "RIGHT_HIND_LEG", x: "0.4", y: "0.5", z: "-0.7" },
-];
 
 export default function MedicalVisitForm() {
   const {
@@ -129,8 +99,6 @@ export default function MedicalVisitForm() {
   const [kind, setKind] = useState<"ROUTINE" | "REQUEST">(initialKind);
   const [conclusion, setConclusion] = useState<"NORMAL" | "ISSUE">("NORMAL");
   const [selectedRequests, setSelectedRequests] = useState<string[]>(requestId ? [requestId] : []);
-  const [examDate, setExamDate] = useState(now.date);
-  const [examTime, setExamTime] = useState(now.time);
   const [diagnosis, setDiagnosis] = useState("");
   const [initialDiagnosis, setInitialDiagnosis] = useState("");
   const [healthStatus, setHealthStatus] = useState("");
@@ -146,26 +114,34 @@ export default function MedicalVisitForm() {
   const [prescriptionStart, setPrescriptionStart] = useState(now.date);
   const [prescriptionEnd, setPrescriptionEnd] = useState("");
   const [recordInjury, setRecordInjury] = useState(false);
-  const [bodyRegion, setBodyRegion] = useState("");
-  const [injuryType, setInjuryType] = useState("");
-  const [recoveryStatus, setRecoveryStatus] = useState("");
-  const [injuryNotes, setInjuryNotes] = useState("");
-  const [injuryPositionX, setInjuryPositionX] = useState("");
-  const [injuryPositionY, setInjuryPositionY] = useState("");
-  const [injuryPositionZ, setInjuryPositionZ] = useState("");
+  const [injuryDrafts, setInjuryDrafts] = useState<InjuryDraftMarker[]>([]);
+  const [injuryUpdates, setInjuryUpdates] = useState<InjuryUpdateInput[]>([]);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     const medicalCase = caseId ? await medicalService.getCase(token!, caseId) : null;
     const resolvedHorseId = horseId || medicalCase?.horseId || "";
     if (!resolvedHorseId) throw new Error("A horse is required to record an examination.");
-    const [horse, requests, care, cases] = await Promise.all([
+    const [horse, requests, care, cases, injuryHistory] = await Promise.all([
       horseService.get(token!, resolvedHorseId),
       medicalService.listHorseExamRequests(token!, resolvedHorseId),
       medicalService.getCareInstructions(token!, resolvedHorseId),
       medicalService.listHorseCases(token!, resolvedHorseId),
+      medicalService
+        .listInjuries(token!, resolvedHorseId)
+        .then((injuries) => ({ injuries, unavailable: false }))
+        .catch(() => ({ injuries: [], unavailable: true })),
     ]);
-    return { horse, requests, care, cases, medicalCase, resolvedHorseId };
+    return {
+      horse,
+      requests,
+      care,
+      cases,
+      injuries: injuryHistory.injuries,
+      injuryHistoryUnavailable: injuryHistory.unavailable,
+      medicalCase,
+      resolvedHorseId,
+    };
   }, [caseId, horseId, token]);
 
   const resource = useApiResource(load, Boolean(token && role === "vet" && (horseId || caseId)));
@@ -189,12 +165,6 @@ export default function MedicalVisitForm() {
   const updateMeasurement = (type: MeasurementTypeDto, value: string) =>
     setMeasurementValues((current) => ({ ...current, [type]: value }));
 
-  const setNowTime = () => {
-    const currentParts = clubDateTimeParts();
-    setExamDate(currentParts.date);
-    setExamTime(currentParts.time);
-  };
-
   const addFollowUpDays = (days: number) => {
     const d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     const parts = clubDateTimeParts(d);
@@ -202,27 +172,8 @@ export default function MedicalVisitForm() {
     setNextVisitTime(parts.time || "09:00");
   };
 
-  const applyCoordinatePreset = (preset: (typeof COORDINATE_PRESETS)[number]) => {
-    setBodyRegion(preset.region);
-    setInjuryPositionX(preset.x);
-    setInjuryPositionY(preset.y);
-    setInjuryPositionZ(preset.z);
-  };
-
   const submit = async () => {
     if (!resource.data || !token || saving) return;
-    if (!isValidDateOnly(examDate)) {
-      Alert.alert(t("Invalid examination date"), t("Enter a valid date in YYYY-MM-DD format."));
-      return;
-    }
-    const examAt = toClubDateTime(examDate, examTime);
-    if (!examAt || !isAllowedVisitDateTime(examAt)) {
-      Alert.alert(
-        t("Date outside allowed range"),
-        t("An examination can be recorded from now back to seven days ago."),
-      );
-      return;
-    }
     if (!caseId && openCase) {
       Alert.alert(
         t("An open case already exists"),
@@ -330,39 +281,40 @@ export default function MedicalVisitForm() {
       return;
     }
 
-    const injuryStarted = Boolean(
-      recordInjury ||
-      bodyRegion ||
-      injuryType ||
-      recoveryStatus ||
-      injuryNotes.trim() ||
-      injuryPositionX.trim() ||
-      injuryPositionY.trim() ||
-      injuryPositionZ.trim(),
-    );
-    if (
-      injuryStarted &&
-      (!bodyRegion ||
-        !injuryType ||
-        !recoveryStatus ||
-        !injuryPositionX.trim() ||
-        !injuryPositionY.trim() ||
-        !injuryPositionZ.trim() ||
-        ![injuryPositionX, injuryPositionY, injuryPositionZ].every((coordinate) =>
-          Number.isFinite(Number(coordinate)),
-        ))
-    ) {
+    if (injuryDrafts.length + injuryUpdates.length > 20) {
+      Alert.alert(
+        t("Too many injury changes"),
+        t("A visit can contain at most 20 new markers and recovery updates combined."),
+      );
+      return;
+    }
+    if (injuryDrafts.some((marker) => !isValidInjuryDraft(marker))) {
       Alert.alert(
         t("Injury details incomplete"),
         t(
-          "Choose a body region, injury type, recovery status, and enter numeric X, Y, and Z coordinates.",
+          "Confirm the body region, injury type, recovery status, and position for every new marker.",
         ),
+      );
+      return;
+    }
+    if (!caseId && injuryDrafts.length > 0 && conclusion !== "ISSUE") {
+      Alert.alert(
+        t("Injury requires a treatment case"),
+        t(
+          "A new injury can be saved with a standalone examination only when it opens a treatment case.",
+        ),
+      );
+      return;
+    }
+    if (!caseId && injuryUpdates.length > 0) {
+      Alert.alert(
+        t("Follow-up required"),
+        t("Existing injury status can be updated only during a follow-up inside its open case."),
       );
       return;
     }
 
     const base: VisitInputDto = {
-      examDate: examAt,
       ...(selectedRequests.length ? { requestIds: selectedRequests } : {}),
       ...(diagnosis.trim() ? { diagnosis: diagnosis.trim() } : {}),
       ...(healthStatus && healthStatus !== resource.data.horse.healthStatus
@@ -387,21 +339,14 @@ export default function MedicalVisitForm() {
             ],
           }
         : {}),
-      ...(injuryStarted
+      ...(injuryDrafts.length
         ? {
-            injuries: [
-              {
-                bodyRegion,
-                position: {
-                  x: Number(injuryPositionX),
-                  y: Number(injuryPositionY),
-                  z: Number(injuryPositionZ),
-                },
-                injuryType,
-                recoveryStatus,
-                ...(injuryNotes.trim() ? { notes: injuryNotes.trim() } : {}),
-              },
-            ],
+            newInjuries: toNewInjuryApiInputs(injuryDrafts),
+          }
+        : {}),
+      ...(caseId && injuryUpdates.length
+        ? {
+            injuryUpdates: toInjuryUpdateApiInputs(injuryUpdates),
           }
         : {}),
     };
@@ -416,6 +361,30 @@ export default function MedicalVisitForm() {
             conclusion,
             ...(conclusion === "ISSUE" ? { initialDiagnosis: initialDiagnosis.trim() } : {}),
           } satisfies StandaloneVisitInputDto);
+
+      const unmappedDrafts = [...injuryDrafts];
+      const newlyCreatedInjuries = record.injuries.filter((injury) => {
+        const draftIndex = unmappedDrafts.findIndex(
+          (draft) =>
+            injury.injuryId &&
+            draft.bodyRegion === injury.bodyRegion &&
+            draft.injuryType === injury.injuryType &&
+            injury.position &&
+            Math.abs(draft.position.x - injury.position.x) < 0.00001 &&
+            Math.abs(draft.position.y - injury.position.y) < 0.00001 &&
+            Math.abs(draft.position.z - injury.position.z) < 0.00001,
+        );
+        if (draftIndex < 0) return false;
+        unmappedDrafts.splice(draftIndex, 1);
+        return true;
+      });
+      if (newlyCreatedInjuries.length) {
+        try {
+          await rememberInjuryPlacements(resource.data.resolvedHorseId, newlyCreatedInjuries);
+        } catch {
+          // Backend saved the visit; without local frame metadata this point will not be restored as exact 3D.
+        }
+      }
 
       if (record.caseId) router.replace(`/${role}/medical/cases/${record.caseId}` as Href);
       else router.replace(`/${role}/medical/visits/${record.id}` as Href);
@@ -483,9 +452,9 @@ export default function MedicalVisitForm() {
             </Panel>
           </View>
 
-          {/* SECTION B: Reason for Visit & Schedule */}
+          {/* SECTION B: Reason for Visit */}
           <View style={uiStyles.section}>
-            <SectionTitle>{t("1. Examination reason & schedule")}</SectionTitle>
+            <SectionTitle>{t("1. Examination reason")}</SectionTitle>
 
             {!caseId ? (
               <View style={styles.segmentedSelectorRow}>
@@ -622,28 +591,11 @@ export default function MedicalVisitForm() {
               </View>
             ) : null}
 
-            {/* Exam Date & Time with Now button */}
-            <View style={{ marginTop: space.sm, gap: space.sm }}>
-              <View style={uiStyles.row}>
-                <View style={{ flex: 1 }}>
-                  <Field label="Date (YYYY-MM-DD)">
-                    <NativeInput value={examDate} onChangeText={setExamDate} />
-                  </Field>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Field label="Time (24-hour)">
-                    <NativeInput value={examTime} onChangeText={setExamTime} />
-                  </Field>
-                </View>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                onPress={setNowTime}
-                style={styles.quickPresetBtn}
-              >
-                <Ionicons name="time-outline" size={14} color={colors.primary} />
-                <Text style={styles.quickPresetBtnText}>{t("Set current date & time")}</Text>
-              </Pressable>
+            <View style={[styles.prefillNotice, { marginTop: space.sm }]}>
+              <Ionicons name="time-outline" size={16} color={colors.primary} />
+              <Text style={styles.prefillNoticeText}>
+                {t("Examination date and time are recorded by the server when you save.")}
+              </Text>
             </View>
           </View>
 
@@ -854,92 +806,20 @@ export default function MedicalVisitForm() {
               </Pressable>
 
               {recordInjury ? (
-                <Panel style={{ marginTop: space.xs, gap: space.sm }}>
-                  <Field label="Anatomical body region">
-                    <Chips options={bodyRegions} value={bodyRegion} onChange={setBodyRegion} />
-                  </Field>
-
-                  <Field label="Injury type">
-                    <Chips options={injuryTypes} value={injuryType} onChange={setInjuryType} />
-                  </Field>
-
-                  <Field label="Recovery status">
-                    <Chips
-                      options={recoveryStates}
-                      value={recoveryStatus}
-                      onChange={setRecoveryStatus}
-                    />
-                  </Field>
-
-                  {/* 3D Model Coordinate Presets */}
-                  <View style={{ gap: space.xs }}>
-                    <Text style={styles.coordinatePresetTitle}>{t("Presets:")}</Text>
-                    <View style={styles.coordinatePresetRow}>
-                      {COORDINATE_PRESETS.map((preset) => (
-                        <Pressable
-                          key={preset.label}
-                          accessibilityRole="button"
-                          onPress={() => applyCoordinatePreset(preset)}
-                          style={[
-                            styles.presetChip,
-                            bodyRegion === preset.region && styles.presetChipActive,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.presetChipText,
-                              bodyRegion === preset.region && styles.presetChipTextActive,
-                            ]}
-                          >
-                            {preset.label}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={uiStyles.row}>
-                    <View style={{ flex: 1 }}>
-                      <Field label="X (m)">
-                        <NativeInput
-                          value={injuryPositionX}
-                          onChangeText={setInjuryPositionX}
-                          keyboardType="numbers-and-punctuation"
-                          placeholder="0.0"
-                        />
-                      </Field>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Field label="Y (m)">
-                        <NativeInput
-                          value={injuryPositionY}
-                          onChangeText={setInjuryPositionY}
-                          keyboardType="numbers-and-punctuation"
-                          placeholder="0.0"
-                        />
-                      </Field>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Field label="Z (m)">
-                        <NativeInput
-                          value={injuryPositionZ}
-                          onChangeText={setInjuryPositionZ}
-                          keyboardType="numbers-and-punctuation"
-                          placeholder="0.0"
-                        />
-                      </Field>
-                    </View>
-                  </View>
-
-                  <Field label="Injury clinical notes">
-                    <NativeInput
-                      value={injuryNotes}
-                      onChangeText={setInjuryNotes}
-                      multiline
-                      placeholder="Severity, swelling, palpation pain notes..."
-                    />
-                  </Field>
-                </Panel>
+                <Injury3DMapper
+                  horseId={resource.data.resolvedHorseId}
+                  existingInjuries={resource.data.injuries}
+                  drafts={injuryDrafts}
+                  onDraftsChange={(markers) => {
+                    setInjuryDrafts(markers);
+                    if (markers.length && !caseId) setConclusion("ISSUE");
+                  }}
+                  updates={injuryUpdates}
+                  onUpdatesChange={setInjuryUpdates}
+                  allowNew
+                  allowFollowUpUpdates={Boolean(caseId)}
+                  historyUnavailable={resource.data.injuryHistoryUnavailable}
+                />
               ) : null}
             </View>
           </View>
@@ -1213,38 +1093,6 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
-    },
-    coordinatePresetTitle: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.mutedForeground,
-      marginTop: 4,
-    },
-    coordinatePresetRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 6,
-    },
-    presetChip: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
-    },
-    presetChipActive: {
-      borderColor: colors.primary,
-      backgroundColor: colors.fitSoft,
-    },
-    presetChipText: {
-      fontSize: 11,
-      fontWeight: "600",
-      color: colors.foreground,
-    },
-    presetChipTextActive: {
-      color: colors.primary,
-      fontWeight: "700",
     },
     bottomBar: {
       marginTop: space.lg,

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, type Href } from "expo-router";
 import { safeBack } from "@/utils/navigation";
 import { Alert, Image, View } from "react-native";
-import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { Text } from "@/components/common/LocalizedText";
 import { useAuth } from "@/context/AuthContext";
 import { AsyncStateView, Screen } from "@/components/common";
@@ -239,13 +239,29 @@ function EditHorseForm({
   };
 
   const choosePhoto = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/jpeg", "image/png", "image/webp"],
-      copyToCacheDirectory: true,
-      multiple: false,
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Photo library permission",
+        "Please grant photo library permission to upload horse photos.",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
     });
     if (!result.canceled && result.assets[0]) {
-      setPhoto(result.assets[0]);
+      const picked = result.assets[0];
+      const name = picked.fileName || picked.uri.split("/").pop() || "horse-photo.jpg";
+      setPhoto({
+        name,
+        uri: picked.uri,
+        size: picked.fileSize,
+        mimeType: picked.mimeType || "image/jpeg",
+      });
       setUploadedPhotoId(null);
       setRemoveExistingPhoto(false);
     }
@@ -299,13 +315,14 @@ function EditHorseForm({
                 ]}
                 value={selectedHorseLabel(candidateSires, sireId)}
                 onChange={(value) => {
-                  setSireId(
-                    value === "None"
-                      ? ""
-                      : (candidateSires.find((candidate) => horseLabel(candidate) === value)?.id ??
-                          ""),
-                  );
-                  setSireSearch("");
+                  if (value === "None") {
+                    setSireId("");
+                    setSireSearch("");
+                  } else {
+                    const matched = candidateSires.find((c) => horseLabel(c) === value);
+                    setSireId(matched?.id ?? "");
+                    setSireSearch(matched?.name ?? "");
+                  }
                 }}
               />
             ) : (
@@ -330,13 +347,14 @@ function EditHorseForm({
                 ]}
                 value={selectedHorseLabel(candidateDams, damId)}
                 onChange={(value) => {
-                  setDamId(
-                    value === "None"
-                      ? ""
-                      : (candidateDams.find((candidate) => horseLabel(candidate) === value)?.id ??
-                          ""),
-                  );
-                  setDamSearch("");
+                  if (value === "None") {
+                    setDamId("");
+                    setDamSearch("");
+                  } else {
+                    const matched = candidateDams.find((c) => horseLabel(c) === value);
+                    setDamId(matched?.id ?? "");
+                    setDamSearch(matched?.name ?? "");
+                  }
                 }}
               />
             ) : (

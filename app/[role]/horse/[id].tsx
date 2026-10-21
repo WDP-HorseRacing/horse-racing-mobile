@@ -20,7 +20,7 @@ import {
 } from "@/components/ui";
 import { KeyValue, TimelineItem, Screen, SectionTitle } from "@/components/common";
 import { isRole } from "@/features/auth/roles";
-import { space } from "@/config/theme";
+import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -465,27 +465,39 @@ export default function HorseProfile() {
               <Info
                 title="Horse profile"
                 items={[
-                  ["Health status", horseResource.data.healthStatus.replaceAll("_", " ")],
-                  ["Lifecycle", horseResource.data.lifecycleStatus.replaceAll("_", " ")],
+                  ["Health status", formatEnum(t(horseResource.data.healthStatus))],
+                  ["Lifecycle", formatEnum(t(horseResource.data.lifecycleStatus))],
                   [
-                    "Gender · breed · color",
-                    [horseResource.data.gender, horseResource.data.breed, horseResource.data.color]
-                      .filter(Boolean)
-                      .join(" · ") || "Not recorded",
+                    "Gender",
+                    horseResource.data.gender
+                      ? formatEnum(t(horseResource.data.gender))
+                      : t("Not recorded"),
                   ],
-                  ["Microchip", horseResource.data.microchipId ?? "Not recorded"],
-                  ["Date of birth", horseResource.data.dateOfBirth ?? "Not recorded"],
-                  ["Owner", horseResource.data.owner?.fullName ?? "Unassigned"],
-                  ["Barn", horseResource.data.location?.barn?.name ?? "Not assigned"],
-                  ["Stall", horseResource.data.location?.stall?.code ?? "Not assigned"],
-                  ["Groom", horseResource.data.groom?.fullName ?? "Not assigned"],
+                  [
+                    "Breed",
+                    horseResource.data.breed
+                      ? formatEnum(t(horseResource.data.breed))
+                      : t("Not recorded"),
+                  ],
+                  [
+                    "Color",
+                    horseResource.data.color
+                      ? formatEnum(t(horseResource.data.color))
+                      : t("Not recorded"),
+                  ],
+                  ["Microchip", horseResource.data.microchipId ?? t("Not recorded")],
+                  ["Date of birth", horseResource.data.dateOfBirth ?? t("Not recorded")],
+                  ["Owner", horseResource.data.owner?.fullName ?? t("Unassigned")],
+                  ["Barn", horseResource.data.location?.barn?.name ?? t("Not assigned")],
+                  ["Stall", horseResource.data.location?.stall?.code ?? t("Not assigned")],
+                  ["Groom", horseResource.data.groom?.fullName ?? t("Not assigned")],
                   [
                     "Race aptitude",
                     horseResource.data.raceAptitude
-                      ? formatEnum(horseResource.data.raceAptitude)
-                      : "Not recorded",
+                      ? formatEnum(t(horseResource.data.raceAptitude))
+                      : t("Not recorded"),
                   ],
-                  ["Latest weight", horse.weight ? formatWeight(horse.weight) : "Not recorded"],
+                  ["Latest weight", horse.weight ? formatWeight(horse.weight) : t("Not recorded")],
                   [
                     "Lifecycle reason",
                     horseResource.data.lifecycleReason
@@ -494,23 +506,136 @@ export default function HorseProfile() {
                   ],
                 ]}
               />
-              <Info
-                title="Pedigree"
-                items={[
-                  [
-                    "Sire",
-                    pedigreeResource.data?.ancestors.find(
-                      (ancestor) => ancestor.generation === 1 && ancestor.parentRole === "SIRE",
-                    )?.name ?? "No sire profile recorded",
-                  ],
-                  [
-                    "Dam",
-                    pedigreeResource.data?.ancestors.find(
-                      (ancestor) => ancestor.generation === 1 && ancestor.parentRole === "DAM",
-                    )?.name ?? "No dam profile recorded",
-                  ],
-                ]}
-              />
+
+              {/* Inlined full Pedigree info */}
+              <Panel style={{ gap: space.md }}>
+                <SectionTitle>{t("Pedigree information")}</SectionTitle>
+                <View style={styles.pedigreeSection}>
+                  {(() => {
+                    const ancestors = pedigreeResource.data?.ancestors ?? [];
+                    const sire = ancestors.find(
+                      (a) => a.generation === 1 && a.parentRole === "SIRE",
+                    );
+                    const dam = ancestors.find(
+                      (a) => a.generation === 1 && a.parentRole === "DAM",
+                    );
+                    const paternalGrandsire = ancestors.find(
+                      (a) => a.generation === 2 && a.childId === sire?.id && a.parentRole === "SIRE",
+                    );
+                    const paternalGranddam = ancestors.find(
+                      (a) => a.generation === 2 && a.childId === sire?.id && a.parentRole === "DAM",
+                    );
+                    const maternalGrandsire = ancestors.find(
+                      (a) => a.generation === 2 && a.childId === dam?.id && a.parentRole === "SIRE",
+                    );
+                    const maternalGranddam = ancestors.find(
+                      (a) => a.generation === 2 && a.childId === dam?.id && a.parentRole === "DAM",
+                    );
+                    const hasGrandparents = Boolean(
+                      paternalGrandsire || paternalGranddam || maternalGrandsire || maternalGranddam,
+                    );
+                    return (
+                      <View style={{ gap: space.md, width: "100%" }}>
+                        <View style={styles.pedigreeRow}>
+                          <View style={styles.pedigreeCard}>
+                            <Text style={uiStyles.label}>{t("Sire")}</Text>
+                            {sire ? (
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled={!sire.canOpen}
+                                onPress={() =>
+                                  sire.canOpen && router.push(`/${roleId}/horse/${sire.id}` as Href)
+                                }
+                              >
+                                <Text
+                                  style={[
+                                    uiStyles.value,
+                                    sire.canOpen && {
+                                      color: colors.primary,
+                                      textDecorationLine: "underline",
+                                    },
+                                  ]}
+                                >
+                                  {sire.name}
+                                </Text>
+                                <Text style={uiStyles.muted}>
+                                  {[sire.breed, sire.color].filter(Boolean).join(" · ") ||
+                                    t("Registered horse")}
+                                </Text>
+                              </Pressable>
+                            ) : (
+                              <Text style={uiStyles.muted}>{t("No sire profile recorded")}</Text>
+                            )}
+                          </View>
+                          <View style={styles.pedigreeCard}>
+                            <Text style={uiStyles.label}>{t("Dam")}</Text>
+                            {dam ? (
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled={!dam.canOpen}
+                                onPress={() =>
+                                  dam.canOpen && router.push(`/${roleId}/horse/${dam.id}` as Href)
+                                }
+                              >
+                                <Text
+                                  style={[
+                                    uiStyles.value,
+                                    dam.canOpen && {
+                                      color: colors.primary,
+                                      textDecorationLine: "underline",
+                                    },
+                                  ]}
+                                >
+                                  {dam.name}
+                                </Text>
+                                <Text style={uiStyles.muted}>
+                                  {[dam.breed, dam.color].filter(Boolean).join(" · ") ||
+                                    t("Registered horse")}
+                                </Text>
+                              </Pressable>
+                            ) : (
+                              <Text style={uiStyles.muted}>{t("No dam profile recorded")}</Text>
+                            )}
+                          </View>
+                        </View>
+                        {hasGrandparents ? (
+                          <View style={{ gap: space.xs, marginTop: 4 }}>
+                            <Text style={[uiStyles.label, { fontSize: 12 }]}>
+                              {t("Grandparents")}
+                            </Text>
+                            <View style={styles.grandparentsGrid}>
+                              {paternalGrandsire ? (
+                                <View style={styles.grandparentItem}>
+                                  <Text style={styles.gpRole}>{t("Paternal grandsire")}</Text>
+                                  <Text style={styles.gpName}>{paternalGrandsire.name}</Text>
+                                </View>
+                              ) : null}
+                              {paternalGranddam ? (
+                                <View style={styles.grandparentItem}>
+                                  <Text style={styles.gpRole}>{t("Paternal granddam")}</Text>
+                                  <Text style={styles.gpName}>{paternalGranddam.name}</Text>
+                                </View>
+                              ) : null}
+                              {maternalGrandsire ? (
+                                <View style={styles.grandparentItem}>
+                                  <Text style={styles.gpRole}>{t("Maternal grandsire")}</Text>
+                                  <Text style={styles.gpName}>{maternalGrandsire.name}</Text>
+                                </View>
+                              ) : null}
+                              {maternalGranddam ? (
+                                <View style={styles.grandparentItem}>
+                                  <Text style={styles.gpRole}>{t("Maternal granddam")}</Text>
+                                  <Text style={styles.gpName}>{maternalGranddam.name}</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })()}
+                </View>
+              </Panel>
               <AsyncStateView
                 isLoading={pedigreeResource.isLoading}
                 error={pedigreeResource.error}
@@ -561,11 +686,6 @@ export default function HorseProfile() {
                   </Text>
                 ))}
               </Panel>
-              <PrimaryButton
-                label="View full pedigree"
-                icon="git-network-outline"
-                onPress={() => router.push(`/${roleId}/pedigree/${horse.id}` as Href)}
-              />
               <PrimaryButton
                 label="Body measurements"
                 icon="stats-chart"
@@ -672,11 +792,6 @@ export default function HorseProfile() {
                 data={fitnessTrend}
                 valueKey="v"
                 color={colors.primary}
-              />
-              <PrimaryButton
-                label="View full pedigree"
-                icon="git-network-outline"
-                onPress={() => router.push(`/${roleId}/pedigree/${horse.id}` as Href)}
               />
             </>
           )}
@@ -1018,32 +1133,37 @@ export default function HorseProfile() {
             onRetry={() => void medicalResource.retry()}
           />
           {medicalResource.data?.injuries.length ? (
-            medicalResource.data.injuries.map((injury) => (
-              <Pressable
-                key={injury.id}
-                onPress={() =>
-                  router.push(
-                    injury.caseId
-                      ? (`/${roleId}/medical/cases/${injury.caseId}` as Href)
-                      : (`/${roleId}/medical/visits/${injury.medicalRecordId}` as Href),
-                  )
-                }
-              >
-                <Panel>
-                  <Text style={uiStyles.value}>
-                    {injury.bodyRegion} · {injury.injuryType}
-                  </Text>
-                  <Text style={uiStyles.muted}>
-                    {injury.recoveryStatus.replaceAll("_", " ")} ·{" "}
-                    {new Date(injury.examDate).toLocaleDateString()}
-                  </Text>
-                  {injury.notes ? <Text>{injury.notes}</Text> : null}
-                  <Text style={{ ...uiStyles.label, color: colors.primary }}>
-                    {injury.caseId ? "Open treatment case" : "Open examination"}
-                  </Text>
-                </Panel>
-              </Pressable>
-            ))
+            medicalResource.data.injuries.map((injury) => {
+              const latestEvent = injury.history.at(-1);
+              const eventRecordId = latestEvent?.medicalRecordId ?? injury.firstMedicalRecordId;
+
+              return (
+                <Pressable
+                  key={injury.id}
+                  onPress={() =>
+                    router.push(
+                      latestEvent?.caseId
+                        ? (`/${roleId}/medical/cases/${latestEvent.caseId}` as Href)
+                        : (`/${roleId}/medical/visits/${eventRecordId}` as Href),
+                    )
+                  }
+                >
+                  <Panel>
+                    <Text style={uiStyles.value}>
+                      {injury.bodyRegion} · {injury.injuryType}
+                    </Text>
+                    <Text style={uiStyles.muted}>
+                      {injury.currentRecoveryStatus.replaceAll("_", " ")} ·{" "}
+                      {new Date(latestEvent?.examDate ?? injury.firstExamDate).toLocaleDateString()}
+                    </Text>
+                    {latestEvent?.notes ? <Text>{latestEvent.notes}</Text> : null}
+                    <Text style={{ ...uiStyles.label, color: colors.primary }}>
+                      {latestEvent?.caseId ? "Open treatment case" : "Open examination"}
+                    </Text>
+                  </Panel>
+                </Pressable>
+              );
+            })
           ) : medicalResource.data ? (
             <AsyncStateView
               isLoading={false}
@@ -1681,4 +1801,27 @@ const getStyles = (colors: any) =>
     name: { color: colors.foreground, fontSize: 25, fontWeight: "800" },
     photo: { width: 72, height: 72, borderRadius: 16, backgroundColor: colors.elevated },
     horseId: { color: colors.mutedForeground, fontSize: 10, fontFamily: "monospace" },
+    pedigreeSection: { width: "100%", gap: space.sm },
+    pedigreeRow: { flexDirection: "row", gap: space.md },
+    pedigreeCard: {
+      flex: 1,
+      minWidth: 0,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: space.md,
+      gap: 4,
+    },
+    grandparentsGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+    grandparentItem: {
+      width: "48%",
+      minWidth: 0,
+      backgroundColor: colors.elevated,
+      borderRadius: radius.sm,
+      padding: space.sm,
+      gap: 2,
+    },
+    gpRole: { fontSize: 11, color: colors.mutedForeground, fontWeight: "600" },
+    gpName: { fontSize: 13, color: colors.foreground, fontWeight: "700" },
   });

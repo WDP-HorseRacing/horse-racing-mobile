@@ -17,7 +17,6 @@ import {
   type HorseRestorePreviewDto,
 } from "@/services/horse.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
-import { clubDate, isValidIsoDate } from "@/utils/horse-validation";
 
 type Action = HorseLifecycleStatusDto | "DELETE" | "RESTORE";
 type Preview =
@@ -34,7 +33,6 @@ export default function LifecycleManagement() {
   const [action, setAction] = useState<Action | "">("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [reason, setReason] = useState("");
-  const [dateOfDeath, setDateOfDeath] = useState("");
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -47,7 +45,6 @@ export default function LifecycleManagement() {
     setAction(value as Action);
     setPreview(null);
     setReason("");
-    setDateOfDeath("");
     setError("");
   };
 
@@ -86,17 +83,6 @@ export default function LifecycleManagement() {
     if (reason.trim().length > 500) {
       setError("Reason must be 500 characters or fewer.");
       return;
-    }
-    if (action === "DECEASED") {
-      const today = clubDate();
-      if (
-        !isValidIsoDate(dateOfDeath) ||
-        dateOfDeath > today ||
-        (horseResource.data?.dateOfBirth && dateOfDeath < horseResource.data.dateOfBirth)
-      ) {
-        setError("Enter a valid date of death that is not in the future or before the birth date.");
-        return;
-      }
     }
     const description =
       action === "DELETE"
@@ -137,7 +123,6 @@ export default function LifecycleManagement() {
         await horseService.changeLifecycle(token, id, {
           lifecycleStatus: action,
           reason: reason.trim(),
-          ...(action === "DECEASED" ? { dateOfDeath } : {}),
         });
         Alert.alert("Lifecycle updated", "Horse profile was refreshed.");
         safeBack(`/manager/horse/${id}` as Href);
@@ -193,20 +178,12 @@ export default function LifecycleManagement() {
       {actions.length ? (
         <Panel style={{ gap: space.sm }}>
           <SectionTitle>Choose a Backend action</SectionTitle>
-          <Text>
-            Available transitions and side effects are checked by the Backend preview for the
-            current lifecycle state.
-          </Text>
           <View style={{ gap: 14, marginTop: 12 }}>
             <Chips options={actions} value={action} onChange={chooseAction} />
             {action === "DECEASED" ? (
-              <Field label="Date of death (YYYY-MM-DD)">
-                <NativeInput
-                  value={dateOfDeath}
-                  onChangeText={setDateOfDeath}
-                  placeholder="YYYY-MM-DD"
-                />
-              </Field>
+              <Text style={[uiStyles.muted, { color: colors.mutedForeground, fontSize: 13 }]}>
+                Ngày mất sẽ được hệ thống tự động ghi nhận là ngày hôm nay theo lịch câu lạc bộ.
+              </Text>
             ) : null}
             <Field
               label={action === "DECEASED" ? "Cause of death · required" : "Reason · required"}

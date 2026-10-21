@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "horseracing",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "auto",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,

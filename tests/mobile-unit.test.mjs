@@ -501,7 +501,7 @@ test("medical measurements and treatment costs stay within Backend limits", () =
   assert.equal(parseNonNegativeInteger("12.5"), null);
 });
 
-test("medical issue visits and follow-ups use the Backend examination endpoints", async (context) => {
+test("medical issue visits and follow-ups send injury data using the Backend DTO", async (context) => {
   const originalFetch = globalThis.fetch;
   context.after(() => {
     globalThis.fetch = originalFetch;
@@ -521,17 +521,40 @@ test("medical issue visits and follow-ups use the Backend examination endpoints"
     conclusion: "ISSUE",
     requestIds: ["request-1"],
     initialDiagnosis: "Lameness",
-    examDate: "2026-10-16T02:00:00.000Z",
+    newInjuries: [
+      {
+        bodyRegion: "LEFT_FRONT_LEG",
+        position: { x: 0.12, y: 0.74, z: 0.31 },
+        injuryType: "SPRAIN",
+        recoveryStatus: "ACUTE",
+        notes: "Swelling near fetlock",
+      },
+    ],
+  };
+  const followUpInput = {
+    diagnosis: "Improving",
+    injuryUpdates: [
+      { injuryId: "injury-1", recoveryStatus: "RECOVERING", notes: "Swelling reduced" },
+    ],
+    newInjuries: [
+      {
+        bodyRegion: "BACK",
+        position: { x: 0.02, y: 1.4, z: -0.1 },
+        injuryType: "CONTUSION",
+        recoveryStatus: "ACUTE",
+      },
+    ],
   };
   await medicalService.createStandaloneVisit("token", "horse-1", issueInput);
-  await medicalService.createFollowUpVisit("token", "case-1", { diagnosis: "Improving" });
+  await medicalService.createFollowUpVisit("token", "case-1", followUpInput);
 
   assert.equal(observed[0].url, "http://127.0.0.1:9876/api/v1/horses/horse-1/medical-records");
   assert.equal(observed[0].options.method, "POST");
   assert.deepEqual(JSON.parse(observed[0].options.body), issueInput);
+  assert.equal("examDate" in JSON.parse(observed[0].options.body), false);
   assert.equal(observed[0].options.headers.get("Authorization"), "Bearer token");
   assert.equal(observed[1].url, "http://127.0.0.1:9876/api/v1/medical-cases/case-1/visits");
-  assert.equal(JSON.parse(observed[1].options.body).diagnosis, "Improving");
+  assert.deepEqual(JSON.parse(observed[1].options.body), followUpInput);
 });
 
 test("care completion sends the next occurrence to the Backend, without client-side recurrence", async (context) => {

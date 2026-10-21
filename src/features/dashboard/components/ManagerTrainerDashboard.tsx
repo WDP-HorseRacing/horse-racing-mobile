@@ -378,8 +378,84 @@ export function ManagerTrainerDashboard({
   const totalCasesClosed6Months = (data.costs ?? []).reduce((sum, c) => sum + c.count, 0);
   const maxCostValue = Math.max(1, ...(data.costs ?? []).map((c) => c.total));
 
+  // 7-day upcoming medical schedule (checkups and follow-up visits)
+  const upcomingVisits = useMemo(() => {
+    type VisitItem = {
+      id: string;
+      horseId: string;
+      horseName: string;
+      typeLabel: string;
+      date: string;
+      daysLeft: number;
+      isOverdue: boolean;
+      to: Href;
+    };
+    const list: VisitItem[] = [];
+    const allCheckups = data.checkups?.length ? data.checkups : (medical.checkups ?? []);
+
+    // 1. Follow-up appointments from openCases
+    (medical.openCases ?? []).forEach((c) => {
+      if (c.nextVisitAt) {
+        const visitDate = new Date(c.nextVisitAt);
+        const now = new Date();
+        const diffDays = Math.ceil((visitDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 7) {
+          list.push({
+            id: `case-${c.caseId}`,
+            horseId: c.horseId,
+            horseName: c.horseName,
+            typeLabel: `${t("Follow-up:")} ${c.initialDiagnosis}`,
+            date: c.nextVisitAt,
+            daysLeft: diffDays,
+            isOverdue: diffDays < 0,
+            to: `/${role}/medical/cases/${c.caseId}` as Href,
+          });
+        }
+      }
+    });
+
+    // 2. Routine checkups in next 7 days or overdue
+    allCheckups.forEach((chk) => {
+      const targetDate = chk.appointment?.scheduledAt || chk.dueDate;
+      const isDueSoonOrOverdue = chk.daysLeft <= 7;
+      if (isDueSoonOrOverdue || chk.appointment) {
+        list.push({
+          id: `chk-${chk.horseId}`,
+          horseId: chk.horseId,
+          horseName: chk.horseName,
+          typeLabel: chk.appointment
+            ? `${t("Routine checkup")} (${t("Set appointment")})`
+            : t("Routine checkup"),
+          date: targetDate,
+          daysLeft: chk.daysLeft,
+          isOverdue: chk.daysLeft < 0,
+          to: `/${role}/medical/checkups` as Href,
+        });
+      }
+    });
+
+    // Fallback if none <= 7 days: show upcoming checkups nearest in schedule
+    if (list.length === 0 && allCheckups.length > 0) {
+      const sorted = [...allCheckups].sort((a, b) => a.daysLeft - b.daysLeft);
+      sorted.slice(0, 4).forEach((chk) => {
+        list.push({
+          id: `chk-${chk.horseId}`,
+          horseId: chk.horseId,
+          horseName: chk.horseName,
+          typeLabel: t("Routine checkup"),
+          date: chk.appointment?.scheduledAt || chk.dueDate,
+          daysLeft: chk.daysLeft,
+          isOverdue: chk.daysLeft < 0,
+          to: `/${role}/medical/checkups` as Href,
+        });
+      });
+    }
+
+    return list.sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [data.checkups, medical.checkups, medical.openCases, role, t]);
+
   return (
-    <View style={{ gap: space.md }}>
+    <View style={{ gap: space.lg }}>
       {/* ======================================================== */}
       {/* 1. TỔNG QUAN VẬN HÀNH (OPERATIONAL OVERVIEW)               */}
       {/* ======================================================== */}
@@ -441,7 +517,6 @@ export function ManagerTrainerDashboard({
             </View>
             <View style={styles.rateBadge}>
               <Text style={styles.rateBadgeText}>{occupancyRate}%</Text>
-              <Text style={styles.rateBadgeSub}>{t("Occupancy")}</Text>
             </View>
           </View>
 
@@ -511,7 +586,7 @@ export function ManagerTrainerDashboard({
             </Text>
           </Panel>
         ) : (
-          <View style={{ gap: space.xs }}>
+          <View style={{ gap: space.sm }}>
             {attentionItems.slice(0, 7).map((item) => {
               const dotColor =
                 item.level === "danger"
@@ -772,42 +847,44 @@ export function ManagerTrainerDashboard({
             </View>
           </View>
         </Panel>
+      </View>
 
-        {/* Bệnh án đang điều trị (Open Medical Cases) */}
-        <View style={{ marginTop: space.sm }}>
-          <SectionTitle>Bệnh án đang điều trị</SectionTitle>
-          {openCases.length === 0 ? (
-            <Panel>
-              <Text style={uiStyles.muted}>{t("There are no open medical cases.")}</Text>
-            </Panel>
-          ) : (
-            <View style={{ gap: space.xs }}>
-              {openCases.slice(0, 4).map((c) => (
-                <Pressable
-                  key={c.caseId}
-                  accessibilityRole="button"
-                  onPress={() => router.push(`/${role}/medical/cases/${c.caseId}` as Href)}
-                  style={styles.openCaseCard}
-                >
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text style={styles.openCaseHorseName}>{c.horseName}</Text>
-                    <Text style={styles.openCaseDiagnosis} numberOfLines={1}>
-                      {c.initialDiagnosis}
-                    </Text>
-                    <Text style={uiStyles.muted}>
-                      {t("Opened")}: {formatDate(c.openedAt)}
-                      {c.nextVisitAt ? ` · ${t("Next visit")}: ${formatDate(c.nextVisitAt)}` : ""}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={14} color={colors.mutedForeground} />
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
+      {/* Bệnh án đang điều trị (Open Medical Cases) */}
+      <View style={uiStyles.section}>
+        <SectionTitle>Bệnh án đang điều trị</SectionTitle>
+        {openCases.length === 0 ? (
+          <Panel>
+            <Text style={uiStyles.muted}>{t("There are no open medical cases.")}</Text>
+          </Panel>
+        ) : (
+          <View style={{ gap: space.sm }}>
+            {openCases.slice(0, 4).map((c) => (
+              <Pressable
+                key={c.caseId}
+                accessibilityRole="button"
+                onPress={() => router.push(`/${role}/medical/cases/${c.caseId}` as Href)}
+                style={styles.openCaseCard}
+              >
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <Text style={styles.openCaseHorseName}>{c.horseName}</Text>
+                  <Text style={styles.openCaseDiagnosis} numberOfLines={1}>
+                    {c.initialDiagnosis}
+                  </Text>
+                  <Text style={uiStyles.muted}>
+                    {t("Opened")}: {formatDate(c.openedAt)}
+                    {c.nextVisitAt ? ` · ${t("Next visit")}: ${formatDate(c.nextVisitAt)}` : ""}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.mutedForeground} />
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
 
-        {/* Khám y tế (Checkups Overview) */}
-        <Panel style={{ marginTop: space.sm }}>
+      {/* Khám y tế (Checkups Overview) */}
+      <View style={uiStyles.section}>
+        <Panel>
           <View style={[uiStyles.row, { alignItems: "center" }]}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.cardHighlightTitle}>Khám y tế định kỳ</Text>
@@ -886,47 +963,53 @@ export function ManagerTrainerDashboard({
       {/* Lịch khám 7 ngày tới (Upcoming Examinations Timeline) */}
       <View style={uiStyles.section}>
         <SectionTitle>Lịch khám 7 ngày tới</SectionTitle>
-        {medical.checkups.length === 0 && openCases.length === 0 ? (
+        {upcomingVisits.length === 0 ? (
           <Panel>
             <Text style={uiStyles.muted}>
               {t("No upcoming medical visits scheduled for the next 7 days.")}
             </Text>
           </Panel>
         ) : (
-          <View style={{ gap: space.xs }}>
+          <View style={{ gap: space.sm }}>
             {/* Show up to 4 upcoming checkups / visits */}
-            {medical.checkups.slice(0, 4).map((item) => (
-              <Panel key={item.horseId}>
-                <View style={[uiStyles.row, { alignItems: "center" }]}>
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text style={styles.timelineItemTitle} numberOfLines={1}>
-                      {item.horseName}
-                    </Text>
-                    <Text style={uiStyles.muted} numberOfLines={1}>
-                      {t("Periodic checkup due")}: {formatDate(item.dueDate)}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.daysLeftPill,
-                      item.daysLeft < 0
-                        ? { backgroundColor: colors.injuredSoft }
-                        : { backgroundColor: colors.fitSoft },
-                    ]}
-                  >
-                    <Text
+            {upcomingVisits.slice(0, 4).map((item) => (
+              <Pressable
+                key={item.id}
+                accessibilityRole="button"
+                onPress={() => router.push(item.to)}
+              >
+                <Panel>
+                  <View style={[uiStyles.row, { alignItems: "center" }]}>
+                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                      <Text style={styles.timelineItemTitle} numberOfLines={1}>
+                        {item.horseName}
+                      </Text>
+                      <Text style={uiStyles.muted} numberOfLines={1}>
+                        {item.typeLabel}: {formatDate(item.date)}
+                      </Text>
+                    </View>
+                    <View
                       style={[
-                        styles.daysLeftPillText,
-                        { color: item.daysLeft < 0 ? colors.destructive : colors.primary },
+                        styles.daysLeftPill,
+                        item.isOverdue
+                          ? { backgroundColor: colors.injuredSoft }
+                          : { backgroundColor: colors.fitSoft },
                       ]}
                     >
-                      {item.daysLeft < 0
-                        ? `${Math.abs(item.daysLeft)} ${t("days overdue")}`
-                        : `${item.daysLeft} ${t("days left")}`}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.daysLeftPillText,
+                          { color: item.isOverdue ? colors.destructive : colors.primary },
+                        ]}
+                      >
+                        {item.daysLeft < 0
+                          ? `${Math.abs(item.daysLeft)} ${t("days overdue")}`
+                          : `${item.daysLeft} ${t("days left")}`}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              </Panel>
+                </Panel>
+              </Pressable>
             ))}
           </View>
         )}
@@ -1015,8 +1098,9 @@ const getStyles = (colors: any) =>
     attentionItemRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: space.sm,
-      padding: space.sm,
+      gap: space.md,
+      paddingVertical: 12,
+      paddingHorizontal: space.md,
       borderRadius: radius.md,
       backgroundColor: colors.surface,
       borderWidth: 1,

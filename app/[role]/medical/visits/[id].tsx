@@ -18,6 +18,14 @@ import { isRole } from "@/features/auth/roles";
 import { medicalService } from "@/services/medical.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatDateTime } from "@/utils/formatters";
+import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
+import type {
+  InjuryDraftMarker,
+  InjuryUpdateInput,
+} from "@/features/medical/injury-mapper/injury-mapper.types";
+
+const noDraftInjuries: InjuryDraftMarker[] = [];
+const noInjuryUpdates: InjuryUpdateInput[] = [];
 
 export default function MedicalVisitDetail() {
   const { role: roleParam, id: idParam } = useLocalSearchParams<{ role: string; id: string }>();
@@ -156,6 +164,36 @@ export default function MedicalVisitDetail() {
               <Text style={uiStyles.muted}>No injury markers on this visit.</Text>
             ) : null}
           </View>
+          {record.injuries.length ? (
+            <Injury3DMapper
+              horseId={record.horseId}
+              existingInjuries={record.injuries.map((injury) => ({
+                id: injury.injuryId,
+                horseId: record.horseId,
+                bodyRegion: injury.bodyRegion,
+                injuryType: injury.injuryType,
+                position: injury.position,
+                firstMedicalRecordId: record.id,
+                firstExamDate: record.examDate,
+                currentRecoveryStatus: injury.recoveryStatus,
+                history: [
+                  {
+                    medicalRecordId: record.id,
+                    examDate: record.examDate,
+                    caseId: record.caseId,
+                    recoveryStatus: injury.recoveryStatus,
+                    notes: injury.notes,
+                  },
+                ],
+              }))}
+              drafts={noDraftInjuries}
+              onDraftsChange={() => undefined}
+              updates={noInjuryUpdates}
+              onUpdatesChange={() => undefined}
+              allowNew={false}
+              allowFollowUpUpdates={false}
+            />
+          ) : null}
           {role === "vet" && !record.voidedAt ? (
             <View style={uiStyles.section}>
               <SectionTitle>Void an incorrectly recorded visit</SectionTitle>

@@ -363,7 +363,10 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
       ) : null}
 
       {payload && payload.barns.length > 0 ? (
-        <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
+        <View
+          onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+          style={{ gap: space.xl }}
+        >
           {/* Barn Selector Horizontal Pills */}
           <View style={styles.barnSelectorContainer}>
             <ScrollView
@@ -456,6 +459,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={handleMomentumScrollEnd}
               style={{ width: containerWidth }}
+              contentContainerStyle={{ paddingBottom: space.sm }}
             >
               {payload.barns.map((barn) => {
                 const barnStalls = payload.stalls.filter((s) => s.barnId === barn.id);
@@ -644,7 +648,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
           ) : null}
 
           {/* Section: Awaiting Placement / Pending Horses */}
-          <View style={uiStyles.section}>
+          <View style={[uiStyles.section, { marginTop: space.md }]}>
             <View style={uiStyles.row}>
               <SectionTitle>{t("Awaiting placement")}</SectionTitle>
               <View style={styles.pendingCountPill}>
@@ -790,7 +794,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
           </View>
 
           {/* Section: Groom Workload (for Trainer and Manager) */}
-          <View style={uiStyles.section}>
+          <View style={[uiStyles.section, { marginTop: space.md }]}>
             <SectionTitle>Groom workload</SectionTitle>
             {payload.grooms.length ? (
               payload.grooms.map((groom) => (

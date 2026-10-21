@@ -29,6 +29,14 @@ import {
 } from "@/features/medical/medical-validation";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatDateTime } from "@/utils/formatters";
+import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
+import type {
+  InjuryDraftMarker,
+  InjuryUpdateInput,
+} from "@/features/medical/injury-mapper/injury-mapper.types";
+
+const noDraftInjuries: InjuryDraftMarker[] = [];
+const noInjuryUpdates: InjuryUpdateInput[] = [];
 
 export default function MedicalCaseDetail() {
   const { role: roleParam, id: idParam } = useLocalSearchParams<{ role: string; id: string }>();
@@ -50,13 +58,23 @@ export default function MedicalCaseDetail() {
   const [saving, setSaving] = useState(false);
   const load = useCallback(async () => {
     const medicalCase = await medicalService.getCase(token!, id);
-    const [horse, preview] = await Promise.all([
+    const [horse, preview, injuryHistory] = await Promise.all([
       horseService.get(token!, medicalCase.horseId),
       role === "vet" && medicalCase.status === "OPEN"
         ? medicalService.getClosePreview(token!, id)
         : Promise.resolve(null),
+      medicalService
+        .listInjuries(token!, medicalCase.horseId)
+        .then((injuries) => ({ injuries, unavailable: false }))
+        .catch(() => ({ injuries: [], unavailable: true })),
     ]);
-    return { medicalCase, horse, preview };
+    return {
+      medicalCase,
+      horse,
+      preview,
+      injuries: injuryHistory.injuries,
+      injuryHistoryUnavailable: injuryHistory.unavailable,
+    };
   }, [id, role, token]);
   const resource = useApiResource(
     load,
@@ -216,6 +234,19 @@ export default function MedicalCaseDetail() {
               onPress={() => router.push(`/${role}/horse/${medicalCase.horseId}` as Href)}
             />
           </Panel>
+          {resource.data.injuries.length || resource.data.injuryHistoryUnavailable ? (
+            <Injury3DMapper
+              horseId={medicalCase.horseId}
+              existingInjuries={resource.data.injuries}
+              drafts={noDraftInjuries}
+              onDraftsChange={() => undefined}
+              updates={noInjuryUpdates}
+              onUpdatesChange={() => undefined}
+              allowNew={false}
+              allowFollowUpUpdates={false}
+              historyUnavailable={resource.data.injuryHistoryUnavailable}
+            />
+          ) : null}
           <View style={uiStyles.section}>
             <SectionTitle>Examination and follow-up history</SectionTitle>
             {visits.map((visit) => (

@@ -1,6 +1,7 @@
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { isRole } from "@/features/auth/roles";
 import { Chips, getUiStyles, SecondaryButton } from "@/components/ui";
@@ -15,8 +16,16 @@ import { horseService, type HorseListFilters } from "@/services/horse.service";
 import { mapHorseSummary, mapHorseSummaryToPrototype } from "@/adapters/horse.adapter";
 import { stableService } from "@/services/stable.service";
 import { filterHorsesBySearch } from "@/utils/horse-validation";
+import { useI18n } from "@/context/I18nContext";
 
-const HEALTH_FILTERS = ["All", "ELIGIBLE", "UNDER_OBSERVATION", "INJURED", "QUARANTINED"] as const;
+const HEALTH_FILTERS = [
+  "All",
+  "ELIGIBLE",
+  "LOCKED",
+  "UNDER_OBSERVATION",
+  "INJURED",
+  "QUARANTINED",
+] as const;
 const LIFECYCLE_FILTERS = ["All", "ACTIVE", "RETIRED", "TRANSFERRED", "DECEASED"] as const;
 const GENDER_FILTERS = ["All", "MALE", "FEMALE", "GELDING"] as const;
 const APTITUDE_FILTERS = ["All", "SPRINTER", "MILER", "STAYER"] as const;
@@ -28,19 +37,30 @@ const PLACEMENT_FILTERS = [
   "NOT_APPLICABLE",
 ] as const;
 
+type SortOption = "created_desc" | "created_asc" | "name_asc" | "name_desc";
+const SORT_OPTIONS: { id: SortOption; label: string }[] = [
+  { id: "created_desc", label: "Recently added" },
+  { id: "created_asc", label: "Oldest" },
+  { id: "name_asc", label: "Name (A to Z)" },
+  { id: "name_desc", label: "Name (Z to A)" },
+];
+
 export default function Horses() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
   const { role } = useLocalSearchParams<{ role: string }>();
   const { token } = useAuth();
+  const { t } = useI18n();
   const isManager = role === "manager";
   const isTrainer = role === "trainer";
   const isGroom = role === "groom";
   const isOwner = role === "owner";
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [health, setHealth] = useState<HorseListFilters["healthStatus"] | "">("");
+  const [health, setHealth] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortOption>("created_desc");
+  const [sortModalOpen, setSortModalOpen] = useState(false);
   const [filters, setFilters] = useState<Omit<HorseListFilters, "healthStatus">>(() =>
     role === "trainer" ? { myBarns: true } : role === "groom" ? { myHorses: true } : {},
   );
@@ -56,7 +76,9 @@ export default function Horses() {
   const appliedFilters = useMemo<HorseListFilters>(
     () => ({
       ...filters,
-      ...(health ? { healthStatus: health } : {}),
+      ...(health && health !== "LOCKED"
+        ? { healthStatus: health as HorseListFilters["healthStatus"] }
+        : {}),
     }),
     [filters, health],
   );
@@ -79,10 +101,29 @@ export default function Horses() {
   );
   const loadBarns = useCallback(() => stableService.listBarns(token!), [token]);
   const barnsResource = useApiResource(loadBarns, Boolean(token) && !isOwner);
-  const horses = useMemo(
-    () => filterHorsesBySearch(resource.data ?? [], search),
-    [resource.data, search],
-  );
+  const horses = useMemo(() => {
+    let list = filterHorsesBySearch(resource.data ?? [], search);
+    if (health === "ELIGIBLE") {
+      list = list.filter((h) => h.canRegisterRace !== false);
+    } else if (health === "LOCKED") {
+      list = list.filter(
+        (h) =>
+          !h.isDeleted &&
+          h.lifecycleStatus === "ACTIVE" &&
+          h.healthStatus === "ELIGIBLE" &&
+          !h.canRegisterRace,
+      );
+    }
+    const sorted = [...list];
+    if (sortBy === "name_asc") {
+      sorted.sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    } else if (sortBy === "name_desc") {
+      sorted.sort((a, b) => b.name.localeCompare(a.name, "vi"));
+    } else if (sortBy === "created_asc") {
+      sorted.reverse();
+    }
+    return sorted;
+  }, [resource.data, search, health, sortBy]);
   const filterCount = useMemo(
     () =>
       Object.values(filters).filter(
@@ -92,23 +133,21 @@ export default function Horses() {
   );
   const activeFilterLabels = useMemo(
     () => [
-      ...(health ? [`Health: ${health.replaceAll("_", " ")}`] : []),
-      ...(filters.lifecycleStatus ? [`Lifecycle: ${filters.lifecycleStatus}`] : []),
-      ...(filters.gender ? [`Gender: ${filters.gender}`] : []),
-      ...(filters.raceAptitude ? [`Aptitude: ${filters.raceAptitude}`] : []),
-      ...(filters.placementStatus
-        ? [`Placement: ${filters.placementStatus.replaceAll("_", " ")}`]
-        : []),
+      ...(health ? [`${t("Health status")}: ${t(health)}`] : []),
+      ...(filters.lifecycleStatus ? [`${t("Lifecycle")}: ${t(filters.lifecycleStatus)}`] : []),
+      ...(filters.gender ? [`${t("Gender")}: ${t(filters.gender)}`] : []),
+      ...(filters.raceAptitude ? [`${t("Race aptitude")}: ${t(filters.raceAptitude)}`] : []),
+      ...(filters.placementStatus ? [`${t("Placement")}: ${t(filters.placementStatus)}`] : []),
       ...(filters.barnId
         ? [
-            `Barn: ${barnsResource.data?.find((barn) => barn.id === filters.barnId)?.name ?? filters.barnId.slice(0, 8)}`,
+            `${t("Barn")}: ${barnsResource.data?.find((barn) => barn.id === filters.barnId)?.name ?? filters.barnId.slice(0, 8)}`,
           ]
         : []),
-      ...(filters.myBarns ? ["My barns"] : []),
-      ...(filters.myHorses ? ["Assigned to me"] : []),
-      ...(filters.includeDeleted ? ["Deleted profiles"] : []),
+      ...(filters.myBarns ? [t("My barns")] : []),
+      ...(filters.myHorses ? [t("Horses assigned to me")] : []),
+      ...(filters.includeDeleted ? [t("Include deleted profiles")] : []),
     ],
-    [barnsResource.data, filters, health],
+    [barnsResource.data, filters, health, t],
   );
 
   if (!isRole(role)) return <Redirect href="/" />;
@@ -173,19 +212,33 @@ export default function Horses() {
               />
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Filters"
                 onPress={openFilters}
-                style={styles.filterButton}
+                style={[
+                  styles.filterButton,
+                  filterCount > 0 && {
+                    borderColor: colors.primary,
+                    backgroundColor: colors.fitSoft,
+                  },
+                ]}
               >
-                <Text style={styles.filterButtonText}>
-                  {filterCount ? `Filters · ${filterCount}` : "Filters"}
-                </Text>
+                <Ionicons
+                  name="options-outline"
+                  size={20}
+                  color={filterCount > 0 ? colors.primary : colors.foreground}
+                />
+                {filterCount > 0 ? (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{filterCount}</Text>
+                  </View>
+                ) : null}
               </Pressable>
             </View>
             <Chips
               options={[...HEALTH_FILTERS]}
               value={health || "All"}
               onChange={(value) =>
-                setHealth(value === "All" ? "" : (value as HorseListFilters["healthStatus"]))
+                setHealth(value === "All" ? "" : value)
               }
             />
             {filterCount > 0 ? (
@@ -207,16 +260,29 @@ export default function Horses() {
             ) : null}
             {resource.data ? (
               <View style={styles.resultsHeader}>
-                <Text style={uiStyles.label}>{horses.length} horses</Text>
-                {isManager ? (
+                <Text style={uiStyles.label}>
+                  {horses.length} {t("horses")}
+                </Text>
+                <View style={styles.headerButtons}>
                   <Pressable
                     accessibilityRole="button"
-                    onPress={() => router.push("/manager/register-horse")}
-                    style={styles.addButton}
+                    accessibilityLabel={t("Sort")}
+                    onPress={() => setSortModalOpen(true)}
+                    style={styles.sortButton}
                   >
-                    <Text style={styles.addText}>+ Register</Text>
+                    <Ionicons name="swap-vertical-outline" size={16} color={colors.foreground} />
+                    <Text style={styles.sortText}>{t("Sort")}</Text>
                   </Pressable>
-                ) : null}
+                  {isManager ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => router.push("/manager/register-horse")}
+                      style={styles.addButton}
+                    >
+                      <Text style={styles.addText}>+ {t("Register")}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
             ) : null}
           </View>
@@ -362,6 +428,48 @@ export default function Horses() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={sortModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSortModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSortModalOpen(false)} />
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{t("Sort by")}</Text>
+              <Pressable accessibilityRole="button" onPress={() => setSortModalOpen(false)}>
+                <Text style={styles.clearText}>{t("Done")}</Text>
+              </Pressable>
+            </View>
+            <View style={styles.sortContent}>
+              {SORT_OPTIONS.map((opt) => {
+                const selected = sortBy === opt.id;
+                return (
+                  <Pressable
+                    key={opt.id}
+                    style={[styles.sortRow, selected && styles.sortRowSelected]}
+                    onPress={() => {
+                      setSortBy(opt.id);
+                      setSortModalOpen(false);
+                    }}
+                  >
+                    <Text style={selected ? styles.sortRowTextSelected : styles.sortRowText}>
+                      {t(opt.label)}
+                    </Text>
+                    {selected ? (
+                      <Ionicons name="checkmark" size={18} color={colors.primary} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -456,18 +564,60 @@ const getStyles = (colors: any) =>
     },
     filterButton: {
       minHeight: 50,
-      paddingHorizontal: space.md,
+      width: 50,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: colors.surface,
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
+      position: "relative",
     },
-    filterButtonText: { color: colors.foreground, fontSize: 13, fontWeight: "700" },
+    filterBadge: {
+      position: "absolute",
+      top: 6,
+      right: 6,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 3,
+    },
+    filterBadgeText: {
+      color: "#FFFFFF",
+      fontSize: 10,
+      fontWeight: "800",
+    },
     activeFilters: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     clearText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
     resultsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    headerButtons: { flexDirection: "row", gap: space.sm, alignItems: "center" },
+    sortButton: {
+      minHeight: 36,
+      paddingHorizontal: space.md,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sortText: { color: colors.foreground, fontSize: 13, fontWeight: "600" },
+    sortContent: { padding: space.lg, gap: space.xs, paddingBottom: space.xl * 2 },
+    sortRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 14,
+      paddingHorizontal: space.md,
+      borderRadius: radius.sm,
+    },
+    sortRowSelected: { backgroundColor: colors.fitSoft },
+    sortRowText: { fontSize: 15, color: colors.foreground },
+    sortRowTextSelected: { fontSize: 15, fontWeight: "700", color: colors.primary },
     addButton: {
       minHeight: 36,
       paddingHorizontal: space.md,

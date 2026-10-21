@@ -32,8 +32,9 @@ export type PrescriptionDto = {
 export type InjuryDto = {
   id: string;
   medicalRecordId: string;
+  injuryId: string;
   bodyRegion: string;
-  position: { x: number; y: number; z: number } | null;
+  position: { x: number; y: number; z: number };
   injuryType: string;
   recoveryStatus: string;
   notes: string | null;
@@ -173,9 +174,22 @@ export type TrainingLockDto = {
   releaseConclusion?: string | null;
 };
 
-export type InjuryTimelineItemDto = InjuryDto & {
-  examDate: string;
-  caseId: string | null;
+export type InjuryTimelineItemDto = {
+  id: string;
+  horseId: string;
+  bodyRegion: string;
+  injuryType: string;
+  position: { x: number; y: number; z: number };
+  firstMedicalRecordId: string;
+  firstExamDate: string;
+  currentRecoveryStatus: string;
+  history: {
+    medicalRecordId: string;
+    examDate: string;
+    caseId: string | null;
+    recoveryStatus: string;
+    notes: string | null;
+  }[];
 };
 
 export type MedicalCaseListItem = {

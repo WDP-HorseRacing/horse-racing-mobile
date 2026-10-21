@@ -157,11 +157,11 @@ export const roles: Record<RoleId, RoleConfig> = {
     label: "Club Manager",
     person: "Clara Novak",
     scope: "Meadowline Racing Club",
-    workLabel: "Operations",
+    workLabel: "Training",
     nav: [
       { label: "Home", icon: "home-outline", path: "/manager" },
       { label: "Horses", icon: "grid-outline", path: "/manager/horses" },
-      { label: "Operations", icon: "business-outline", path: "/manager/operations" },
+      { label: "Training", icon: "calendar-outline", path: "/manager/training" },
       { label: "Incidents", icon: "alert-circle-outline", path: "/manager/incidents" },
       { label: "More", icon: "ellipsis-horizontal", action: "more" },
     ],
@@ -173,10 +173,10 @@ export const roles: Record<RoleId, RoleConfig> = {
         description: "Overview of all barns and stalls.",
       },
       {
-        label: "Training",
-        icon: "calendar-outline",
-        path: "/manager/training",
-        description: "Manage subjects, classes, performance and handover.",
+        label: "Operations",
+        icon: "business-outline",
+        path: "/manager/operations",
+        description: "Audit log and administrative overview.",
       },
       {
         label: "Supplies",

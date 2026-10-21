@@ -12,6 +12,11 @@ import type {
   TrainingLockDto,
 } from "@/adapters/medical.adapter";
 import { apiRequest } from "@/services/api-client";
+import type {
+  InjuryBodyRegion,
+  InjuryRecoveryStatus,
+  InjuryType,
+} from "@/features/medical/injury-mapper/injury-mapper.types";
 
 export type HealthStatusDto = "ELIGIBLE" | "UNDER_OBSERVATION" | "INJURED" | "QUARANTINED";
 export type MeasurementTypeDto = "WEIGHT" | "HEIGHT" | "BODY_CONDITION" | "TEMPERATURE";
@@ -20,7 +25,6 @@ export type VisitConclusionDto = "NORMAL" | "ISSUE";
 export type CareTaskTypeDto = "VACCINATION" | "DEWORMING" | "FARRIER";
 
 export type VisitInputDto = {
-  examDate?: string;
   requestIds?: string[];
   diagnosis?: string;
   healthStatus?: HealthStatusDto;
@@ -36,11 +40,16 @@ export type VisitInputDto = {
     startDate: string;
     endDate?: string;
   }[];
-  injuries?: {
-    bodyRegion: string;
+  injuryUpdates?: {
+    injuryId: string;
+    recoveryStatus: InjuryRecoveryStatus;
+    notes?: string;
+  }[];
+  newInjuries?: {
+    bodyRegion: InjuryBodyRegion;
     position: { x: number; y: number; z: number };
-    injuryType: string;
-    recoveryStatus: string;
+    injuryType: InjuryType;
+    recoveryStatus: InjuryRecoveryStatus;
     notes?: string;
   }[];
   replacesRecordId?: string;

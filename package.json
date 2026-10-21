@@ -20,12 +20,14 @@
     "format:check": "prettier --check .",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm check:i18n",
+    "build:injury-mapper": "node scripts/build-injury-mapper.mjs",
     "export:web": "expo export --platform web"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "~57.0.23",
+    "expo-asset": "~57.0.20",
     "expo-constants": "~57.0.18",
     "expo-document-picker": "~57.0.2",
     "expo-file-system": "~57.0.7",
@@ -45,10 +47,14 @@
     "react-native-screens": "~4.26.0",
     "react-native-svg": "^15.15.5",
     "react-native-web": "~0.21.0",
-    "socket.io-client": "^4.8.4"
+    "react-native-webview": "13.16.1",
+    "socket.io-client": "^4.8.4",
+    "three": "0.186.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "@types/three": "0.186.0",
+    "esbuild": "0.28.2",
     "eslint": "^9.32.0",
     "eslint-config-expo": "~57.0.2",
     "eslint-config-prettier": "^10.1.8",

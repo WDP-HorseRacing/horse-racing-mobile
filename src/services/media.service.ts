@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import type { DocumentPickerAsset } from "expo-document-picker";
 import { apiRequest } from "@/services/api-client";
@@ -39,9 +40,21 @@ async function uploadImageAsset(
   const mimeType =
     declaredMime && IMAGE_TYPES.has(declaredMime) ? declaredMime : inferredMime[extension];
   if (!mimeType) throw new Error("Photo must be JPEG, PNG, or WebP.");
-  const fileInfo = await FileSystem.getInfoAsync(asset.uri);
-  const byteSize =
-    asset.size ?? (fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size : undefined);
+
+  let byteSize = asset.size;
+  if (!byteSize) {
+    try {
+      if (Platform.OS === "web") {
+        const res = await fetch(asset.uri);
+        const blob = await res.blob();
+        byteSize = blob.size;
+      } else {
+        const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+        byteSize = fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size : undefined;
+      }
+    } catch {}
+  }
+
   if (!byteSize || byteSize < 1 || byteSize > MAX_IMAGE_BYTES) {
     throw new Error("Photo must be between 1 byte and 10 MB.");
   }
@@ -53,24 +66,55 @@ async function uploadImageAsset(
   const headers = Object.fromEntries(
     Object.entries(upload.headers).filter(([key]) => key.toLowerCase() !== "content-length"),
   );
-  const task = FileSystem.createUploadTask(
-    upload.uploadUrl,
-    asset.uri,
-    {
-      httpMethod: upload.method,
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers,
-    },
-    ({ totalBytesSent, totalBytesExpectedToSend }) => {
-      if (totalBytesExpectedToSend > 0) {
-        onProgress?.(Math.min(99, Math.round((totalBytesSent / totalBytesExpectedToSend) * 100)));
-      }
-    },
-  );
-  const result = await task.uploadAsync();
-  if (!result || result.status < 200 || result.status >= 300) {
-    throw new Error("Storage rejected the photo. Please try again.");
+
+  if (Platform.OS === "web") {
+    const blobRes = await fetch(asset.uri);
+    const blob = await blobRes.blob();
+    const putPromise = fetch(upload.uploadUrl, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": mimeType,
+      },
+      body: blob,
+    });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Quá thời gian tải ảnh lên (25s). Vui lòng thử lại.")),
+        25000,
+      ),
+    );
+    const putRes = await Promise.race([putPromise, timeoutPromise]);
+    if (!putRes.ok) {
+      throw new Error("Lưu trữ từ chối ảnh tải lên. Vui lòng thử lại.");
+    }
+  } else {
+    const task = FileSystem.createUploadTask(
+      upload.uploadUrl,
+      asset.uri,
+      {
+        httpMethod: upload.method,
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers,
+      },
+      ({ totalBytesSent, totalBytesExpectedToSend }) => {
+        if (totalBytesExpectedToSend > 0) {
+          onProgress?.(Math.min(99, Math.round((totalBytesSent / totalBytesExpectedToSend) * 100)));
+        }
+      },
+    );
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => {
+        task.cancelAsync().catch(() => {});
+        reject(new Error("Quá thời gian tải ảnh lên (25s). Vui lòng thử lại."));
+      }, 25000),
+    );
+    const result = await Promise.race([task.uploadAsync(), timeoutPromise]);
+    if (!result || result.status < 200 || result.status >= 300) {
+      throw new Error("Storage rejected the photo. Please try again.");
+    }
   }
+
   await apiRequest(`/media/${encodeURIComponent(upload.assetId)}/complete`, {
     method: "POST",
     token,

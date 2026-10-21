@@ -1,7 +1,7 @@
 import { type Href, router } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Image, View } from "react-native";
-import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { Text } from "@/components/common/LocalizedText";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -169,13 +169,29 @@ export default function RegisterHorse() {
   };
 
   const choosePhoto = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/jpeg", "image/png", "image/webp"],
-      copyToCacheDirectory: true,
-      multiple: false,
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Photo library permission",
+        "Please grant photo library permission to upload horse photos.",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
     });
     if (!result.canceled && result.assets[0]) {
-      setPhoto(result.assets[0]);
+      const picked = result.assets[0];
+      const name = picked.fileName || picked.uri.split("/").pop() || "horse-photo.jpg";
+      setPhoto({
+        name,
+        uri: picked.uri,
+        size: picked.fileSize,
+        mimeType: picked.mimeType || "image/jpeg",
+      });
       setUploadedPhotoId(null);
     }
   };
@@ -259,8 +275,14 @@ export default function RegisterHorse() {
                   }))}
                   value={sireId}
                   onChange={(value) => {
-                    setSireId(value);
-                    setSireSearch("");
+                    if (value === sireId) {
+                      setSireId("");
+                      setSireSearch("");
+                    } else {
+                      const selected = candidateSires.find((h) => h.id === value);
+                      setSireId(value);
+                      setSireSearch(selected?.name ?? "");
+                    }
                   }}
                   emptyLabel="No sire profiles are available."
                 />
@@ -281,8 +303,14 @@ export default function RegisterHorse() {
                   }))}
                   value={damId}
                   onChange={(value) => {
-                    setDamId(value);
-                    setDamSearch("");
+                    if (value === damId) {
+                      setDamId("");
+                      setDamSearch("");
+                    } else {
+                      const selected = candidateDams.find((h) => h.id === value);
+                      setDamId(value);
+                      setDamSearch(selected?.name ?? "");
+                    }
                   }}
                   emptyLabel="No dam profiles are available."
                 />
@@ -303,8 +331,14 @@ export default function RegisterHorse() {
                   }))}
                   value={ownerId}
                   onChange={(value) => {
-                    setOwnerId(value);
-                    setOwnerSearch("");
+                    if (value === ownerId) {
+                      setOwnerId("");
+                      setOwnerSearch("");
+                    } else {
+                      const selected = owners.find((o) => o.id === value);
+                      setOwnerId(value);
+                      setOwnerSearch(selected?.fullName ?? "");
+                    }
                   }}
                   emptyLabel="No active horse owners found. The horse can be assigned later."
                 />
