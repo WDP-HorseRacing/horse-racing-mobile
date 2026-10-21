@@ -8,6 +8,7 @@ import { Chips, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
 import { isRole } from "@/features/auth/roles";
 import { horseService } from "@/services/horse.service";
@@ -32,13 +33,33 @@ import {
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime } from "@/utils/formatters";
 
-const measurementInputs: { type: MeasurementTypeDto; label: string; placeholder: string }[] = [
-  { type: "WEIGHT", label: "Weight (kg)", placeholder: "450" },
-  { type: "HEIGHT", label: "Height (cm)", placeholder: "165" },
-  { type: "BODY_CONDITION", label: "Body condition score (1–9)", placeholder: "5" },
-  { type: "TEMPERATURE", label: "Temperature (°C)", placeholder: "38" },
+const measurementInputs: {
+  type: MeasurementTypeDto;
+  label: string;
+  placeholder: string;
+  unit: string;
+  reference: string;
+}[] = [
+  {
+    type: "TEMPERATURE",
+    label: "Temperature",
+    placeholder: "38.0",
+    unit: "°C",
+    reference: "37.5 – 38.5 °C",
+  },
+  { type: "WEIGHT", label: "Weight", placeholder: "450", unit: "kg", reference: "300 – 700 kg" },
+  { type: "HEIGHT", label: "Height", placeholder: "165", unit: "cm", reference: "140 – 185 cm" },
+  {
+    type: "BODY_CONDITION",
+    label: "Body condition score",
+    placeholder: "5",
+    unit: "1–9",
+    reference: "Scale 1 to 9",
+  },
 ];
+
 const healthStates: HealthStatusDto[] = ["ELIGIBLE", "UNDER_OBSERVATION", "INJURED", "QUARANTINED"];
+
 const bodyRegions = [
   "HEAD",
   "NECK",
@@ -52,6 +73,7 @@ const bodyRegions = [
   "RIGHT_HIND_LEG",
   "OTHER",
 ];
+
 const injuryTypes = [
   "FRACTURE",
   "SPRAIN",
@@ -63,7 +85,20 @@ const injuryTypes = [
   "INFECTION",
   "OTHER",
 ];
+
 const recoveryStates = ["ACUTE", "RECOVERING", "HEALED"];
+
+const COORDINATE_PRESETS = [
+  { label: "Head", region: "HEAD", x: "0.0", y: "1.5", z: "1.2" },
+  { label: "Neck", region: "NECK", x: "0.0", y: "1.3", z: "0.8" },
+  { label: "Back", region: "BACK", x: "0.0", y: "1.2", z: "0.0" },
+  { label: "Chest", region: "CHEST", x: "0.0", y: "1.0", z: "0.6" },
+  { label: "Abdomen", region: "ABDOMEN", x: "0.0", y: "0.9", z: "-0.2" },
+  { label: "Left front", region: "LEFT_FRONT_LEG", x: "-0.4", y: "0.5", z: "0.6" },
+  { label: "Right front", region: "RIGHT_FRONT_LEG", x: "0.4", y: "0.5", z: "0.6" },
+  { label: "Left hind", region: "LEFT_HIND_LEG", x: "-0.4", y: "0.5", z: "-0.7" },
+  { label: "Right hind", region: "RIGHT_HIND_LEG", x: "0.4", y: "0.5", z: "-0.7" },
+];
 
 export default function MedicalVisitForm() {
   const {
@@ -86,8 +121,10 @@ export default function MedicalVisitForm() {
   const initialKind = requestId || kindParam === "REQUEST" ? "REQUEST" : "ROUTINE";
   const { token } = useAuth();
   const { colors } = useTheme();
+  const { t } = useI18n();
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
+
   const now = clubDateTimeParts();
   const [kind, setKind] = useState<"ROUTINE" | "REQUEST">(initialKind);
   const [conclusion, setConclusion] = useState<"NORMAL" | "ISSUE">("NORMAL");
@@ -108,6 +145,7 @@ export default function MedicalVisitForm() {
   const [frequency, setFrequency] = useState("");
   const [prescriptionStart, setPrescriptionStart] = useState(now.date);
   const [prescriptionEnd, setPrescriptionEnd] = useState("");
+  const [recordInjury, setRecordInjury] = useState(false);
   const [bodyRegion, setBodyRegion] = useState("");
   const [injuryType, setInjuryType] = useState("");
   const [recoveryStatus, setRecoveryStatus] = useState("");
@@ -129,7 +167,9 @@ export default function MedicalVisitForm() {
     ]);
     return { horse, requests, care, cases, medicalCase, resolvedHorseId };
   }, [caseId, horseId, token]);
+
   const resource = useApiResource(load, Boolean(token && role === "vet" && (horseId || caseId)));
+
   const pendingRequests = useMemo(
     () => (resource.data?.requests ?? []).filter((item) => item.status === "PENDING"),
     [resource.data],
@@ -145,44 +185,71 @@ export default function MedicalVisitForm() {
     setSelectedRequests((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     );
+
   const updateMeasurement = (type: MeasurementTypeDto, value: string) =>
     setMeasurementValues((current) => ({ ...current, [type]: value }));
+
+  const setNowTime = () => {
+    const currentParts = clubDateTimeParts();
+    setExamDate(currentParts.date);
+    setExamTime(currentParts.time);
+  };
+
+  const addFollowUpDays = (days: number) => {
+    const d = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    const parts = clubDateTimeParts(d);
+    setNextVisitDate(parts.date);
+    setNextVisitTime(parts.time || "09:00");
+  };
+
+  const applyCoordinatePreset = (preset: (typeof COORDINATE_PRESETS)[number]) => {
+    setBodyRegion(preset.region);
+    setInjuryPositionX(preset.x);
+    setInjuryPositionY(preset.y);
+    setInjuryPositionZ(preset.z);
+  };
 
   const submit = async () => {
     if (!resource.data || !token || saving) return;
     if (!isValidDateOnly(examDate)) {
-      Alert.alert("Invalid examination date", "Enter a valid date in YYYY-MM-DD format.");
+      Alert.alert(t("Invalid examination date"), t("Enter a valid date in YYYY-MM-DD format."));
       return;
     }
     const examAt = toClubDateTime(examDate, examTime);
     if (!examAt || !isAllowedVisitDateTime(examAt)) {
       Alert.alert(
-        "Date outside allowed range",
-        "An examination can be recorded from now back to seven days ago.",
+        t("Date outside allowed range"),
+        t("An examination can be recorded from now back to seven days ago."),
       );
       return;
     }
     if (!caseId && openCase) {
-      Alert.alert("An open case already exists", "Record a follow-up inside the current case.", [
-        {
-          text: "Open case",
-          onPress: () => router.push(`/${role}/medical/cases/${openCase.id}` as Href),
-        },
-        { text: "Close" },
-      ]);
+      Alert.alert(
+        t("An open case already exists"),
+        t("Record a follow-up inside the current case."),
+        [
+          {
+            text: t("Open case"),
+            onPress: () => router.push(`/${role}/medical/cases/${openCase.id}` as Href),
+          },
+          { text: t("Close") },
+        ],
+      );
       return;
     }
     if (!caseId && kind === "REQUEST" && !selectedRequests.length) {
       Alert.alert(
-        "Select a request",
-        "A request-based examination must be linked to at least one pending request for this horse.",
+        t("Select a request"),
+        t(
+          "A request-based examination must be linked to at least one pending request for this horse.",
+        ),
       );
       return;
     }
     if (conclusion === "ISSUE" && !isValidRequiredText(initialDiagnosis, 2000)) {
       Alert.alert(
-        "Initial diagnosis required",
-        "An examination with an issue must create a case with an initial diagnosis.",
+        t("Initial diagnosis required"),
+        t("An examination with an issue must create a case with an initial diagnosis."),
       );
       return;
     }
@@ -192,8 +259,10 @@ export default function MedicalVisitForm() {
       selectedRequests.length > 20
     ) {
       Alert.alert(
-        "Examination details are too long",
-        "Diagnosis is limited to 4,000 characters, care notes to 2,000, and a visit can link at most 20 requests.",
+        t("Examination details are too long"),
+        t(
+          "Diagnosis is limited to 4,000 characters, care notes to 2,000, and a visit can link at most 20 requests.",
+        ),
       );
       return;
     }
@@ -203,8 +272,8 @@ export default function MedicalVisitForm() {
       !isValidRequiredText(healthReason, 500)
     ) {
       Alert.alert(
-        "Health change reason required",
-        "Enter a reason when changing the horse’s health status.",
+        t("Health change reason required"),
+        t("Enter a reason when changing the horse’s health status."),
       );
       return;
     }
@@ -213,9 +282,10 @@ export default function MedicalVisitForm() {
       (!isValidDateOnly(nextVisitDate) ||
         !isNotPastDateTime(toClubDateTime(nextVisitDate, nextVisitTime) ?? ""))
     ) {
-      Alert.alert("Invalid follow-up date", "Choose a valid future date for the next visit.");
+      Alert.alert(t("Invalid follow-up date"), t("Choose a valid future date for the next visit."));
       return;
     }
+
     const measurements: VisitInputDto["measurements"] = [];
     for (const item of measurementInputs) {
       const text = measurementValues[item.type]?.trim();
@@ -224,13 +294,14 @@ export default function MedicalVisitForm() {
       const range = MEDICAL_MEASUREMENT_RANGES[item.type];
       if (!isValidMedicalMeasurement(item.type, value)) {
         Alert.alert(
-          "Invalid measurement",
+          t("Invalid measurement"),
           `${item.label} must be between ${range.min} and ${range.max}.`,
         );
         return;
       }
       measurements.push({ type: item.type, value });
     }
+
     const hasPrescription = Boolean(
       medicine.trim() || dosage.trim() || frequency.trim() || prescriptionEnd.trim(),
     );
@@ -246,19 +317,21 @@ export default function MedicalVisitForm() {
         (prescriptionEnd && !isValidDateOnly(prescriptionEnd)))
     ) {
       Alert.alert(
-        "Prescription incomplete",
-        "Enter medicine, dosage, frequency, a valid start date, and a valid optional end date.",
+        t("Prescription incomplete"),
+        t("Enter medicine, dosage, frequency, a valid start date, and a valid optional end date."),
       );
       return;
     }
     if (prescriptionEnd && prescriptionEnd < prescriptionStart) {
       Alert.alert(
-        "Invalid prescription dates",
-        "The prescription end date cannot be before the start date.",
+        t("Invalid prescription dates"),
+        t("The prescription end date cannot be before the start date."),
       );
       return;
     }
+
     const injuryStarted = Boolean(
+      recordInjury ||
       bodyRegion ||
       injuryType ||
       recoveryStatus ||
@@ -280,11 +353,14 @@ export default function MedicalVisitForm() {
         ))
     ) {
       Alert.alert(
-        "Injury details incomplete",
-        "Choose a body region, injury type, recovery status, and enter numeric X, Y, and Z coordinates.",
+        t("Injury details incomplete"),
+        t(
+          "Choose a body region, injury type, recovery status, and enter numeric X, Y, and Z coordinates.",
+        ),
       );
       return;
     }
+
     const base: VisitInputDto = {
       examDate: examAt,
       ...(selectedRequests.length ? { requestIds: selectedRequests } : {}),
@@ -293,7 +369,7 @@ export default function MedicalVisitForm() {
         ? { healthStatus: healthStatus as HealthStatusDto, healthReason: healthReason.trim() }
         : {}),
       ...(finalCareInstructions ? { careInstructions: finalCareInstructions } : {}),
-      ...(nextVisitDate && conclusion === "ISSUE"
+      ...(nextVisitDate && (conclusion === "ISSUE" || Boolean(caseId))
         ? { nextVisitAt: toClubDateTime(nextVisitDate, nextVisitTime)! }
         : {}),
       ...(measurements.length ? { measurements } : {}),
@@ -329,6 +405,7 @@ export default function MedicalVisitForm() {
           }
         : {}),
     };
+
     setSaving(true);
     try {
       const record = caseId
@@ -339,10 +416,11 @@ export default function MedicalVisitForm() {
             conclusion,
             ...(conclusion === "ISSUE" ? { initialDiagnosis: initialDiagnosis.trim() } : {}),
           } satisfies StandaloneVisitInputDto);
+
       if (record.caseId) router.replace(`/${role}/medical/cases/${record.caseId}` as Href);
       else router.replace(`/${role}/medical/visits/${record.id}` as Href);
     } catch (error) {
-      Alert.alert("Could not save examination", extractErrorMessage(error));
+      Alert.alert(t("Could not save examination"), extractErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -363,24 +441,53 @@ export default function MedicalVisitForm() {
         error={resource.error}
         onRetry={() => void resource.retry()}
       />
+
       {resource.data ? (
         <>
-          <Panel>
-            <Text style={uiStyles.value}>{resource.data.horse.name}</Text>
-            <Text style={uiStyles.muted}>
-              {resource.data.horse.location.barn?.name ?? "No barn"} ·{" "}
-              {resource.data.horse.location.stall?.code ?? "No stall"}
-            </Text>
-            {resource.data.care.current ? (
-              <Text style={uiStyles.muted}>
-                Care note prefilled from {formatDateTime(resource.data.care.current.examDate)}. Edit
-                below to replace it.
-              </Text>
-            ) : null}
-          </Panel>
-          {!caseId ? (
-            <View style={uiStyles.section}>
-              <SectionTitle>Examination type</SectionTitle>
+          {/* SECTION A: Patient Clinical Profile Header */}
+          <View style={uiStyles.section}>
+            <SectionTitle>{t("Patient profile")}</SectionTitle>
+            <Panel style={styles.patientCard}>
+              <View style={uiStyles.row}>
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <Text style={[uiStyles.value, { fontSize: 18 }]} numberOfLines={1}>
+                    {resource.data.horse.name}
+                  </Text>
+                  <Text style={uiStyles.muted} numberOfLines={1}>
+                    {[
+                      resource.data.horse.location.barn?.name ?? t("No barn"),
+                      resource.data.horse.location.stall?.code
+                        ? `${t("Stall")} ${resource.data.horse.location.stall.code}`
+                        : t("No stall"),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
+                </View>
+                <View style={styles.healthBadge}>
+                  <Text style={styles.healthBadgeText}>
+                    {resource.data.horse.healthStatus.replaceAll("_", " ")}
+                  </Text>
+                </View>
+              </View>
+
+              {resource.data.care.current ? (
+                <View style={styles.prefillNotice}>
+                  <Ionicons name="time-outline" size={16} color={colors.primary} />
+                  <Text style={styles.prefillNoticeText} numberOfLines={2}>
+                    {t("Care note prefilled from")}{" "}
+                    {formatDateTime(resource.data.care.current.examDate)}
+                  </Text>
+                </View>
+              ) : null}
+            </Panel>
+          </View>
+
+          {/* SECTION B: Reason for Visit & Schedule */}
+          <View style={uiStyles.section}>
+            <SectionTitle>{t("1. Examination reason & schedule")}</SectionTitle>
+
+            {!caseId ? (
               <View style={styles.segmentedSelectorRow}>
                 <Pressable
                   accessibilityRole="button"
@@ -406,10 +513,10 @@ export default function MedicalVisitForm() {
                       kind === "ROUTINE" && { color: colors.primary, fontWeight: "700" },
                     ]}
                   >
-                    Routine checkup
+                    {t("Routine checkup")}
                   </Text>
                   <Text style={styles.segmentedCardHint} numberOfLines={2}>
-                    Routine checkup (does not require a prior request)
+                    {t("Periodic checkup (no prior request required)")}
                   </Text>
                 </Pressable>
 
@@ -418,8 +525,8 @@ export default function MedicalVisitForm() {
                   onPress={() => {
                     if (!pendingRequests.length) {
                       Alert.alert(
-                        "No pending requests",
-                        "No pending requests for this horse. Please choose Routine checkup.",
+                        t("No pending requests"),
+                        t("No pending requests for this horse. Please choose Routine checkup."),
                       );
                       return;
                     }
@@ -447,19 +554,161 @@ export default function MedicalVisitForm() {
                       kind === "REQUEST" && { color: colors.primary, fontWeight: "700" },
                     ]}
                   >
-                    On-demand examination
+                    {t("On-demand examination")}
                   </Text>
                   <Text style={styles.segmentedCardHint} numberOfLines={2}>
-                    Resolve an existing incident request
+                    {t("Resolve an existing incident request")}
                   </Text>
                 </Pressable>
               </View>
-            </View>
-          ) : null}
+            ) : null}
 
-          {!caseId ? (
-            <View style={uiStyles.section}>
-              <SectionTitle>Clinical conclusion</SectionTitle>
+            {/* If On-Demand: Request Selector */}
+            {!caseId && kind === "REQUEST" ? (
+              <View style={{ gap: space.xs, marginTop: space.xs }}>
+                {(pendingRequests as ExamRequestDto[]).map((request) => {
+                  const isSelected = selectedRequests.includes(request.id);
+                  return (
+                    <Pressable
+                      key={request.id}
+                      accessibilityRole="button"
+                      onPress={() => toggleRequest(request.id)}
+                    >
+                      <Panel
+                        style={[
+                          styles.requestCard,
+                          isSelected && {
+                            borderColor: colors.primary,
+                            borderWidth: 2,
+                            backgroundColor: colors.fitSoft,
+                          },
+                        ]}
+                      >
+                        <View style={uiStyles.row}>
+                          <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                              {request.urgent ? (
+                                <View style={styles.urgentMiniBadge}>
+                                  <Text style={styles.urgentMiniBadgeText}>{t("URGENT")}</Text>
+                                </View>
+                              ) : null}
+                              <Text
+                                style={[
+                                  uiStyles.value,
+                                  { flex: 1, minWidth: 0 },
+                                  isSelected && { color: colors.primary },
+                                ]}
+                                numberOfLines={2}
+                              >
+                                {request.description}
+                              </Text>
+                            </View>
+                            <Text style={uiStyles.muted}>
+                              {formatDateTime(request.createdAt)}
+                              {request.requestedBy ? ` · ${request.requestedBy}` : ""}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                            size={24}
+                            color={isSelected ? colors.primary : colors.mutedForeground}
+                            style={{ flexShrink: 0, marginLeft: 8 }}
+                          />
+                        </View>
+                      </Panel>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            {/* Exam Date & Time with Now button */}
+            <View style={{ marginTop: space.sm, gap: space.sm }}>
+              <View style={uiStyles.row}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Date (YYYY-MM-DD)">
+                    <NativeInput value={examDate} onChangeText={setExamDate} />
+                  </Field>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field label="Time (24-hour)">
+                    <NativeInput value={examTime} onChangeText={setExamTime} />
+                  </Field>
+                </View>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={setNowTime}
+                style={styles.quickPresetBtn}
+              >
+                <Ionicons name="time-outline" size={14} color={colors.primary} />
+                <Text style={styles.quickPresetBtnText}>{t("Set current date & time")}</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* SECTION C: Vital Signs & Measurements */}
+          <View style={uiStyles.section}>
+            <SectionTitle>{t("2. Clinical vital signs")}</SectionTitle>
+
+            <View style={styles.measurementGrid}>
+              {measurementInputs.map((item) => (
+                <View key={item.type} style={styles.measurementItem}>
+                  <Text style={styles.measurementItemLabel}>
+                    {item.label} ({item.unit})
+                  </Text>
+                  <NativeInput
+                    value={measurementValues[item.type] ?? ""}
+                    onChangeText={(value) => updateMeasurement(item.type, value)}
+                    keyboardType="decimal-pad"
+                    placeholder={item.placeholder}
+                  />
+                  <Text style={styles.measurementItemHint}>{item.reference}</Text>
+                </View>
+              ))}
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setConfirmAbnormal(!confirmAbnormal)}
+              style={[
+                styles.confirmAbnormalCard,
+                confirmAbnormal && {
+                  borderColor: colors.primary,
+                  backgroundColor: colors.fitSoft,
+                  borderWidth: 1.5,
+                },
+              ]}
+            >
+              <Ionicons
+                name={confirmAbnormal ? "checkbox" : "square-outline"}
+                size={22}
+                color={confirmAbnormal ? colors.primary : colors.mutedForeground}
+              />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={[
+                    uiStyles.value,
+                    { fontSize: 14 },
+                    confirmAbnormal && { color: colors.primary },
+                  ]}
+                >
+                  {confirmAbnormal
+                    ? t("Confirm abnormal readings")
+                    : t("Do not confirm abnormal readings")}
+                </Text>
+                <Text style={uiStyles.muted}>
+                  {t("Confirm if values exceed standard reference limits")}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
+          {/* SECTION D: Clinical Findings & Observations */}
+          <View style={uiStyles.section}>
+            <SectionTitle>{t("3. Clinical findings & conclusion")}</SectionTitle>
+
+            {!caseId ? (
               <View style={styles.segmentedSelectorRow}>
                 <Pressable
                   accessibilityRole="button"
@@ -485,10 +734,10 @@ export default function MedicalVisitForm() {
                       conclusion === "NORMAL" && { color: colors.primary, fontWeight: "700" },
                     ]}
                   >
-                    Normal
+                    {t("Normal")}
                   </Text>
                   <Text style={styles.segmentedCardHint} numberOfLines={2}>
-                    Normal health, no case opened
+                    {t("Normal health, no case opened")}
                   </Text>
                 </Pressable>
 
@@ -516,7 +765,7 @@ export default function MedicalVisitForm() {
                       conclusion === "ISSUE" && { color: colors.destructive, fontWeight: "700" },
                     ]}
                   >
-                    Issue
+                    {t("Issue")}
                   </Text>
                   <Text
                     style={[
@@ -525,269 +774,341 @@ export default function MedicalVisitForm() {
                     ]}
                     numberOfLines={2}
                   >
-                    Issue detected, treatment case opened
+                    {t("Issue detected, treatment case opened")}
                   </Text>
                 </Pressable>
               </View>
-            </View>
-          ) : null}
+            ) : null}
 
-          {!caseId && kind === "REQUEST" ? (
-            <View style={uiStyles.section}>
-              <SectionTitle>Pending requests for this horse</SectionTitle>
-              {(pendingRequests as ExamRequestDto[]).map((request) => {
-                const isSelected = selectedRequests.includes(request.id);
-                return (
-                  <Pressable
-                    key={request.id}
-                    accessibilityRole="button"
-                    onPress={() => toggleRequest(request.id)}
-                  >
-                    <Panel
-                      style={[
-                        styles.requestCard,
-                        isSelected && {
-                          borderColor: colors.primary,
-                          borderWidth: 2,
-                          backgroundColor: colors.fitSoft,
-                        },
-                      ]}
-                    >
-                      <View style={uiStyles.row}>
-                        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            {request.urgent ? (
-                              <View style={styles.urgentMiniBadge}>
-                                <Text style={styles.urgentMiniBadgeText}>URGENT</Text>
-                              </View>
-                            ) : null}
-                            <Text
-                              style={[
-                                uiStyles.value,
-                                { flex: 1, minWidth: 0 },
-                                isSelected && { color: colors.primary },
-                              ]}
-                              numberOfLines={2}
-                            >
-                              {request.description}
-                            </Text>
-                          </View>
-                          <Text style={uiStyles.muted}>
-                            {formatDateTime(request.createdAt)}
-                            {request.requestedBy ? ` · ${request.requestedBy}` : ""}
-                          </Text>
-                        </View>
-                        <Ionicons
-                          name={isSelected ? "checkmark-circle" : "ellipse-outline"}
-                          size={24}
-                          color={isSelected ? colors.primary : colors.mutedForeground}
-                          style={{ flexShrink: 0, marginLeft: 8 }}
-                        />
-                      </View>
-                    </Panel>
-                  </Pressable>
-                );
-              })}
-              {!pendingRequests.length ? (
-                <Text style={uiStyles.muted}>There are no pending requests for this horse.</Text>
-              ) : null}
-            </View>
-          ) : null}
-          {!caseId && openCase ? (
-            <Panel>
-              <Text style={uiStyles.value}>Open case already exists</Text>
-              <Text style={uiStyles.muted}>
-                Record the next examination inside the case to preserve the visit history.
-              </Text>
-              <PrimaryButton
-                label="Open current case"
-                onPress={() => router.push(`/vet/medical/cases/${openCase.id}` as Href)}
+            <Field label="Diagnosis and findings">
+              <NativeInput
+                value={diagnosis}
+                onChangeText={setDiagnosis}
+                multiline
+                placeholder="Clinical observations, heart sounds, gait examination..."
               />
-            </Panel>
-          ) : null}
-          <SectionTitle>Examination time</SectionTitle>
-          <Field label="Date (YYYY-MM-DD)">
-            <NativeInput value={examDate} onChangeText={setExamDate} />
-          </Field>
-          <Field label="Time (24-hour)">
-            <NativeInput value={examTime} onChangeText={setExamTime} />
-          </Field>
-          <View style={uiStyles.section}>
-            <SectionTitle>Measurements</SectionTitle>
-            {measurementInputs.map((item) => (
-              <Field key={item.type} label={item.label}>
-                <NativeInput
-                  value={measurementValues[item.type] ?? ""}
-                  onChangeText={(value) => updateMeasurement(item.type, value)}
-                  keyboardType="decimal-pad"
-                  placeholder={item.placeholder}
-                />
-              </Field>
-            ))}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setConfirmAbnormal(!confirmAbnormal)}
-              style={[
-                styles.confirmAbnormalCard,
-                confirmAbnormal && {
-                  borderColor: colors.primary,
-                  backgroundColor: colors.fitSoft,
-                  borderWidth: 1.5,
-                },
-              ]}
-            >
-              <Ionicons
-                name={confirmAbnormal ? "checkbox" : "square-outline"}
-                size={22}
-                color={confirmAbnormal ? colors.primary : colors.mutedForeground}
-              />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text
-                  style={[
-                    uiStyles.value,
-                    { fontSize: 14 },
-                    confirmAbnormal && { color: colors.primary },
-                  ]}
-                >
-                  {confirmAbnormal
-                    ? "Confirm abnormal readings"
-                    : "Do not confirm abnormal readings"}
-                </Text>
-                <Text style={uiStyles.muted}>
-                  Confirm if values exceed standard reference limits
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-          <Field label="Diagnosis and findings">
-            <NativeInput value={diagnosis} onChangeText={setDiagnosis} multiline />
-          </Field>
-          {!caseId && conclusion === "ISSUE" ? (
-            <Field label="Initial case diagnosis (required)">
-              <NativeInput value={initialDiagnosis} onChangeText={setInitialDiagnosis} multiline />
             </Field>
-          ) : null}
-          <View style={uiStyles.section}>
-            <SectionTitle>Health status after the visit</SectionTitle>
-            <Chips
-              options={["Keep current", ...healthStates]}
-              value={healthStatus || "Keep current"}
-              onChange={(value) => setHealthStatus(value === "Keep current" ? "" : value)}
-            />
-            {healthStatus && healthStatus !== resource.data.horse.healthStatus ? (
-              <Field label="Reason for health status change">
-                <NativeInput value={healthReason} onChangeText={setHealthReason} multiline />
+
+            {!caseId && conclusion === "ISSUE" ? (
+              <Field label="Initial case diagnosis (required)">
+                <NativeInput
+                  value={initialDiagnosis}
+                  onChangeText={setInitialDiagnosis}
+                  multiline
+                  placeholder="Primary diagnosis for the new medical case..."
+                />
               </Field>
             ) : null}
           </View>
-          <Field label="Care instructions">
-            <NativeInput
-              value={careInstructions}
-              onChangeText={setCareInstructions}
-              multiline
-              placeholder={carePrefill || "Rest, medication, and handling notes"}
-            />
-          </Field>
-          {conclusion === "ISSUE" || caseId ? (
-            <>
-              <Field label="Next visit date (optional)">
+
+          {/* SECTION E: Diagnosis & Injury Tracking */}
+          <View style={uiStyles.section}>
+            <SectionTitle>{t("4. Diagnosis & health status")}</SectionTitle>
+
+            <Field label="Resulting health status">
+              <Chips
+                options={["Keep current", ...healthStates]}
+                value={healthStatus || "Keep current"}
+                onChange={(value) => setHealthStatus(value === "Keep current" ? "" : value)}
+              />
+            </Field>
+
+            {healthStatus && healthStatus !== resource.data.horse.healthStatus ? (
+              <Field label="Reason for health status change (required)">
                 <NativeInput
-                  value={nextVisitDate}
-                  onChangeText={setNextVisitDate}
-                  placeholder="YYYY-MM-DD"
+                  value={healthReason}
+                  onChangeText={setHealthReason}
+                  multiline
+                  placeholder="Specify clinical justification for changing health status..."
                 />
               </Field>
-              {nextVisitDate ? (
-                <Field label="Next visit time">
-                  <NativeInput value={nextVisitTime} onChangeText={setNextVisitTime} />
-                </Field>
-              ) : null}
-              <View style={uiStyles.section}>
-                <SectionTitle>Prescription (optional)</SectionTitle>
-                <Field label="Medicine">
-                  <NativeInput value={medicine} onChangeText={setMedicine} />
-                </Field>
-                <Field label="Dosage">
-                  <NativeInput value={dosage} onChangeText={setDosage} />
-                </Field>
-                <Field label="Frequency">
-                  <NativeInput value={frequency} onChangeText={setFrequency} />
-                </Field>
-                <Field label="Start date (YYYY-MM-DD)">
-                  <NativeInput value={prescriptionStart} onChangeText={setPrescriptionStart} />
-                </Field>
-                <Field label="End date (optional)">
-                  <NativeInput value={prescriptionEnd} onChangeText={setPrescriptionEnd} />
-                </Field>
-              </View>
-              <View style={uiStyles.section}>
-                <SectionTitle>Injury details (optional)</SectionTitle>
-                <Chips options={bodyRegions} value={bodyRegion} onChange={setBodyRegion} />
-                <Chips options={injuryTypes} value={injuryType} onChange={setInjuryType} />
-                <Chips
-                  options={recoveryStates}
-                  value={recoveryStatus}
-                  onChange={setRecoveryStatus}
+            ) : null}
+
+            {/* Collapsible Injury Marker Section */}
+            <View style={{ marginTop: space.sm }}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setRecordInjury(!recordInjury)}
+                style={styles.injuryToggleCard}
+              >
+                <Ionicons
+                  name={recordInjury ? "bandage" : "bandage-outline"}
+                  size={20}
+                  color={recordInjury ? colors.destructive : colors.primary}
                 />
-                <Text style={uiStyles.muted}>
-                  Enter the injury point on the horse’s 3D model. All three coordinates are
-                  required.
-                </Text>
-                <Field label="Position X">
-                  <NativeInput
-                    value={injuryPositionX}
-                    onChangeText={setInjuryPositionX}
-                    keyboardType="numbers-and-punctuation"
-                    placeholder="0.0"
-                  />
-                </Field>
-                <Field label="Position Y">
-                  <NativeInput
-                    value={injuryPositionY}
-                    onChangeText={setInjuryPositionY}
-                    keyboardType="numbers-and-punctuation"
-                    placeholder="0.0"
-                  />
-                </Field>
-                <Field label="Position Z">
-                  <NativeInput
-                    value={injuryPositionZ}
-                    onChangeText={setInjuryPositionZ}
-                    keyboardType="numbers-and-punctuation"
-                    placeholder="0.0"
-                  />
-                </Field>
-                <Field label="Injury notes">
-                  <NativeInput value={injuryNotes} onChangeText={setInjuryNotes} multiline />
-                </Field>
+                <View style={{ flex: 1 }}>
+                  <Text style={[uiStyles.value, { fontSize: 15 }]}>
+                    {t("5. Injury documentation (optional)")}
+                  </Text>
+                  <Text style={uiStyles.muted}>
+                    {recordInjury
+                      ? t("Document anatomical position")
+                      : t("Tap to mark injury location")}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={recordInjury ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+
+              {recordInjury ? (
+                <Panel style={{ marginTop: space.xs, gap: space.sm }}>
+                  <Field label="Anatomical body region">
+                    <Chips options={bodyRegions} value={bodyRegion} onChange={setBodyRegion} />
+                  </Field>
+
+                  <Field label="Injury type">
+                    <Chips options={injuryTypes} value={injuryType} onChange={setInjuryType} />
+                  </Field>
+
+                  <Field label="Recovery status">
+                    <Chips
+                      options={recoveryStates}
+                      value={recoveryStatus}
+                      onChange={setRecoveryStatus}
+                    />
+                  </Field>
+
+                  {/* 3D Model Coordinate Presets */}
+                  <View style={{ gap: space.xs }}>
+                    <Text style={styles.coordinatePresetTitle}>{t("Presets:")}</Text>
+                    <View style={styles.coordinatePresetRow}>
+                      {COORDINATE_PRESETS.map((preset) => (
+                        <Pressable
+                          key={preset.label}
+                          accessibilityRole="button"
+                          onPress={() => applyCoordinatePreset(preset)}
+                          style={[
+                            styles.presetChip,
+                            bodyRegion === preset.region && styles.presetChipActive,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.presetChipText,
+                              bodyRegion === preset.region && styles.presetChipTextActive,
+                            ]}
+                          >
+                            {preset.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={uiStyles.row}>
+                    <View style={{ flex: 1 }}>
+                      <Field label="X (m)">
+                        <NativeInput
+                          value={injuryPositionX}
+                          onChangeText={setInjuryPositionX}
+                          keyboardType="numbers-and-punctuation"
+                          placeholder="0.0"
+                        />
+                      </Field>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Field label="Y (m)">
+                        <NativeInput
+                          value={injuryPositionY}
+                          onChangeText={setInjuryPositionY}
+                          keyboardType="numbers-and-punctuation"
+                          placeholder="0.0"
+                        />
+                      </Field>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Field label="Z (m)">
+                        <NativeInput
+                          value={injuryPositionZ}
+                          onChangeText={setInjuryPositionZ}
+                          keyboardType="numbers-and-punctuation"
+                          placeholder="0.0"
+                        />
+                      </Field>
+                    </View>
+                  </View>
+
+                  <Field label="Injury clinical notes">
+                    <NativeInput
+                      value={injuryNotes}
+                      onChangeText={setInjuryNotes}
+                      multiline
+                      placeholder="Severity, swelling, palpation pain notes..."
+                    />
+                  </Field>
+                </Panel>
+              ) : null}
+            </View>
+          </View>
+
+          {/* SECTION F: Treatment, Prescriptions & Care Plan */}
+          <View style={uiStyles.section}>
+            <SectionTitle>{t("6. Treatment & prescriptions (optional)")}</SectionTitle>
+
+            <Field label="Care instructions">
+              <NativeInput
+                value={careInstructions}
+                onChangeText={setCareInstructions}
+                multiline
+                placeholder={carePrefill || "Rest, cold hosing, hand walking, diet instructions..."}
+              />
+            </Field>
+
+            {/* Prescriptions */}
+            <Panel style={{ gap: space.sm }}>
+              <Text style={[uiStyles.value, { fontSize: 15 }]}>{t("Prescription")}</Text>
+              <Field label="Medicine">
+                <NativeInput
+                  value={medicine}
+                  onChangeText={setMedicine}
+                  placeholder="e.g. Phenylbutazone, Bute paste"
+                />
+              </Field>
+              <View style={uiStyles.row}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Dosage">
+                    <NativeInput value={dosage} onChangeText={setDosage} placeholder="e.g. 2g" />
+                  </Field>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field label="Frequency">
+                    <NativeInput
+                      value={frequency}
+                      onChangeText={setFrequency}
+                      placeholder="e.g. Once daily"
+                    />
+                  </Field>
+                </View>
               </View>
-            </>
-          ) : null}
-          <PrimaryButton
-            label={saving ? "Saving examination…" : caseId ? "Save follow-up" : "Save examination"}
-            icon="checkmark"
-            disabled={saving || (!caseId && Boolean(openCase))}
-            onPress={() =>
-              Alert.alert(
-                "Save examination?",
-                conclusion === "ISSUE" && !caseId
-                  ? "The Backend will create an open treatment case with this visit in one transaction."
-                  : "This visit will be recorded in the horse’s medical history.",
-                [
-                  { text: "Review", style: "cancel" },
-                  { text: "Save", onPress: () => void submit() },
-                ],
-              )
-            }
-          />
+              <View style={uiStyles.row}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Start date">
+                    <NativeInput value={prescriptionStart} onChangeText={setPrescriptionStart} />
+                  </Field>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Field label="End date (optional)">
+                    <NativeInput value={prescriptionEnd} onChangeText={setPrescriptionEnd} />
+                  </Field>
+                </View>
+              </View>
+            </Panel>
+
+            {/* Follow-up appointment scheduling (for case or issues) */}
+            {conclusion === "ISSUE" || caseId ? (
+              <Panel style={{ marginTop: space.xs, gap: space.sm }}>
+                <Text style={[uiStyles.value, { fontSize: 15 }]}>{t("Follow-up appointment")}</Text>
+                <View style={uiStyles.row}>
+                  <View style={{ flex: 1 }}>
+                    <Field label="Next visit date">
+                      <NativeInput
+                        value={nextVisitDate}
+                        onChangeText={setNextVisitDate}
+                        placeholder="YYYY-MM-DD"
+                      />
+                    </Field>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Field label="Next visit time">
+                      <NativeInput value={nextVisitTime} onChangeText={setNextVisitTime} />
+                    </Field>
+                  </View>
+                </View>
+                <View style={{ flexDirection: "row", gap: space.xs }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => addFollowUpDays(3)}
+                    style={styles.quickPresetBtn}
+                  >
+                    <Text style={styles.quickPresetBtnText}>+3 days</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => addFollowUpDays(7)}
+                    style={styles.quickPresetBtn}
+                  >
+                    <Text style={styles.quickPresetBtnText}>+7 days</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => addFollowUpDays(14)}
+                    style={styles.quickPresetBtn}
+                  >
+                    <Text style={styles.quickPresetBtnText}>+14 days</Text>
+                  </Pressable>
+                </View>
+              </Panel>
+            ) : null}
+          </View>
+
+          {/* Sticky Bottom Action Bar */}
+          <View style={styles.bottomBar}>
+            <PrimaryButton
+              label={
+                saving
+                  ? "Saving examination…"
+                  : caseId
+                    ? "Save follow-up"
+                    : "Save examination record"
+              }
+              icon="checkmark-done-outline"
+              disabled={saving || (!caseId && Boolean(openCase))}
+              onPress={() =>
+                Alert.alert(
+                  t("Save examination?"),
+                  conclusion === "ISSUE" && !caseId
+                    ? t(
+                        "The Backend will create an open treatment case with this visit in one transaction.",
+                      )
+                    : t("This visit will be recorded in the horse’s medical history."),
+                  [
+                    { text: t("Review"), style: "cancel" },
+                    { text: t("Save"), onPress: () => void submit() },
+                  ],
+                )
+              }
+            />
+          </View>
         </>
       ) : null}
     </Screen>
   );
 }
 
-const getStyles = (colors: any) =>
-  StyleSheet.create({
+function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
+  return StyleSheet.create({
+    patientCard: {
+      gap: space.xs,
+      borderColor: colors.border,
+    },
+    healthBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      backgroundColor: colors.fitSoft,
+    },
+    healthBadgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    prefillNotice: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingTop: space.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      marginTop: space.xs,
+    },
+    prefillNoticeText: {
+      fontSize: 12,
+      color: colors.primary,
+      flex: 1,
+    },
     segmentedSelectorRow: {
       flexDirection: "row",
       gap: space.sm,
@@ -842,6 +1163,36 @@ const getStyles = (colors: any) =>
       fontWeight: "800",
       letterSpacing: 0.5,
     },
+    quickPresetBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: space.sm,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.muted,
+      alignSelf: "flex-start",
+    },
+    quickPresetBtnText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    measurementGrid: {
+      gap: space.sm,
+    },
+    measurementItem: {
+      gap: 3,
+    },
+    measurementItemLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    measurementItemHint: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+    },
     confirmAbnormalCard: {
       flexDirection: "row",
       alignItems: "center",
@@ -853,4 +1204,51 @@ const getStyles = (colors: any) =>
       borderColor: colors.border,
       marginTop: space.xs,
     },
+    injuryToggleCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      padding: space.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    coordinatePresetTitle: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.mutedForeground,
+      marginTop: 4,
+    },
+    coordinatePresetRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+    },
+    presetChip: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    presetChipActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.fitSoft,
+    },
+    presetChipText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    presetChipTextActive: {
+      color: colors.primary,
+      fontWeight: "700",
+    },
+    bottomBar: {
+      marginTop: space.lg,
+      marginBottom: space.xl,
+    },
   });
+}

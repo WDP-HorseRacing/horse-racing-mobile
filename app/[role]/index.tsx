@@ -17,6 +17,7 @@ import { trainingService } from "@/services/training.service";
 import { suppliesService } from "@/services/supplies.service";
 import { groomService } from "@/services/groom.service";
 import { medicalService } from "@/services/medical.service";
+import { notificationsService } from "@/services/notifications.service";
 import { mapHorseSummary } from "@/adapters/horse.adapter";
 
 export default function RoleHome() {
@@ -153,7 +154,21 @@ export default function RoleHome() {
       return { kind: "groom", today, supplies };
     }
     if (roleId === "vet") {
-      return { kind: "medical", dashboard: await medicalService.getDashboard(token) };
+      const [dashboard, horses, checkups, supplies, notifications] = await Promise.all([
+        medicalService.getDashboard(token),
+        horseService.list(token).catch(() => []),
+        medicalService.listCheckups(token).catch(() => []),
+        suppliesService.listItems(token).catch(() => []),
+        notificationsService.list(token).catch(() => undefined),
+      ]);
+      return {
+        kind: "medical",
+        dashboard,
+        horses,
+        checkups,
+        supplies,
+        notifications: notifications?.items,
+      };
     }
     const horses = await horseService.list(token);
     return { kind: "horses", horses: horses.map(mapHorseSummary) };

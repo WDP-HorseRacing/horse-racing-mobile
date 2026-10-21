@@ -248,36 +248,63 @@ export default function MedicalCaseDetail() {
                     </Text>
                   ) : null}
                 </Pressable>
-                <View style={uiStyles.section}>
-                  <SectionTitle>Prescriptions</SectionTitle>
-                  {visit.prescriptions.map((prescription) => (
-                    <Text key={prescription.id}>
-                      {prescription.medicine}
-                      {prescription.dosage
-                        ? ` · ${prescription.dosage} · ${prescription.frequency}`
-                        : ""}{" "}
-                      · {formatDate(prescription.startDate)}
-                      {prescription.endDate ? ` – ${formatDate(prescription.endDate)}` : ""}
+                {visit.prescriptions.length ? (
+                  <View style={{ marginTop: 8, gap: 4 }}>
+                    <Text style={[uiStyles.label, { fontSize: 12, fontWeight: "700" }]}>
+                      Prescriptions:
                     </Text>
-                  ))}
-                  {!visit.prescriptions.length ? (
-                    <Text style={uiStyles.muted}>No prescriptions.</Text>
-                  ) : null}
-                </View>
-                <View style={uiStyles.section}>
-                  <SectionTitle>Injuries</SectionTitle>
-                  {visit.injuries.map((injury) => (
-                    <Text key={injury.id}>
-                      {injury.bodyRegion.replaceAll("_", " ")} ·{" "}
-                      {injury.injuryType.replaceAll("_", " ")} ·{" "}
-                      {injury.recoveryStatus.replaceAll("_", " ")}
-                      {injury.notes ? ` · ${injury.notes}` : ""}
+                    {visit.prescriptions.map((prescription) => (
+                      <View
+                        key={prescription.id}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                          paddingVertical: 2,
+                        }}
+                      >
+                        <Text style={[uiStyles.muted, { fontSize: 13, flex: 1 }]}>
+                          • {prescription.medicine}
+                          {prescription.dosage ? ` · ${prescription.dosage}` : ""}
+                          {prescription.frequency ? ` (${prescription.frequency})` : ""} ·{" "}
+                          {formatDate(prescription.startDate)}
+                          {prescription.endDate ? ` – ${formatDate(prescription.endDate)}` : ""}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                {visit.injuries.length ? (
+                  <View style={{ marginTop: 8, gap: 4 }}>
+                    <Text style={[uiStyles.label, { fontSize: 12, fontWeight: "700" }]}>
+                      Injuries:
                     </Text>
-                  ))}
-                  {!visit.injuries.length ? (
-                    <Text style={uiStyles.muted}>No injury markers.</Text>
-                  ) : null}
-                </View>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                      {visit.injuries.map((injury) => (
+                        <View
+                          key={injury.id}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 4,
+                            paddingHorizontal: 8,
+                            paddingVertical: 4,
+                            borderRadius: 999,
+                            backgroundColor: colors.muted,
+                          }}
+                        >
+                          <Text
+                            style={{ fontSize: 11, fontWeight: "600", color: colors.foreground }}
+                          >
+                            {injury.bodyRegion.replaceAll("_", " ")} ·{" "}
+                            {injury.injuryType.replaceAll("_", " ")} (
+                            {injury.recoveryStatus.replaceAll("_", " ")})
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
                 {isVet && !visit.voidedAt ? (
                   <>
                     {voidRecordId === visit.id ? (

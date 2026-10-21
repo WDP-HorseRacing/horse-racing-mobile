@@ -93,6 +93,30 @@ export const roles: Record<RoleId, RoleConfig> = {
     ],
     secondary: [
       {
+        label: "Examination requests",
+        icon: "clipboard-outline",
+        path: "/vet/medical/requests",
+        description: "Triage and review pending examination requests.",
+      },
+      {
+        label: "Medical cases",
+        icon: "folder-open-outline",
+        path: "/vet/medical",
+        description: "Active cases, treatment history, and medical records.",
+      },
+      {
+        label: "Periodic checkups",
+        icon: "calendar-outline",
+        path: "/vet/medical/checkups",
+        description: "Upcoming scheduled preventive visits.",
+      },
+      {
+        label: "Medical care schedule",
+        icon: "medkit-outline",
+        path: "/vet/medical/care",
+        description: "Prescribed treatments and care tasks.",
+      },
+      {
         label: "Alerts",
         icon: "notifications-outline",
         path: "/vet/alerts",

@@ -6,14 +6,18 @@ import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { HorseRow } from "@/features/horses/components/HorseRow";
 import { TaskCard } from "@/features/tasks/components/TaskCard";
 import { Metric, Panel, PrimaryButton, ProgressBar, getUiStyles } from "@/components/ui";
-import { SectionTitle, TimelineItem } from "@/components/common";
+import { SectionTitle } from "@/components/common";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/types/raceos";
-import { mapHorseSummaryToPrototype, type HorseSummary } from "@/adapters/horse.adapter";
+import {
+  mapHorseSummaryToPrototype,
+  type HorseListItemDto,
+  type HorseSummary,
+} from "@/adapters/horse.adapter";
 import { mapGroomTodayToTasks, type GroomTodayDto } from "@/adapters/groom.adapter";
-import { mapMedicalDashboardCases, type MedicalDashboardDto } from "@/adapters/medical.adapter";
+import type { MedicalDashboardDto } from "@/adapters/medical.adapter";
 import type { SupplyItemDto } from "@/adapters/supplies.adapter";
 import type { TrainingClassDto, TrainingSessionDto } from "@/services/training.service";
 import { groomService } from "@/services/groom.service";
@@ -22,12 +26,21 @@ import {
   ManagerTrainerDashboard,
   type ManagerTrainerDashboardData,
 } from "./ManagerTrainerDashboard";
+import { VetDashboard } from "./VetDashboard";
+import type { NotificationDto } from "@/adapters/notifications.adapter";
 
 export type DashboardPayload =
   | { kind: "horses"; horses: HorseSummary[] }
   | { kind: "training"; classes: TrainingClassDto[]; sessions: TrainingSessionDto[] }
   | { kind: "groom"; today: GroomTodayDto; supplies?: SupplyItemDto[] }
-  | { kind: "medical"; dashboard: MedicalDashboardDto }
+  | {
+      kind: "medical";
+      dashboard: MedicalDashboardDto;
+      horses?: HorseListItemDto[];
+      checkups?: MedicalDashboardDto["checkups"];
+      supplies?: SupplyItemDto[];
+      notifications?: NotificationDto[];
+    }
   | { kind: "manager_ops"; data: ManagerTrainerDashboardData }
   | { kind: "trainer_ops"; data: ManagerTrainerDashboardData };
 
@@ -498,90 +511,21 @@ export function RoleDashboard({
     );
   }
 
-  const cases = mapMedicalDashboardCases(payload.dashboard);
-  const checkups = payload.dashboard.checkups;
-  return (
-    <>
-      <View style={uiStyles.metricGrid}>
-        <Metric
-          label="Open cases"
-          value={cases.length}
-          hint="from medical records"
-          tone={cases.length ? "warning" : "good"}
-        />
-        <Metric
-          label="Pending requests"
-          value={payload.dashboard.pendingRequests.length}
-          hint="awaiting review"
-        />
-        <Metric
-          label="Checkups due"
-          value={checkups.length}
-          hint="overdue or soon"
-          tone={checkups.length ? "warning" : "good"}
-        />
-      </View>
-      <View style={uiStyles.section}>
-        <SectionTitle>Open medical cases</SectionTitle>
-        {cases.slice(0, 4).map((medicalCase) => (
-          <Pressable
-            key={medicalCase.id}
-            onPress={() => router.push(`/vet/medical/cases/${medicalCase.id}` as Href)}
-          >
-            <Panel>
-              <TimelineItem
-                time={medicalCase.openedAtLabel}
-                title={`${medicalCase.horseName} · ${medicalCase.diagnosis}`}
-                detail={`Open case · next visit ${medicalCase.nextVisitAt ? formatDateTime(medicalCase.nextVisitAt) : "not scheduled"}`}
-                tone={colors.destructive}
-                last
-              />
-            </Panel>
-          </Pressable>
-        ))}
-        {!cases.length ? (
-          <AsyncStateView
-            isLoading={false}
-            error={null}
-            onRetry={() => undefined}
-            empty
-            emptyLabel="There are no open medical cases."
-          />
-        ) : null}
-      </View>
-      <View style={uiStyles.section}>
-        <SectionTitle>Upcoming checkups</SectionTitle>
-        {checkups.slice(0, 4).map((checkup) => (
-          <Panel key={checkup.horseId}>
-            <View style={uiStyles.row}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={uiStyles.value} numberOfLines={1}>
-                  {checkup.horseName}
-                </Text>
-                <Text style={uiStyles.muted} numberOfLines={1}>
-                  Due {formatDate(checkup.dueDate)} · {checkup.healthStatus.replaceAll("_", " ")}
-                </Text>
-              </View>
-              <Text
-                style={{
-                  ...uiStyles.label,
-                  flexShrink: 0,
-                  color: checkup.daysLeft < 0 ? colors.destructive : colors.monitor,
-                }}
-              >
-                {checkup.daysLeft < 0
-                  ? `${Math.abs(checkup.daysLeft)} days overdue`
-                  : `${checkup.daysLeft} days`}
-              </Text>
-            </View>
-          </Panel>
-        ))}
-      </View>
-      <PrimaryButton
-        label="Open medical workspace"
-        icon="medkit-outline"
-        onPress={() => router.push("/vet/medical" as Href)}
+  if (payload.kind === "medical") {
+    return (
+      <VetDashboard
+        data={{
+          dashboard: payload.dashboard,
+          horses: payload.horses,
+          checkups: payload.checkups,
+          supplies: payload.supplies,
+          notifications: payload.notifications,
+        }}
+        token={token}
+        onRefresh={onRefresh}
       />
-    </>
-  );
+    );
+  }
+
+  return null;
 }
