@@ -3,6 +3,7 @@ import { router, usePathname, type Href } from "expo-router";
 import {
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   RefreshControl,
@@ -10,7 +11,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { PropsWithChildren } from "react";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/common/LocalizedText";
@@ -33,6 +34,20 @@ function BottomNav({ role }: { role: RoleId }) {
   const auth = useAuth();
   const insets = useSafeAreaInsets();
   const [moreVisible, setMoreVisible] = useState(false);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 6,
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy > 40 || gestureState.vy > 0.3) {
+            setMoreVisible(false);
+          }
+        },
+      }),
+    [],
+  );
 
   return (
     <>
@@ -82,8 +97,10 @@ function BottomNav({ role }: { role: RoleId }) {
             style={StyleSheet.absoluteFill}
           />
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.lg) }]}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
+            <View {...panResponder.panHandlers} style={{ width: "100%", alignItems: "center", paddingTop: 4, paddingBottom: 8 }}>
+              <View style={styles.sheetHandle} />
+            </View>
+            <View {...panResponder.panHandlers} style={styles.sheetHeader}>
               <View style={styles.sheetHeaderCopy}>
                 <Text style={styles.sheetTitle}>{t("More")}</Text>
                 <Text style={styles.sheetSubtitle}>{t("Other features")}</Text>

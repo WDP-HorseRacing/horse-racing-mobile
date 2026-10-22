@@ -18,8 +18,10 @@ import {
   type SessionParticipantDto,
   type TrainingSessionDto,
 } from "@/services/training.service";
-import { formatDateTime } from "@/utils/formatters";
-import { isParticipantWindowOpen } from "@/features/training/training-utils";
+import {
+  formatDateTime,
+} from "@/utils/formatters";
+import { formatTrainingStatus, isParticipantWindowOpen } from "@/features/training/training-utils";
 import { extractErrorMessage } from "@/utils/errorHandler";
 
 type AssignedSession = {
@@ -80,7 +82,7 @@ export default function GroomTraining() {
       await action();
       await resource.refresh();
     } catch (error) {
-      Alert.alert("Training action failed", extractErrorMessage(error));
+      Alert.alert("Thao tác thất bại", extractErrorMessage(error));
     } finally {
       setPending("");
     }
@@ -88,7 +90,7 @@ export default function GroomTraining() {
 
   const submitAbsence = (participantId: string) => {
     if (!absenceReason.trim())
-      return Alert.alert("Reason required", "Enter why the horse cannot attend.");
+      return Alert.alert("Cần có lý do", "Vui lòng nhập lý do ngựa không thể tham gia.");
     void perform(`absent:${participantId}`, () =>
       trainingService.markAbsent(token!, participantId, absenceReason.trim()),
     );
@@ -99,8 +101,8 @@ export default function GroomTraining() {
   return (
     <Screen
       role="groom"
-      title="Training duties"
-      subtitle="Sessions assigned to you"
+      title="Nhiệm vụ huấn luyện"
+      subtitle="Các buổi tập được phân công"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -109,13 +111,9 @@ export default function GroomTraining() {
         error={resource.error}
         onRetry={() => void resource.retry()}
       />
-      <Text style={ui.muted}>
-        Only horses assigned to your Groom account are shown. The Backend controls the allowed
-        check-in and ready windows.
-      </Text>
       {resource.data ? (
         <View style={ui.section}>
-          <SectionTitle>Assigned training sessions</SectionTitle>
+          <SectionTitle>Lịch tập được giao</SectionTitle>
           {resource.data.length ? (
             resource.data.map(({ session, classCode, className, participant }) => {
               const checkInOpen = isParticipantWindowOpen(
@@ -134,8 +132,20 @@ export default function GroomTraining() {
                     <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
                       {participant.horseName}
                     </Text>
-                    <Text style={[ui.label, { flexShrink: 0 }]}>
-                      {participant.status.replaceAll("_", " ")}
+                    <Text
+                      style={[
+                        ui.label,
+                        {
+                          flexShrink: 0,
+                          color:
+                            participant.status === "PRESENT" || participant.status === "READY"
+                              ? colors.primary
+                              : colors.foreground,
+                          fontWeight: "700",
+                        },
+                      ]}
+                    >
+                      {formatTrainingStatus(participant.status)}
                     </Text>
                   </View>
                   <Text style={ui.muted} numberOfLines={1}>
@@ -152,13 +162,13 @@ export default function GroomTraining() {
                   ) : null}
                   {participant.trainingLocked ? (
                     <Text style={{ ...ui.label, color: colors.destructive }}>
-                      A training lock is active.
+                      Đang có khóa huấn luyện cho ngựa này.
                     </Text>
                   ) : null}
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     {participant.status === "PLANNED" ? (
                       <PrimaryButton
-                        label="Check in"
+                        label="Điểm danh"
                         icon="checkmark-circle-outline"
                         style={{ flex: 1 }}
                         disabled={!checkInOpen || pending !== ""}
@@ -171,7 +181,7 @@ export default function GroomTraining() {
                     ) : null}
                     {participant.status === "PRESENT" ? (
                       <PrimaryButton
-                        label="Mark ready"
+                        label="Báo sẵn sàng"
                         icon="walk-outline"
                         style={{ flex: 1 }}
                         disabled={!readyOpen || pending !== ""}
@@ -184,7 +194,7 @@ export default function GroomTraining() {
                     ) : null}
                     {["PLANNED", "PRESENT", "READY"].includes(participant.status) ? (
                       <SecondaryButton
-                        label="Report absent"
+                        label="Báo vắng"
                         icon="person-remove-outline"
                         style={{ flex: 1 }}
                         onPress={() => {
@@ -195,24 +205,24 @@ export default function GroomTraining() {
                     ) : null}
                   </View>
                   {participant.status === "PLANNED" && !checkInOpen ? (
-                    <Text style={ui.label}>Check-in opens 30 minutes before the session.</Text>
+                    <Text style={ui.label}>Mở điểm danh 30 phút trước buổi tập.</Text>
                   ) : null}
                   {participant.status === "PRESENT" && !readyOpen ? (
-                    <Text style={ui.label}>Ready opens 15 minutes before the session.</Text>
+                    <Text style={ui.label}>Mở báo sẵn sàng 15 phút trước buổi tập.</Text>
                   ) : null}
                   {absentId === participant.id ? (
                     <View style={{ gap: 8 }}>
-                      <Field label="Absence reason">
+                      <Field label="Lý do vắng mặt">
                         <NativeInput
                           value={absenceReason}
                           onChangeText={setAbsenceReason}
                           multiline
-                          placeholder="Required by the Backend"
+                          placeholder="Nhập lý do ngựa không thể tham gia"
                         />
                       </Field>
                       <PrimaryButton
                         label={
-                          pending === `absent:${participant.id}` ? "Saving…" : "Confirm absence"
+                          pending === `absent:${participant.id}` ? "Đang lưu…" : "Xác nhận vắng mặt"
                         }
                         disabled={pending !== ""}
                         onPress={() => submitAbsence(participant.id)}
@@ -228,7 +238,7 @@ export default function GroomTraining() {
               error={null}
               onRetry={() => void resource.refresh()}
               empty
-              emptyLabel="No training sessions are assigned to you right now."
+              emptyLabel="Hiện tại bạn chưa được phân công buổi tập nào."
             />
           )}
         </View>

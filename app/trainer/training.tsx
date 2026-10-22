@@ -9,6 +9,7 @@ import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
 import { trainingService, type TrainingSessionDto } from "@/services/training.service";
 import { formatDate, formatDateTime } from "@/utils/formatters";
+import { formatTrainingStatus } from "@/features/training/training-utils";
 
 type TrainingHubPayload = {
   classes: Awaited<ReturnType<typeof trainingService.listClasses>>;
@@ -97,7 +98,7 @@ export default function TrainerTraining() {
                         trainingClass.status === "ACTIVE" && { color: colors.primary },
                       ]}
                     >
-                      {trainingClass.status.replaceAll("_", " ")}
+                      {formatTrainingStatus(trainingClass.status)}
                     </Text>
                   </View>
                   <Text style={ui.muted}>
@@ -143,8 +144,20 @@ export default function TrainerTraining() {
                       <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
                         {session.name}
                       </Text>
-                      <Text style={[ui.label, { flexShrink: 0 }]}>
-                        {session.status.replaceAll("_", " ")}
+                      <Text
+                        style={[
+                          ui.label,
+                          {
+                            flexShrink: 0,
+                            color:
+                              session.status === "IN_PROGRESS"
+                                ? colors.monitor
+                                : colors.mutedForeground,
+                            fontWeight: "600",
+                          },
+                        ]}
+                      >
+                        {formatTrainingStatus(session.status)}
                       </Text>
                     </View>
                     <Text style={ui.muted}>

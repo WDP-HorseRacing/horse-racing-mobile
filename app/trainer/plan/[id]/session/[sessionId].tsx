@@ -34,6 +34,7 @@ import { formatDateTime, formatDurationMs } from "@/utils/formatters";
 import {
   clubDateTimeParts,
   clubDateTimeToIso,
+  formatTrainingStatus,
   isParticipantWindowOpen,
   MAX_TRIAL_TIME_MS,
 } from "@/features/training/training-utils";
@@ -286,7 +287,7 @@ export default function TrainingSessionDetail() {
                 { color: session?.status === "IN_PROGRESS" ? colors.monitor : colors.foreground },
               ]}
             >
-              {session?.status.replaceAll("_", " ")}
+              {formatTrainingStatus(session?.status)}
             </Text>
             <KeyValue
               items={[
@@ -466,10 +467,10 @@ export default function TrainingSessionDetail() {
                           {participant.horseName}
                         </Text>
                         <Text style={ui.muted} numberOfLines={1}>
-                          {participant.status.replaceAll("_", " ")}
+                          {formatTrainingStatus(participant.status)}
                           {participant.assignedGroomName
                             ? ` · ${participant.assignedGroomName}`
-                            : " · no Groom assigned"}
+                            : " · Chưa phân công Groom"}
                         </Text>
                       </View>
                       {participant.trainingLocked ? (

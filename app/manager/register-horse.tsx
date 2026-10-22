@@ -25,6 +25,8 @@ import type { StaffDto } from "@/adapters/staff.adapter";
 import type { CreateHorseInput, HorseGenderDto } from "@/adapters/horse.adapter";
 import { validateHorseIdentity } from "@/utils/horse-validation";
 
+import * as DocumentPicker from "expo-document-picker";
+
 type SaveMode = "open" | "another";
 
 export default function RegisterHorse() {
@@ -168,12 +170,12 @@ export default function RegisterHorse() {
     }
   };
 
-  const choosePhoto = async () => {
+  const pickFromLibrary = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
-        "Photo library permission",
-        "Please grant photo library permission to upload horse photos.",
+        "Quyền thư viện ảnh",
+        "Vui lòng cấp quyền truy cập thư viện ảnh để tải ảnh ngựa.",
       );
       return;
     }
@@ -194,6 +196,70 @@ export default function RegisterHorse() {
       });
       setUploadedPhotoId(null);
     }
+  };
+
+  const pickFromCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Quyền máy ảnh",
+        "Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh ngựa.",
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const picked = result.assets[0];
+      const name = picked.fileName || picked.uri.split("/").pop() || "horse-photo.jpg";
+      setPhoto({
+        name,
+        uri: picked.uri,
+        size: picked.fileSize,
+        mimeType: picked.mimeType || "image/jpeg",
+      });
+      setUploadedPhotoId(null);
+    }
+  };
+
+  const pickFromDocument = async () => {
+    try {
+      const docResult = await DocumentPicker.getDocumentAsync({
+        type: ["image/jpeg", "image/png", "image/webp", "image/*"],
+        copyToCacheDirectory: true,
+      });
+      if (!docResult.canceled && docResult.assets[0]) {
+        const picked = docResult.assets[0];
+        const name = picked.name || "horse-photo.jpg";
+        setPhoto({
+          name,
+          uri: picked.uri,
+          size: picked.size,
+          mimeType:
+            picked.mimeType ||
+            (name.toLowerCase().endsWith(".png")
+              ? "image/png"
+              : name.toLowerCase().endsWith(".webp")
+                ? "image/webp"
+                : "image/jpeg"),
+        });
+        setUploadedPhotoId(null);
+      }
+    } catch (err) {
+      Alert.alert("Lỗi chọn tệp", extractErrorMessage(err));
+    }
+  };
+
+  const choosePhoto = () => {
+    Alert.alert("Tải ảnh ngựa", "Chọn nguồn ảnh tải lên:", [
+      { text: "Thư viện ảnh", onPress: () => void pickFromLibrary() },
+      { text: "Chụp ảnh mới", onPress: () => void pickFromCamera() },
+      { text: "Chọn tệp (.jpg, .jpeg, .png...)", onPress: () => void pickFromDocument() },
+      { text: "Hủy", style: "cancel" },
+    ]);
   };
 
   return (

@@ -100,3 +100,25 @@ export function clubDateTimeParts(value: string): { date: string; time: string }
     time: `${part("hour")}:${part("minute")}`,
   };
 }
+
+export function formatTrainingStatus(status: string | null | undefined): string {
+  if (!status) return "—";
+  const upper = status.trim().toUpperCase();
+  const map: Record<string, string> = {
+    SCHEDULED: "Đã lên lịch",
+    PLANNED: "Lên kế hoạch",
+    PRESENT: "Có mặt",
+    READY: "Sẵn sàng",
+    ONGOING: "Đang tập",
+    IN_PROGRESS: "Đang diễn ra",
+    COMPLETED: "Đã hoàn thành",
+    ABSENT: "Vắng mặt",
+    SKIPPED: "Bỏ qua",
+    CANCELLED: "Đã hủy",
+    CANCELLED_BY_LOCK: "Hủy do khóa",
+    INELIGIBLE: "Không đủ điều kiện",
+    ACTIVE: "Đang hoạt động",
+    DRAFT: "Bản nháp",
+  };
+  return map[upper] ?? status.replaceAll("_", " ");
+}

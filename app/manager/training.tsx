@@ -778,7 +778,7 @@ export default function ManagerTraining() {
                         </Text>
                         <Text style={ui.muted}>
                           {summary
-                            ? `${summary.sessionsTracked} ${t("Sessions")}`
+                            ? `${summary.sessionsTracked ?? 0} ${t("buổi có dữ liệu đo")}`
                             : t("No performance data")}
                         </Text>
                       </View>

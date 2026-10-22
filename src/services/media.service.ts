@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import type { DocumentPickerAsset } from "expo-document-picker";
 import { apiRequest } from "@/services/api-client";
+import { API_BASE_URL } from "@/config/api";
 
 const MAX_TRIAL_VIDEO_BYTES = 200 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -23,13 +24,32 @@ type UploadRequestDto = {
 export type LocalMediaAsset = Pick<DocumentPickerAsset, "name" | "uri" | "size" | "mimeType">;
 export type TrialVideoAsset = LocalMediaAsset;
 
+function resolveStorageUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      const parsedApi = new URL(API_BASE_URL);
+      if (
+        parsedApi.hostname &&
+        parsedApi.hostname !== "localhost" &&
+        parsedApi.hostname !== "127.0.0.1"
+      ) {
+        parsed.hostname = parsedApi.hostname;
+        return parsed.toString();
+      }
+    }
+  } catch {}
+  return url;
+}
+
 async function uploadImageAsset(
   token: string,
   asset: LocalMediaAsset,
   purpose: "HORSE_PHOTO" | "INCIDENT_PHOTO",
   onProgress?: (percent: number) => void,
 ): Promise<string> {
-  const declaredMime = asset.mimeType?.toLowerCase().split(";")[0];
+  let normalizedMime = asset.mimeType?.toLowerCase().split(";")[0]?.trim();
+  if (normalizedMime === "image/jpg") normalizedMime = "image/jpeg";
   const extension = asset.name.split(".").pop()?.toLowerCase() ?? "";
   const inferredMime: Record<string, string> = {
     jpg: "image/jpeg",
@@ -38,8 +58,8 @@ async function uploadImageAsset(
     webp: "image/webp",
   };
   const mimeType =
-    declaredMime && IMAGE_TYPES.has(declaredMime) ? declaredMime : inferredMime[extension];
-  if (!mimeType) throw new Error("Photo must be JPEG, PNG, or WebP.");
+    normalizedMime && IMAGE_TYPES.has(normalizedMime) ? normalizedMime : inferredMime[extension];
+  if (!mimeType) throw new Error("Ảnh phải có định dạng JPEG, JPG, PNG hoặc WebP.");
 
   let byteSize = asset.size;
   if (!byteSize) {
@@ -56,7 +76,7 @@ async function uploadImageAsset(
   }
 
   if (!byteSize || byteSize < 1 || byteSize > MAX_IMAGE_BYTES) {
-    throw new Error("Photo must be between 1 byte and 10 MB.");
+    throw new Error("Ảnh phải có dung lượng từ 1 byte đến 10 MB.");
   }
   const upload = await apiRequest<UploadRequestDto>("/media/upload-requests", {
     method: "POST",
@@ -66,11 +86,12 @@ async function uploadImageAsset(
   const headers = Object.fromEntries(
     Object.entries(upload.headers).filter(([key]) => key.toLowerCase() !== "content-length"),
   );
+  const targetUploadUrl = resolveStorageUrl(upload.uploadUrl);
 
   if (Platform.OS === "web") {
     const blobRes = await fetch(asset.uri);
     const blob = await blobRes.blob();
-    const putPromise = fetch(upload.uploadUrl, {
+    const putPromise = fetch(targetUploadUrl, {
       method: "PUT",
       headers: {
         ...headers,
@@ -80,8 +101,8 @@ async function uploadImageAsset(
     });
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(
-        () => reject(new Error("Quá thời gian tải ảnh lên (25s). Vui lòng thử lại.")),
-        25000,
+        () => reject(new Error("Quá thời gian tải ảnh lên (60s). Vui lòng thử lại.")),
+        60000,
       ),
     );
     const putRes = await Promise.race([putPromise, timeoutPromise]);
@@ -90,7 +111,7 @@ async function uploadImageAsset(
     }
   } else {
     const task = FileSystem.createUploadTask(
-      upload.uploadUrl,
+      targetUploadUrl,
       asset.uri,
       {
         httpMethod: upload.method,
@@ -106,12 +127,12 @@ async function uploadImageAsset(
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => {
         task.cancelAsync().catch(() => {});
-        reject(new Error("Quá thời gian tải ảnh lên (25s). Vui lòng thử lại."));
-      }, 25000),
+        reject(new Error("Quá thời gian tải ảnh lên (60s). Vui lòng thử lại."));
+      }, 60000),
     );
     const result = await Promise.race([task.uploadAsync(), timeoutPromise]);
     if (!result || result.status < 200 || result.status >= 300) {
-      throw new Error("Storage rejected the photo. Please try again.");
+      throw new Error("Kho lưu trữ từ chối ảnh. Vui lòng thử lại.");
     }
   }
 
@@ -169,8 +190,9 @@ export const mediaService = {
       Object.entries(upload.headers).filter(([key]) => key.toLowerCase() !== "content-length"),
     );
 
+    const targetVideoUploadUrl = resolveStorageUrl(upload.uploadUrl);
     const task = FileSystem.createUploadTask(
-      upload.uploadUrl,
+      targetVideoUploadUrl,
       asset.uri,
       {
         httpMethod: upload.method,
@@ -212,9 +234,13 @@ export const mediaService = {
     return uploadImageAsset(token, asset, "INCIDENT_PHOTO", onProgress);
   },
 
-  downloadUrl(token: string, mediaId: string) {
-    return apiRequest<{ url: string }>(`/media/${encodeURIComponent(mediaId)}/download-url`, {
-      token,
-    });
+  async downloadUrl(token: string, mediaId: string) {
+    const res = await apiRequest<{ url: string }>(
+      `/media/${encodeURIComponent(mediaId)}/download-url`,
+      {
+        token,
+      },
+    );
+    return { url: resolveStorageUrl(res.url) };
   },
 };

@@ -1,6 +1,7 @@
 import { type Href, router } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { Chips, getUiStyles, PrimaryButton } from "@/components/ui";
@@ -118,6 +119,15 @@ function OwnerSessionRow({ session }: { session: TrainingSessionView }) {
           {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
           {session.surface ? ` · ${session.surface}` : ""}
         </Text>
+        {session.evaluation ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }}>
+            <Ionicons name="star" size={13} color={colors.monitor} />
+            <Text style={{ fontSize: 12, fontWeight: "600", color: colors.monitor }}>
+              {t("Đánh giá:")} {session.evaluation.score}/10
+              {session.evaluation.comment ? ` · "${session.evaluation.comment}"` : ""}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );

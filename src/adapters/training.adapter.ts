@@ -100,7 +100,7 @@ export function mapOwnerTrainingRemarks(
   sessions: readonly TrainingSessionView[],
 ): OwnerTrainingRemarkView[] {
   return sessions
-    .filter((session) => Boolean(session.evaluation?.comment?.trim()))
+    .filter((session) => Boolean(session.evaluation))
     .map((session) => ({
       id: session.participantId,
       sessionId: session.sessionId,
@@ -110,7 +110,9 @@ export function mapOwnerTrainingRemarks(
       sessionTitle: session.title,
       trainerName: session.evaluation?.evaluatorName ?? "Head Trainer",
       score: session.evaluation?.score ?? 0,
-      observation: session.evaluation?.comment ?? "",
+      observation:
+        session.evaluation?.comment?.trim() ||
+        (session.evaluation?.score != null ? `Điểm đánh giá: ${session.evaluation.score}/10` : "Đã hoàn thành đánh giá"),
     }))
     .sort((a, b) => b.date.localeCompare(a.date));
 }

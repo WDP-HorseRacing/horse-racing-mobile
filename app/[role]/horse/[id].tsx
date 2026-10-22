@@ -1293,25 +1293,27 @@ export default function HorseProfile() {
                 </Panel>
               )}
 
-              <View style={uiStyles.section}>
-                <SectionTitle>
-                  Training workload · {performanceResource.data.workload.from} to{" "}
-                  {performanceResource.data.workload.to}
-                </SectionTitle>
-                <Panel>
-                  <Text style={uiStyles.value}>
-                    {performanceResource.data.workload.sessionsCompleted} completed sessions ·{" "}
-                    {performanceResource.data.workload.byIntensity.LIGHT} light ·{" "}
-                    {performanceResource.data.workload.byIntensity.HEAVY} heavy
-                  </Text>
-                  <Text style={uiStyles.muted}>
-                    Planned {performanceResource.data.workload.plannedDistanceM.toLocaleString()} m
-                    · actual {performanceResource.data.workload.actualDistanceM.toLocaleString()} m
-                    · {Math.round(performanceResource.data.workload.actualDurationSeconds / 60)}{" "}
-                    actual minutes
-                  </Text>
-                </Panel>
-              </View>
+              {performanceResource.data.workload ? (
+                <View style={uiStyles.section}>
+                  <SectionTitle>
+                    Training workload · {performanceResource.data.workload.from ?? "—"} to{" "}
+                    {performanceResource.data.workload.to ?? "—"}
+                  </SectionTitle>
+                  <Panel>
+                    <Text style={uiStyles.value}>
+                      {performanceResource.data.workload.sessionsCompleted ?? 0} completed sessions ·{" "}
+                      {performanceResource.data.workload.byIntensity?.LIGHT ?? 0} light ·{" "}
+                      {performanceResource.data.workload.byIntensity?.HEAVY ?? 0} heavy
+                    </Text>
+                    <Text style={uiStyles.muted}>
+                      Planned {(performanceResource.data.workload.plannedDistanceM ?? 0).toLocaleString()} m
+                      · actual {(performanceResource.data.workload.actualDistanceM ?? 0).toLocaleString()} m
+                      · {Math.round((performanceResource.data.workload.actualDurationSeconds ?? 0) / 60)}{" "}
+                      actual minutes
+                    </Text>
+                  </Panel>
+                </View>
+              ) : null}
 
               {performanceResource.data.thresholds ? (
                 <View style={uiStyles.section}>
