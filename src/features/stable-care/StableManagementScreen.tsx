@@ -367,6 +367,37 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
           onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
           style={{ gap: space.xl }}
         >
+          {/* Quick link banner for Trainer to manage Diet & Feeding */}
+          {role === "trainer" ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("Manage stable diet")}
+              onPress={() => {
+                const firstHorse = payload.horses[0];
+                if (firstHorse) {
+                  router.push(`/trainer/horse/${firstHorse.id}/stable-care` as Href);
+                } else {
+                  router.push("/trainer/horses" as Href);
+                }
+              }}
+              style={({ pressed }) => [
+                styles.trainerCareBanner,
+                pressed && { opacity: 0.8, transform: [{ scale: 0.99 }] },
+              ]}
+            >
+              <View style={styles.trainerCareBannerIcon}>
+                <Ionicons name="nutrition" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.trainerCareBannerTitle}>{t("Diet & Feeding")}</Text>
+                <Text style={uiStyles.muted} numberOfLines={1}>
+                  {t("Feeding, scheduled care, daily checklists and surcharges")}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+            </Pressable>
+          ) : null}
+
           {/* Barn Selector Horizontal Pills */}
           <View style={styles.barnSelectorContainer}>
             <ScrollView
@@ -904,7 +935,18 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
 
                     {/* Action buttons */}
                     <View style={{ gap: space.xs, marginTop: space.xs }}>
-                      <PrimaryButton
+                      {role === "trainer" || role === "manager" ? (
+                        <PrimaryButton
+                          label="Diet & Feeding"
+                          icon="restaurant-outline"
+                          onPress={() => {
+                            const horseId = selectedHorseInModal.id;
+                            setSelectedStall(null);
+                            router.push(`/${role}/horse/${horseId}/stable-care` as Href);
+                          }}
+                        />
+                      ) : null}
+                      <SecondaryButton
                         label="Manage stall and Groom"
                         icon="people-outline"
                         onPress={() => {
@@ -1579,6 +1621,30 @@ const getStyles = (colors: any) =>
     switchTitle: {
       fontSize: 14,
       fontWeight: "600",
+      color: colors.foreground,
+    },
+    trainerCareBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.md,
+      padding: space.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: -space.md,
+    },
+    trainerCareBannerIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      backgroundColor: colors.fitSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    trainerCareBannerTitle: {
+      fontSize: 15,
+      fontWeight: "700",
       color: colors.foreground,
     },
   });

@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
@@ -153,11 +155,18 @@ export default function IncidentsScreen() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        let size = asset.fileSize;
+        if (!size && asset.uri) {
+          try {
+            const info = await FileSystem.getInfoAsync(asset.uri);
+            if (info.exists && !info.isDirectory) size = info.size;
+          } catch {}
+        }
         const fileName = asset.fileName || `incident-${Date.now()}.jpg`;
         setPhoto({
           name: fileName,
           uri: asset.uri,
-          size: asset.fileSize,
+          size,
           mimeType: asset.mimeType ?? "image/jpeg",
         });
       }
@@ -182,11 +191,18 @@ export default function IncidentsScreen() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        let size = asset.fileSize;
+        if (!size && asset.uri) {
+          try {
+            const info = await FileSystem.getInfoAsync(asset.uri);
+            if (info.exists && !info.isDirectory) size = info.size;
+          } catch {}
+        }
         const fileName = asset.fileName || `incident-camera-${Date.now()}.jpg`;
         setPhoto({
           name: fileName,
           uri: asset.uri,
-          size: asset.fileSize,
+          size,
           mimeType: asset.mimeType ?? "image/jpeg",
         });
       }
@@ -195,10 +211,38 @@ export default function IncidentsScreen() {
     }
   };
 
+  const pickFromDocument = async () => {
+    try {
+      const docResult = await DocumentPicker.getDocumentAsync({
+        type: ["image/jpeg", "image/png", "image/webp", "image/*"],
+        copyToCacheDirectory: true,
+      });
+      if (!docResult.canceled && docResult.assets[0]) {
+        const picked = docResult.assets[0];
+        const name = picked.name || `incident-${Date.now()}.jpg`;
+        setPhoto({
+          name,
+          uri: picked.uri,
+          size: picked.size,
+          mimeType:
+            picked.mimeType ||
+            (name.toLowerCase().endsWith(".png")
+              ? "image/png"
+              : name.toLowerCase().endsWith(".webp")
+                ? "image/webp"
+                : "image/jpeg"),
+        });
+      }
+    } catch (err) {
+      Alert.alert(t("Could not choose photo"), extractErrorMessage(err));
+    }
+  };
+
   const promptPhotoOptions = () => {
     Alert.alert(t("Attach photo"), t("Choose photo source"), [
       { text: t("Take photo"), onPress: () => void takePhoto() },
       { text: t("Choose from library"), onPress: () => void choosePhoto() },
+      { text: t("Select image file (.jpg, .png...)"), onPress: () => void pickFromDocument() },
       { text: t("Cancel"), style: "cancel" },
     ]);
   };

@@ -88,14 +88,14 @@ export const suppliesService = {
       token,
     });
   },
-  createRequest(token: string, itemId: string, quantity: number, note?: string) {
+  createRequest(token: string, itemId: string, note?: string) {
     return apiRequest<SupplyRequestDto>("/supplies/requests", {
       method: "POST",
       token,
-      body: { itemId, quantity, ...(note?.trim() ? { note: note.trim() } : {}) },
+      body: { itemId, ...(note?.trim() ? { note: note.trim() } : {}) },
     });
   },
-  editRequest(token: string, requestId: string, input: { quantity?: number; note?: string }) {
+  editRequest(token: string, requestId: string, input: { note?: string }) {
     return apiRequest<SupplyRequestDto>(`/supplies/requests/${encodeURIComponent(requestId)}`, {
       method: "PATCH",
       token,
@@ -106,7 +106,7 @@ export const suppliesService = {
     token: string,
     requestId: string,
     status: SupplyRequestStatus,
-    details: { reason?: string; unitPrice?: number } = {},
+    details: { reason?: string; unitPrice?: number; quantity?: number } = {},
   ) {
     return apiRequest<SupplyRequestDto>(
       `/supplies/requests/${encodeURIComponent(requestId)}/status`,
@@ -117,6 +117,7 @@ export const suppliesService = {
           status,
           ...(details.reason ? { reason: details.reason } : {}),
           ...(details.unitPrice !== undefined ? { unitPrice: details.unitPrice } : {}),
+          ...(details.quantity !== undefined ? { quantity: details.quantity } : {}),
         },
       },
     );

@@ -156,7 +156,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
   const openRequest = (item?: SupplyItemDto, request?: SupplyRequestDto) => {
     setSelectedItem(item ?? null);
     setSelectedRequest(request ?? null);
-    setQuantity(request ? String(request.quantity) : "");
+    setQuantity("");
     setNote(request?.note ?? "");
     setMode(request ? "request-edit" : "request");
   };
@@ -260,17 +260,11 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
           ...(note.trim() ? { note: note.trim() } : {}),
         });
       } else if (mode === "request" && selectedItem) {
-        if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) {
-          Alert.alert("Check request", "Enter a quantity greater than zero.");
-          return;
-        }
-        await suppliesService.createRequest(token, selectedItem.id, amount, note);
+        await suppliesService.createRequest(token, selectedItem.id, note.trim() || undefined);
       } else if (mode === "request-edit" && selectedRequest) {
-        if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) {
-          Alert.alert("Check request", "Enter a quantity greater than zero.");
-          return;
-        }
-        await suppliesService.editRequest(token, selectedRequest.id, { quantity: amount, note });
+        await suppliesService.editRequest(token, selectedRequest.id, {
+          note: note.trim() || undefined,
+        });
       } else if (mode === "reject" && selectedRequest) {
         if (!requestReason.trim()) {
           Alert.alert("Reason required", "Enter a reason before rejecting this request.");
@@ -280,11 +274,16 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
           reason: requestReason.trim(),
         });
       } else if (mode === "fulfill" && selectedRequest) {
+        if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) {
+          Alert.alert("Check quantity", "Enter a positive quantity issued.");
+          return;
+        }
         if (!Number.isInteger(price) || price < 0 || price > 1_000_000_000) {
           Alert.alert("Check unit price", "Enter the actual whole VND price paid for each unit.");
           return;
         }
         await suppliesService.updateRequestStatus(token, selectedRequest.id, "FULFILLED", {
+          quantity: amount,
           unitPrice: price,
         });
       }
@@ -651,9 +650,20 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                 <View style={styles.requestCardHeader}>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.requestItemTitle}>{request.item.name}</Text>
-                    <Text style={styles.requestQuantityBadge}>
-                      {formatQuantity(request.quantity, request.item.unit)}
-                    </Text>
+                    {request.quantity ? (
+                      <Text style={styles.requestQuantityBadge}>
+                        {formatQuantity(request.quantity, request.item.unit)}
+                      </Text>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.requestQuantityBadge,
+                          { color: colors.mutedForeground, fontStyle: "italic" },
+                        ]}
+                      >
+                        {t("Propose restock")}
+                      </Text>
+                    )}
                   </View>
 
                   <View
@@ -742,6 +752,11 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                     icon="cube-outline"
                     onPress={() => {
                       setSelectedRequest(request);
+                      setQuantity(
+                        request.quantity && Number(request.quantity) > 0
+                          ? String(request.quantity)
+                          : "1",
+                      );
                       setUnitPrice("0");
                       setMode("fulfill");
                     }}
@@ -1017,41 +1032,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                 </View>
               ) : null}
 
-              {/* Quantity */}
-              <Field
-                label={`${t("Requested quantity")} (${
-                  selectedItem?.unit ?? selectedRequest?.item.unit ?? "unit"
-                })`}
-              >
-                <NativeInput
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  keyboardType="decimal-pad"
-                  placeholder="0.0"
-                />
-              </Field>
-
-              {/* Quick Stepper Chips */}
-              <View style={styles.quickChipsContainer}>
-                <Text style={styles.quickChipsLabel}>{t("Quick add")}:</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.quickChipsScroll}
-                >
-                  {REQUEST_QUICK_AMOUNTS.map((amt) => (
-                    <Pressable
-                      key={amt}
-                      accessibilityRole="button"
-                      onPress={() => setQuantity(String(amt))}
-                      style={styles.quickChip}
-                    >
-                      <Text style={styles.quickChipText}>+{amt}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-
               {/* Note / Reason */}
               <Field label={t("Restock reason (optional)")}>
                 <NativeInput
@@ -1087,7 +1067,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                   label={saving ? "Saving…" : "Submit request"}
                   icon="paper-plane-outline"
                   onPress={() => void save()}
-                  disabled={saving || Number(quantity) <= 0}
+                  disabled={saving}
                 />
                 <SecondaryButton label="Cancel" icon="close" onPress={closeForm} />
               </View>
@@ -1242,10 +1222,22 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                 <>
                   <Panel>
                     <Text style={ui.muted}>
-                      {selectedRequest?.item.name} · requested {selectedRequest?.quantity}{" "}
-                      {selectedRequest?.item.unit}
+                      {selectedRequest?.item.name}
+                      {selectedRequest?.quantity
+                        ? ` · requested ${selectedRequest.quantity} ${selectedRequest.item.unit}`
+                        : ""}
                     </Text>
                   </Panel>
+                  <Field
+                    label={`${t("Quantity issued")} (${selectedRequest?.item.unit ?? "unit"})`}
+                  >
+                    <NativeInput
+                      value={quantity}
+                      onChangeText={setQuantity}
+                      keyboardType="decimal-pad"
+                      placeholder="0.0"
+                    />
+                  </Field>
                   <Field label="Actual unit price paid (VND)">
                     <NativeInput
                       value={unitPrice}

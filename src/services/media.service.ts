@@ -24,9 +24,15 @@ type UploadRequestDto = {
 export type LocalMediaAsset = Pick<DocumentPickerAsset, "name" | "uri" | "size" | "mimeType">;
 export type TrialVideoAsset = LocalMediaAsset;
 
-function resolveStorageUrl(url: string): string {
+type ResolvedStorageUrl = {
+  targetUrl: string;
+  hostHeader?: string;
+};
+
+function resolveStorageUrl(url: string): ResolvedStorageUrl {
   try {
     const parsed = new URL(url);
+    const originalHost = parsed.host; // e.g. "localhost:9000"
     if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
       const parsedApi = new URL(API_BASE_URL);
       if (
@@ -35,11 +41,11 @@ function resolveStorageUrl(url: string): string {
         parsedApi.hostname !== "127.0.0.1"
       ) {
         parsed.hostname = parsedApi.hostname;
-        return parsed.toString();
+        return { targetUrl: parsed.toString(), hostHeader: originalHost };
       }
     }
   } catch {}
-  return url;
+  return { targetUrl: url };
 }
 
 async function uploadImageAsset(
@@ -71,6 +77,11 @@ async function uploadImageAsset(
       } else {
         const fileInfo = await FileSystem.getInfoAsync(asset.uri);
         byteSize = fileInfo.exists && !fileInfo.isDirectory ? fileInfo.size : undefined;
+        if (!byteSize) {
+          const res = await fetch(asset.uri);
+          const blob = await res.blob();
+          byteSize = blob.size;
+        }
       }
     } catch {}
   }
@@ -83,10 +94,13 @@ async function uploadImageAsset(
     token,
     body: { purpose, fileName: asset.name, mimeType, byteSize },
   });
-  const headers = Object.fromEntries(
-    Object.entries(upload.headers).filter(([key]) => key.toLowerCase() !== "content-length"),
-  );
-  const targetUploadUrl = resolveStorageUrl(upload.uploadUrl);
+  const { targetUrl: targetUploadUrl, hostHeader } = resolveStorageUrl(upload.uploadUrl);
+  const headers: Record<string, string> = {
+    ...Object.fromEntries(
+      Object.entries(upload.headers).filter(([key]) => key.toLowerCase() !== "content-length"),
+    ),
+    ...(hostHeader && Platform.OS !== "web" ? { Host: hostHeader } : {}),
+  };
 
   if (Platform.OS === "web") {
     const blobRes = await fetch(asset.uri);
@@ -190,14 +204,18 @@ export const mediaService = {
       Object.entries(upload.headers).filter(([key]) => key.toLowerCase() !== "content-length"),
     );
 
-    const targetVideoUploadUrl = resolveStorageUrl(upload.uploadUrl);
+    const { targetUrl: targetVideoUploadUrl, hostHeader } = resolveStorageUrl(upload.uploadUrl);
+    const videoHeaders: Record<string, string> = {
+      ...headers,
+      ...(hostHeader && Platform.OS !== "web" ? { Host: hostHeader } : {}),
+    };
     const task = FileSystem.createUploadTask(
       targetVideoUploadUrl,
       asset.uri,
       {
         httpMethod: upload.method,
         uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers,
+        headers: videoHeaders,
       },
       ({ totalBytesSent, totalBytesExpectedToSend }) => {
         if (totalBytesExpectedToSend > 0) {
@@ -241,6 +259,6 @@ export const mediaService = {
         token,
       },
     );
-    return { url: resolveStorageUrl(res.url) };
+    return { url: resolveStorageUrl(res.url).targetUrl };
   },
 };
