@@ -1,16 +1,18 @@
 import { Redirect, router, type Href, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
-import { Field, NativeInput, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
+import { Chips, Field, NativeInput, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
+import { useI18n } from "@/context/I18nContext";
 import { isRole } from "@/features/auth/roles";
 import { horseService } from "@/services/horse.service";
 import { medicalService } from "@/services/medical.service";
+import { stableCareService } from "@/services/stable-care.service";
 import type { ExamRequestDto } from "@/adapters/medical.adapter";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
@@ -31,16 +33,23 @@ export default function ExaminationRequests() {
   const role = isRole(roleParam) ? roleParam : null;
   const { token } = useAuth();
   const { colors } = useTheme();
+  const { t } = useI18n();
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [status, setStatus] = useState<RequestStatus>("PENDING");
+  const [filterUrgent, setFilterUrgent] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ExamRequestDto | null>(null);
 
+  // Attached incident photo viewer states
+  const [incidentPhotos, setIncidentPhotos] = useState<Record<string, string | null>>({});
+  const [, setLoadingIncidentId] = useState<string | null>(null);
+  const [enlargedPhotoUrl, setEnlargedPhotoUrl] = useState<string | null>(null);
+
   // Cache per status to make tab switching instantaneous and smooth
   const [cache, setCache] = useState<
-    Partial<Record<RequestStatus, { items: ExamRequestDto[]; totalPages: number; total: number }>>
+    Partial<Record<string, { items: ExamRequestDto[]; totalPages: number; total: number }>>
   >({});
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -68,7 +77,12 @@ export default function ExaminationRequests() {
   const isVet = role === "vet";
 
   const fetchTabRequests = useCallback(
-    async (targetStatus: RequestStatus, targetPage: number, isSilent = false) => {
+    async (
+      targetStatus: RequestStatus,
+      targetPage: number,
+      targetUrgent = filterUrgent,
+      isSilent = false,
+    ) => {
       if (!token) return;
       if (!isSilent) setLoadingStatus(true);
       setError(null);
@@ -77,10 +91,12 @@ export default function ExaminationRequests() {
           page: targetPage,
           limit: 20,
           status: targetStatus,
+          ...(targetUrgent ? { urgent: true } : {}),
         });
+        const cacheKey = `${targetStatus}_${targetUrgent ? "urgent" : "all"}`;
         setCache((prev) => ({
           ...prev,
-          [targetStatus]: {
+          [cacheKey]: {
             items: response.items,
             totalPages: response.meta.totalPages ?? 1,
             total: response.meta.total ?? response.items.length,
@@ -94,15 +110,41 @@ export default function ExaminationRequests() {
         setRefreshing(false);
       }
     },
-    [token],
+    [token, filterUrgent],
   );
+
+  const viewIncidentPhoto = async (incidentId: string) => {
+    if (!token) return;
+    if (incidentPhotos[incidentId] !== undefined) {
+      if (incidentPhotos[incidentId]) {
+        setEnlargedPhotoUrl(incidentPhotos[incidentId]);
+      } else {
+        Alert.alert(t("Không có ảnh"), t("Sự cố này không có ảnh đính kèm."));
+      }
+      return;
+    }
+    setLoadingIncidentId(incidentId);
+    try {
+      const incident = await stableCareService.getIncident(token, incidentId);
+      setIncidentPhotos((prev) => ({ ...prev, [incidentId]: incident.photoUrl }));
+      if (incident.photoUrl) {
+        setEnlargedPhotoUrl(incident.photoUrl);
+      } else {
+        Alert.alert(t("Không có ảnh"), t("Sự cố này không có ảnh đính kèm."));
+      }
+    } catch (err) {
+      Alert.alert(t("Lỗi tải ảnh sự cố"), extractErrorMessage(err));
+    } finally {
+      setLoadingIncidentId(null);
+    }
+  };
 
   // Initial load
   useEffect(() => {
     let cancelled = false;
     if (token) {
       void Promise.resolve().then(() => {
-        if (!cancelled) void fetchTabRequests("PENDING", 1);
+        if (!cancelled) void fetchTabRequests("PENDING", 1, false);
       });
     }
     return () => {
@@ -115,17 +157,18 @@ export default function ExaminationRequests() {
     setStatus(nextStatus);
     setPage(1);
     setSelected(null);
-    const hasCached = Boolean(cache[nextStatus]);
-    void fetchTabRequests(nextStatus, 1, hasCached);
+    const cacheKey = `${nextStatus}_${filterUrgent ? "urgent" : "all"}`;
+    const hasCached = Boolean(cache[cacheKey]);
+    void fetchTabRequests(nextStatus, 1, filterUrgent, hasCached);
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchTabRequests(status, page, true);
+    await fetchTabRequests(status, page, filterUrgent, true);
   };
 
   useRefreshOnFocus(async () => {
-    await fetchTabRequests(status, page, true);
+    await fetchTabRequests(status, page, filterUrgent, true);
   });
 
   // Load horses when create modal opens
@@ -199,7 +242,8 @@ export default function ExaminationRequests() {
     }
   };
 
-  const currentData = cache[status];
+  const currentKey = `${status}_${filterUrgent ? "urgent" : "all"}`;
+  const currentData = cache[currentKey] ?? cache[status];
   const items = currentData?.items ?? [];
   const totalPages = currentData?.totalPages ?? 1;
   const hasMore = totalPages > page;
@@ -250,7 +294,8 @@ export default function ExaminationRequests() {
       <View style={styles.tabContainer}>
         {statusTabs.map((tab) => {
           const isActive = status === tab.key;
-          const count = cache[tab.key]?.total;
+          const count =
+            cache[`${tab.key}_${filterUrgent ? "urgent" : "all"}`]?.total ?? cache[tab.key]?.total;
           return (
             <Pressable
               key={tab.key}
@@ -273,6 +318,21 @@ export default function ExaminationRequests() {
             </Pressable>
           );
         })}
+      </View>
+
+      {/* Urgency sub-filter */}
+      <View style={{ marginBottom: space.sm }}>
+        <Chips
+          options={["Tất cả mức độ", "Chỉ yêu cầu khẩn"]}
+          value={filterUrgent ? "Chỉ yêu cầu khẩn" : "Tất cả mức độ"}
+          onChange={(val) => {
+            const next = val === "Chỉ yêu cầu khẩn";
+            setFilterUrgent(next);
+            setPage(1);
+            setSelected(null);
+            void fetchTabRequests(status, 1, next);
+          }}
+        />
       </View>
 
       {/* Initial load or error state */}
@@ -413,6 +473,27 @@ export default function ExaminationRequests() {
                       : "Hệ thống tự động"}
                   </Text>
                 </View>
+
+                {request.incidentId ? (
+                  <View style={styles.incidentRow}>
+                    <View style={styles.incidentBadge}>
+                      <Ionicons name="warning-outline" size={14} color={colors.monitor} />
+                      <Text style={styles.incidentBadgeText}>
+                        Từ sự cố #{request.incidentId.slice(0, 8)}
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={styles.viewPhotoBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        void viewIncidentPhoto(request.incidentId!);
+                      }}
+                    >
+                      <Ionicons name="image-outline" size={14} color={colors.primary} />
+                      <Text style={styles.viewPhotoBtnText}>Xem ảnh sự cố</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
 
                 {request.dismissReason ? (
                   <View style={styles.dismissBox}>
@@ -784,6 +865,43 @@ export default function ExaminationRequests() {
                 </View>
               ) : null}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal enlarged incident photo */}
+      <Modal
+        visible={Boolean(enlargedPhotoUrl)}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setEnlargedPhotoUrl(null)}
+      >
+        <View style={styles.photoModalOverlay}>
+          <View style={styles.photoModalCard}>
+            <View style={styles.photoModalHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="image" size={18} color={colors.primary} />
+                <Text style={styles.photoModalTitle}>Ảnh sự cố đính kèm</Text>
+              </View>
+              <Pressable
+                onPress={() => setEnlargedPhotoUrl(null)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={20} color={colors.foreground} />
+              </Pressable>
+            </View>
+            {enlargedPhotoUrl ? (
+              <Image
+                source={{ uri: enlargedPhotoUrl }}
+                style={styles.photoPreviewImg}
+                resizeMode="contain"
+              />
+            ) : null}
+            <SecondaryButton
+              label="Đóng ảnh"
+              icon="close-outline"
+              onPress={() => setEnlargedPhotoUrl(null)}
+            />
           </View>
         </View>
       </Modal>
@@ -1220,6 +1338,76 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       fontSize: 12,
       color: colors.mutedForeground,
       marginTop: 1,
+    },
+    incidentRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: space.xs,
+      paddingTop: space.xs,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    incidentBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+    },
+    incidentBadgeText: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: colors.foreground,
+    },
+    viewPhotoBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    viewPhotoBtnText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    photoModalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.7)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: space.lg,
+    },
+    photoModalCard: {
+      width: "100%",
+      maxHeight: "85%",
+      backgroundColor: colors.card,
+      borderRadius: radius.lg,
+      padding: space.md,
+      gap: space.md,
+    },
+    photoModalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    photoModalTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    photoPreviewImg: {
+      width: "100%",
+      height: 320,
+      borderRadius: radius.md,
+      backgroundColor: "#000",
     },
   });
 }

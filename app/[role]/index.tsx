@@ -114,7 +114,7 @@ export default function RoleHome() {
           horseService.list(token, "", { myBarns: true }),
           stableService.listBarns(token),
           stableService.listStalls(token).catch(() => []),
-          medicalService.getDashboard(token),
+          medicalService.getDashboard(token, { mine: true }),
           medicalService.listCheckups(token).catch(() => []),
           stableCareService.listIncidents(token, { status: "OPEN" }).catch(() => []),
           suppliesService
@@ -168,6 +168,8 @@ export default function RoleHome() {
         checkups: [],
         careSchedules: [],
         openCases: [],
+        horsesWithoutCase: [],
+        todayPrescriptions: [],
         pendingRequests: [],
       };
       const [dashboard, horses, checkups, supplies, notifications] = await Promise.all([

@@ -119,7 +119,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
 
   if (!role) return <Redirect href="/" />;
   if (!["vet", "manager", "trainer"].includes(role)) {
-    return <Redirect href={(role === "groom" ? "/groom/medical/requests" : `/${role}`) as Href} />;
+    return <Redirect href={(role === "groom" ? "/groom/incidents" : `/${role}`) as Href} />;
   }
 
   return (

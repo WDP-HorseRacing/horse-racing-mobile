@@ -18,6 +18,7 @@ import { horseService } from "@/services/horse.service";
 import { medicalService, type TrainingLockDto } from "@/services/medical.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { useTheme } from "@/hooks/useTheme";
+import { toClubDateTime } from "@/features/medical/medical-validation";
 
 const reasons = [
   "Abnormal vital signs",
@@ -25,6 +26,26 @@ const reasons = [
   "Veterinary examination required",
   "Other",
 ];
+
+const lockDurationPresets = [
+  "Không đặt trước",
+  "Sau 3 ngày",
+  "Sau 7 ngày",
+  "Sau 14 ngày",
+  "Tùy chọn",
+];
+
+const getOffsetDateStr = (days: number) => {
+  const d = new Date(Date.now() + days * 86400000);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const v = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return `${v.year}-${v.month}-${v.day}`;
+};
 
 export default function LockTraining() {
   const { colors } = useTheme();
@@ -34,10 +55,29 @@ export default function LockTraining() {
   const { token } = useAuth();
   const [reason, setReason] = useState(reasons[0]);
   const [otherReason, setOtherReason] = useState("");
+  const [durationPreset, setDurationPreset] = useState("Không đặt trước");
+  const [lockEndDate, setLockEndDate] = useState("");
+  const [lockEndTime, setLockEndTime] = useState("09:00");
   const [releaseReason, setReleaseReason] = useState("");
   const [showReleaseForm, setShowReleaseForm] = useState(false);
   const [createdLock, setCreatedLock] = useState<TrainingLockDto | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const handleDurationChange = (preset: string) => {
+    setDurationPreset(preset);
+    if (preset === "Không đặt trước") {
+      setLockEndDate("");
+    } else if (preset === "Sau 3 ngày") {
+      setLockEndDate(getOffsetDateStr(3));
+    } else if (preset === "Sau 7 ngày") {
+      setLockEndDate(getOffsetDateStr(7));
+    } else if (preset === "Sau 14 ngày") {
+      setLockEndDate(getOffsetDateStr(14));
+    } else if (preset === "Tùy chọn" && !lockEndDate) {
+      setLockEndDate(getOffsetDateStr(3));
+    }
+  };
+
   const load = useCallback(async () => {
     const [horse, locks] = await Promise.all([
       horseService.get(token!, horseId),
@@ -65,10 +105,22 @@ export default function LockTraining() {
       Alert.alert("Reason required", "Enter a reason for the training lock.");
       return;
     }
+    let lockEndIso: string | undefined = undefined;
+    if (lockEndDate.trim()) {
+      const iso = toClubDateTime(lockEndDate.trim(), lockEndTime.trim() || "09:00");
+      if (!iso) {
+        Alert.alert("Ngày giờ không hợp lệ", "Vui lòng nhập đúng định dạng YYYY-MM-DD và HH:mm.");
+        return;
+      }
+      lockEndIso = iso;
+    }
     setSaving(true);
     try {
       setCreatedLock(
-        await medicalService.createTrainingLock(token, horseId, { reason: lockReason }),
+        await medicalService.createTrainingLock(token, horseId, {
+          reason: lockReason,
+          ...(lockEndIso ? { lockEnd: lockEndIso } : {}),
+        }),
       );
       await resource.refresh();
     } catch (error) {
@@ -126,6 +178,14 @@ export default function LockTraining() {
                   timeZone: "Asia/Ho_Chi_Minh",
                 })}
               </Text>
+              {activeLock.lockEnd ? (
+                <Text style={uiStyles.muted}>
+                  Dự kiến gỡ:{" "}
+                  {new Date(activeLock.lockEnd).toLocaleString("vi-VN", {
+                    timeZone: "Asia/Ho_Chi_Minh",
+                  })}
+                </Text>
+              ) : null}
             </View>
             <PrimaryButton
               label="Release training lock"
@@ -183,6 +243,32 @@ export default function LockTraining() {
                 />
               </Field>
             ) : null}
+            <View style={uiStyles.section}>
+              <SectionTitle>Thời hạn khóa dự kiến</SectionTitle>
+              <Chips
+                options={lockDurationPresets}
+                value={durationPreset}
+                onChange={handleDurationChange}
+              />
+              {durationPreset !== "Không đặt trước" ? (
+                <View style={{ gap: 8, marginTop: 8 }}>
+                  <Field label="Ngày dự kiến gỡ khóa (YYYY-MM-DD)">
+                    <NativeInput
+                      value={lockEndDate}
+                      onChangeText={setLockEndDate}
+                      placeholder="YYYY-MM-DD"
+                    />
+                  </Field>
+                  <Field label="Giờ dự kiến gỡ khóa (HH:mm)">
+                    <NativeInput
+                      value={lockEndTime}
+                      onChangeText={setLockEndTime}
+                      placeholder="09:00"
+                    />
+                  </Field>
+                </View>
+              ) : null}
+            </View>
             <Panel>
               <Text style={uiStyles.muted}>
                 Lệnh khóa huấn luyện được lưu trữ và cập nhật điều kiện tham gia lớp của ngựa.

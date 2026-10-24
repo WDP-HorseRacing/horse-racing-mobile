@@ -223,33 +223,50 @@ export function VetDashboard({
                 ) : null}
 
                 <View style={styles.cardActionRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() =>
-                      router.push(`/vet/medical/visit?horseId=${horseId}&kind=REQUEST` as Href)
-                    }
-                    style={styles.primaryActionBtn}
-                  >
-                    <Ionicons name="medkit" size={15} color="#FFFFFF" />
-                    <Text style={styles.primaryActionBtnText}>{t("Record exam")}</Text>
-                  </Pressable>
-
                   {activeCase ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => router.push(`/vet/medical/cases/${activeCase.caseId}` as Href)}
-                      style={styles.secondaryActionBtn}
-                    >
-                      <Text style={styles.secondaryActionBtnText}>{t("View case")}</Text>
-                    </Pressable>
+                    <>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() =>
+                          router.push(
+                            `/vet/medical/visit?horseId=${horseId}&caseId=${activeCase.caseId}` as Href,
+                          )
+                        }
+                        style={styles.primaryActionBtn}
+                      >
+                        <Ionicons name="medkit" size={15} color="#FFFFFF" />
+                        <Text style={styles.primaryActionBtnText}>{t("Ghi tái khám")}</Text>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => router.push(`/vet/medical/cases/${activeCase.caseId}` as Href)}
+                        style={styles.secondaryActionBtn}
+                      >
+                        <Text style={styles.secondaryActionBtnText}>{t("View case")}</Text>
+                      </Pressable>
+                    </>
                   ) : (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => router.push(`/vet/horse/${horseId}` as Href)}
-                      style={styles.secondaryActionBtn}
-                    >
-                      <Text style={styles.secondaryActionBtnText}>{t("Profile")}</Text>
-                    </Pressable>
+                    <>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() =>
+                          router.push(`/vet/medical/visit?horseId=${horseId}&kind=REQUEST` as Href)
+                        }
+                        style={styles.primaryActionBtn}
+                      >
+                        <Ionicons name="medkit" size={15} color="#FFFFFF" />
+                        <Text style={styles.primaryActionBtnText}>{t("Record exam")}</Text>
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => router.push(`/vet/horse/${horseId}` as Href)}
+                        style={styles.secondaryActionBtn}
+                      >
+                        <Text style={styles.secondaryActionBtnText}>{t("Profile")}</Text>
+                      </Pressable>
+                    </>
                   )}
                 </View>
               </Panel>
@@ -381,6 +398,98 @@ export function VetDashboard({
           />
         ) : null}
       </View>
+
+      {/* Horses Needing Case (Injured or Quarantined without open case) */}
+      {dashboard.horsesWithoutCase && dashboard.horsesWithoutCase.length > 0 ? (
+        <View style={uiStyles.section}>
+          <SectionTitle>
+            {t("Ngựa cần mở bệnh án")} ({dashboard.horsesWithoutCase.length})
+          </SectionTitle>
+          <View style={styles.alertBanner}>
+            <Ionicons name="alert-circle" size={20} color={colors.destructive} />
+            <Text style={styles.alertBannerText}>
+              {dashboard.horsesWithoutCase.length}{" "}
+              {t("ngựa đang chấn thương hoặc cách ly nhưng chưa có bệnh án điều trị.")}
+            </Text>
+          </View>
+          {dashboard.horsesWithoutCase.slice(0, 4).map((h) => (
+            <Panel key={h.horseId} style={styles.criticalCard}>
+              <View style={uiStyles.row}>
+                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                  <Text style={[uiStyles.value, { fontSize: 16 }]} numberOfLines={1}>
+                    {h.horseName}
+                  </Text>
+                  <Text style={uiStyles.muted} numberOfLines={1}>
+                    {[h.barnName, h.stallCode ? `Ô ${h.stallCode}` : null]
+                      .filter(Boolean)
+                      .join(" · ") || t("Chưa xếp ô")}
+                    {h.since ? ` · ${t("Từ")} ${formatDate(h.since)}` : ""}
+                  </Text>
+                </View>
+                <HealthStatusBadge status={h.healthStatus} />
+              </View>
+              <View style={styles.cardActionRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push(`/vet/medical/visit?horseId=${h.horseId}&kind=REQUEST` as Href)
+                  }
+                  style={styles.primaryActionBtn}
+                >
+                  <Ionicons name="medkit" size={15} color="#FFFFFF" />
+                  <Text style={styles.primaryActionBtnText}>{t("Khám & Mở bệnh án")}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push(`/vet/horse/${h.horseId}` as Href)}
+                  style={styles.secondaryActionBtn}
+                >
+                  <Text style={styles.secondaryActionBtnText}>{t("Profile")}</Text>
+                </Pressable>
+              </View>
+            </Panel>
+          ))}
+        </View>
+      ) : null}
+
+      {/* Today Prescriptions */}
+      {dashboard.todayPrescriptions && dashboard.todayPrescriptions.length > 0 ? (
+        <View style={uiStyles.section}>
+          <SectionTitle>
+            {t("Thuốc cần cho hôm nay")} ({dashboard.todayPrescriptions.length})
+          </SectionTitle>
+          {dashboard.todayPrescriptions.slice(0, 5).map((p) => (
+            <Panel key={p.prescriptionId}>
+              <View style={uiStyles.row}>
+                <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="bandage-outline" size={16} color={colors.primary} />
+                    <Text style={[uiStyles.value, { fontSize: 15 }]} numberOfLines={1}>
+                      {p.horseName} · {p.medicine}
+                    </Text>
+                  </View>
+                  <Text style={uiStyles.muted}>
+                    {t("Liều lượng")}: {p.dosage} · {t("Tần suất")}: {p.frequency}
+                  </Text>
+                  <Text style={[uiStyles.label, { fontSize: 11 }]}>
+                    {t("Từ")} {formatDate(p.startDate)}
+                    {p.endDate ? ` ${t("đến")} ${formatDate(p.endDate)}` : ` (${t("Tới khi đóng bệnh án")})`}
+                  </Text>
+                </View>
+                {p.caseId ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => router.push(`/vet/medical/cases/${p.caseId}` as Href)}
+                    style={styles.smallCaseBtn}
+                  >
+                    <Text style={styles.smallCaseBtnText}>{t("Xem ca")}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </Panel>
+          ))}
+        </View>
+      ) : null}
 
       {/* Upcoming Preventive Checkups (Next 7 Days & Overdue) */}
       <View style={uiStyles.section}>
@@ -593,6 +702,20 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       fontSize: 9,
       fontWeight: "800",
       letterSpacing: 0.5,
+    },
+    smallCaseBtn: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: radius.sm,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      alignSelf: "center",
+    },
+    smallCaseBtnText: {
+      color: "#FFFFFF",
+      fontSize: 12,
+      fontWeight: "700",
     },
   });
 }

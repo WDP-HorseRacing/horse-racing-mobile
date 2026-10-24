@@ -1,10 +1,10 @@
 import { router, type Href } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { SectionTitle } from "@/components/common";
-import { Metric, Panel, ProgressBar, getUiStyles } from "@/components/ui";
+import { Chips, Metric, Panel, ProgressBar, getUiStyles } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
@@ -16,6 +16,7 @@ import type { IncidentDto } from "@/services/stable-care.service";
 import type { SupplyItemDto } from "@/adapters/supplies.adapter";
 import type { TrainingClassDto, TrainingSessionDto } from "@/services/training.service";
 import { formatCurrency, formatDate } from "@/utils/formatters";
+import { medicalService } from "@/services/medical.service";
 
 type CheckupItemDto = MedicalDashboardDto["checkups"][number];
 
@@ -47,6 +48,7 @@ type AttentionItem = {
 export function ManagerTrainerDashboard({
   role,
   data,
+  token,
 }: {
   role: RoleId;
   data: ManagerTrainerDashboardData;
@@ -58,11 +60,34 @@ export function ManagerTrainerDashboard({
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
 
+  const [trainerScope, setTrainerScope] = useState<"mine" | "all">("mine");
+  const [scopedMedical, setScopedMedical] = useState<{
+    scope: "mine" | "all";
+    data: MedicalDashboardDto;
+  } | null>(null);
+
+  const medical =
+    scopedMedical && scopedMedical.scope === trainerScope
+      ? scopedMedical.data
+      : data.medical;
+
+  const switchTrainerScope = async (scope: "mine" | "all") => {
+    if (scope === trainerScope || !token || role !== "trainer") return;
+    setTrainerScope(scope);
+    try {
+      const updated = await medicalService.getDashboard(token, {
+        mine: scope === "mine",
+      });
+      setScopedMedical({ scope, data: updated });
+    } catch {
+      // Keep existing on error
+    }
+  };
+
   // --- 1. OPERATIONAL OVERVIEW CALCULATIONS ---
   const horses = data.horses;
   const barns = data.barns;
   const stalls = data.stalls;
-  const medical = data.medical;
 
   const isBlocked = (h: HorseListItemDto) =>
     h.lifecycleStatus === "ACTIVE" &&
@@ -780,6 +805,16 @@ export function ManagerTrainerDashboard({
             <Ionicons name="arrow-forward" size={13} color={colors.primary} />
           </Pressable>
         </View>
+
+        {role === "trainer" ? (
+          <View style={{ marginBottom: space.sm }}>
+            <Chips
+              options={["Khu của tôi", "Toàn câu lạc bộ"]}
+              value={trainerScope === "mine" ? "Khu của tôi" : "Toàn câu lạc bộ"}
+              onChange={(val) => void switchTrainerScope(val === "Khu của tôi" ? "mine" : "all")}
+            />
+          </View>
+        ) : null}
 
         <Panel>
           <Text style={styles.cardHighlightTitle}>{t("Herd health distribution")}</Text>

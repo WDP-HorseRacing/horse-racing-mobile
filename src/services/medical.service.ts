@@ -98,7 +98,12 @@ export type CaseCloseInputDto = {
   deceased?: boolean;
 };
 
-export type MedicalDashboardFilters = { barnId?: string; healthStatus?: HealthStatusDto };
+export type MedicalDashboardFilters = {
+  barnId?: string;
+  healthStatus?: HealthStatusDto;
+  careAssignee?: "me";
+  mine?: boolean;
+};
 export type ExamRequestFilters = {
   page?: number;
   limit?: number;
@@ -111,6 +116,8 @@ export const medicalService = {
     const query = new URLSearchParams();
     if (filters.barnId) query.set("barnId", filters.barnId);
     if (filters.healthStatus) query.set("healthStatus", filters.healthStatus);
+    if (filters.careAssignee) query.set("careAssignee", filters.careAssignee);
+    if (filters.mine !== undefined) query.set("mine", String(filters.mine));
     const suffix = query.size ? `?${query.toString()}` : "";
     return apiRequest<MedicalDashboardDto>(`/medical/dashboard${suffix}`, { token });
   },

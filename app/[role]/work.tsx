@@ -107,6 +107,8 @@ async function loadRoleWork(token: string, role: RoleId): Promise<WorkPayload> {
           checkups: [],
           careSchedules: [],
           openCases: [],
+          horsesWithoutCase: [],
+          todayPrescriptions: [],
           pendingRequests: [],
         })),
       };

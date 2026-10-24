@@ -733,6 +733,59 @@ export default function MedicalCaseDetail() {
                     ) : (
                       <Text style={styles.previewItem}>• Không có lệnh khóa huấn luyện nào.</Text>
                     )}
+                    {resource.data.preview.unhealedInjuryCount > 0 ? (
+                      <View
+                        style={{
+                          marginTop: space.xs,
+                          padding: space.sm,
+                          borderRadius: radius.sm,
+                          backgroundColor: colors.injuredSoft,
+                          gap: 4,
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.previewItem,
+                            { color: colors.destructive, fontWeight: "700" },
+                          ]}
+                        >
+                          • Còn {resource.data.preview.unhealedInjuryCount} chấn thương chưa lành.
+                        </Text>
+                        <Text style={[uiStyles.muted, { fontSize: 13, color: colors.destructive }]}>
+                          Backend không cho phép đóng bệnh án khi còn vết thương chưa lành (trừ trường hợp ghi nhận ngựa mất).
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            if (medicalCase) {
+                              router.push(
+                                `/${role}/medical/visit?horseId=${medicalCase.horseId}&caseId=${medicalCase.id}` as Href,
+                              );
+                            }
+                          }}
+                          style={{
+                            marginTop: 6,
+                            paddingVertical: 8,
+                            paddingHorizontal: 12,
+                            backgroundColor: colors.primary,
+                            borderRadius: radius.sm,
+                            alignSelf: "flex-start",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: colors.primaryForeground,
+                              fontWeight: "700",
+                              fontSize: 13,
+                            }}
+                          >
+                            Ghi tái khám để cập nhật lành thương
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Text style={styles.previewItem}>• Toàn bộ chấn thương đã được ghi nhận lành.</Text>
+                    )}
                   </View>
                 ) : null}
 
@@ -806,7 +859,11 @@ export default function MedicalCaseDetail() {
                 <PrimaryButton
                   label={saving ? "Đang đóng bệnh án…" : "Xác nhận đóng bệnh án"}
                   icon="checkmark-done-circle-outline"
-                  disabled={saving || !finalConclusion.trim()}
+                  disabled={
+                    saving ||
+                    !finalConclusion.trim() ||
+                    (!recordDeath && (resource.data.preview?.unhealedInjuryCount ?? 0) > 0)
+                  }
                   onPress={() =>
                     Alert.alert(
                       "Đóng bệnh án điều trị?",
@@ -822,6 +879,18 @@ export default function MedicalCaseDetail() {
                     )
                   }
                 />
+                {!recordDeath && (resource.data.preview?.unhealedInjuryCount ?? 0) > 0 ? (
+                  <Text
+                    style={[
+                      uiStyles.muted,
+                      { color: colors.destructive, fontSize: 12, textAlign: "center", marginTop: 4 },
+                    ]}
+                  >
+                    {
+                      'Nút bị khóa do ngựa còn chấn thương chưa lành. Hãy ghi tái khám cập nhật lành thương hoặc chọn "Ghi nhận ngựa mất".'
+                    }
+                  </Text>
+                ) : null}
               </View>
             </View>
           ) : null}

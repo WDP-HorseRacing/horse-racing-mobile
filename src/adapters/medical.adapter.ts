@@ -62,6 +62,30 @@ export type MedicalCaseSummaryDto = {
 
 export type MedicalCaseDto = MedicalCaseSummaryDto & { visits: MedicalRecordDto[] };
 
+export type DashboardHorseWithoutCaseDto = {
+  horseId: string;
+  horseName: string;
+  barnId: string | null;
+  barnName: string | null;
+  stallId: string | null;
+  stallCode: string | null;
+  healthStatus: "INJURED" | "QUARANTINED" | string;
+  since: string | null;
+};
+
+export type DashboardPrescriptionDto = {
+  prescriptionId: string;
+  horseId: string;
+  horseName: string;
+  medicine: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  endDate: string | null;
+  medicalRecordId: string;
+  caseId: string | null;
+};
+
 export type MedicalDashboardDto = {
   herd: {
     counts: Record<"QUARANTINED" | "INJURED" | "UNDER_OBSERVATION" | "ELIGIBLE", number>;
@@ -102,6 +126,8 @@ export type MedicalDashboardDto = {
     lastVisitAt: string | null;
     nextVisitAt: string | null;
   }[];
+  horsesWithoutCase: DashboardHorseWithoutCaseDto[];
+  todayPrescriptions: DashboardPrescriptionDto[];
   pendingRequests: {
     id: string;
     horseId: string;
@@ -116,6 +142,7 @@ export type MedicalDashboardDto = {
     dismissReason?: string | null;
     handledAt?: string | null;
     medicalRecordId?: string | null;
+    incidentId?: string | null;
   }[];
 };
 
@@ -124,6 +151,7 @@ export type MedicalCaseClosePreviewDto = {
   healthStatus: string;
   healthWarning: boolean;
   pendingRequestCount: number;
+  unhealedInjuryCount: number;
   deathImpact?: HorseLifecyclePreviewDto;
 };
 

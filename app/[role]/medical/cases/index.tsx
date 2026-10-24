@@ -10,6 +10,7 @@ import { useApiResource } from "@/hooks/useApiResource";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
 import { isRole } from "@/features/auth/roles";
+import { ApiError } from "@/services/api-client";
 import { horseService } from "@/services/horse.service";
 import { medicalService, type MedicalCaseSummaryDto } from "@/services/medical.service";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
@@ -36,16 +37,54 @@ export default function MedicalCasesListScreen() {
   const canView = role && ["vet", "manager", "trainer", "owner"].includes(role);
 
   const fetchData = useCallback(async () => {
-    const [casesRes, horsesRes] = await Promise.all([
-      medicalService.listAllCases(token!).catch(() => []),
-      horseService.list(token!, "", { includeDeleted: false }).catch(() => []),
-    ]);
+    let casesRes: MedicalCaseSummaryDto[] = [];
+    let isFallback = false;
+
+    try {
+      casesRes = await medicalService.listAllCases(token!);
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err);
+      const isNotFound =
+        err instanceof ApiError
+          ? err.status === 404
+          : (typeof err === "object" &&
+              err !== null &&
+              "status" in err &&
+              (err as { status: number }).status === 404) ||
+            msg.includes("404") ||
+            msg.toLowerCase().includes("not found");
+
+      if (isNotFound) {
+        // Fallback to open cases from dashboard when GET /medical-cases route is not yet available
+        const dashboard = await medicalService.getDashboard(token!);
+        casesRes = (dashboard.openCases ?? []).map((oc) => ({
+          id: oc.caseId,
+          horseId: oc.horseId,
+          status: "OPEN",
+          openedAt: oc.openedAt,
+          openedBy: "",
+          initialDiagnosis: oc.initialDiagnosis,
+          closedAt: null,
+          finalConclusion: null,
+          lastVisitAt: oc.lastVisitAt,
+          nextVisitAt: oc.nextVisitAt,
+        }));
+        isFallback = true;
+      } else {
+        // Re-throw genuine errors (network error, 500, auth errors) so AsyncStateView can show error and retry
+        throw err;
+      }
+    }
+
+    const horsesRes = await horseService
+      .list(token!, "", { includeDeleted: false })
+      .catch(() => []);
 
     const map: Record<string, HorseListItemDto> = {};
     for (const h of horsesRes) {
       map[h.id] = h;
     }
-    return { cases: casesRes, horsesMap: map };
+    return { cases: casesRes, horsesMap: map, isFallback };
   }, [token]);
 
   const resource = useApiResource(fetchData, Boolean(token && canView));
@@ -110,6 +149,15 @@ export default function MedicalCasesListScreen() {
             icon="medkit-outline"
             onPress={() => router.push(`/${role}/medical/visit` as Href)}
           />
+        </View>
+      ) : null}
+
+      {resource.data?.isFallback ? (
+        <View style={styles.fallbackBanner}>
+          <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+          <Text style={styles.fallbackBannerText}>
+            Đang hiển thị các bệnh án đang mở từ bảng điều khiển y tế (chế độ dự phòng).
+          </Text>
         </View>
       ) : null}
 
@@ -520,6 +568,23 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       fontSize: 12,
       fontWeight: "700",
       color: colors.primary,
+    },
+    fallbackBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      padding: space.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: space.sm,
+    },
+    fallbackBannerText: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.foreground,
+      lineHeight: 16,
     },
   });
 }
