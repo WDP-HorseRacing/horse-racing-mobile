@@ -64,7 +64,7 @@ export default function MedicalCostReport() {
     <Screen
       role="manager"
       title="Medical cost report"
-      subtitle="Closed cases by closing date"
+      subtitle="Medical visits by exam date"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -86,6 +86,7 @@ export default function MedicalCostReport() {
         <Field label="To date (YYYY-MM-DD)">
           <NativeInput value={to} onChangeText={setTo} />
         </Field>
+        <Text style={uiStyles.label}>Khu của ngựa lúc khám</Text>
         <Chips
           options={["All barns", ...barns.map((barn) => barn.name)]}
           value={
@@ -102,8 +103,8 @@ export default function MedicalCostReport() {
         <>
           <View style={uiStyles.metricGrid}>
             <Panel>
-              <Text style={uiStyles.label}>Closed cases</Text>
-              <Text style={uiStyles.value}>{resource.data.caseCount}</Text>
+              <Text style={uiStyles.label}>Visits</Text>
+              <Text style={uiStyles.value}>{resource.data.visitCount}</Text>
             </Panel>
             <Panel>
               <Text style={uiStyles.label}>Total medical cost</Text>
@@ -127,21 +128,21 @@ export default function MedicalCostReport() {
                     </Text>
                   </View>
                   <Text style={uiStyles.muted}>
-                    {item.caseCount} closed {item.caseCount === 1 ? "case" : "cases"}
+                    {item.visitCount} {item.visitCount === 1 ? "visit" : "visits"}
                   </Text>
                 </Panel>
               </Pressable>
             ))}
             {!resource.data.items.length ? (
-              <Text style={uiStyles.muted}>No closed cases match this report range.</Text>
+              <Text style={uiStyles.muted}>No medical visits match this report range.</Text>
             ) : null}
           </View>
         </>
       ) : null}
       <Panel>
         <Text style={uiStyles.muted}>
-          Totals come from the Manager-only Backend report endpoint; the mobile client does not
-          recalculate case costs.
+          Số liệu tổng hợp chi phí được trích xuất trực tiếp từ hệ thống quản lý chi phí y tế câu
+          lạc bộ.
         </Text>
       </Panel>
     </Screen>

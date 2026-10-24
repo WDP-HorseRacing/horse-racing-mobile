@@ -21,7 +21,11 @@ export function formatDistance(value: number, locale = "en-US"): string {
   return `${formatNumber(value, locale)} m`;
 }
 
-export function formatQuantity(value: number | null | undefined, unit = "", locale = "en-US"): string {
+export function formatQuantity(
+  value: number | null | undefined,
+  unit = "",
+  locale = "en-US",
+): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   const amount = formatNumber(value, locale);
   return unit ? `${amount} ${unit}` : amount;
@@ -34,6 +38,11 @@ export function formatCurrency(value: number, currency = "VND", locale = "vi-VN"
     currency,
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+export function formatVnd(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "0 VND";
+  return `${value.toLocaleString("vi-VN")} VND`;
 }
 
 export function formatDate(value: string | number | Date, locale = "vi-VN"): string {

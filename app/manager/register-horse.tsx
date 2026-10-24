@@ -23,7 +23,8 @@ import { mediaService, type LocalMediaAsset } from "@/services/media.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import type { StaffDto } from "@/adapters/staff.adapter";
 import type { CreateHorseInput, HorseGenderDto } from "@/adapters/horse.adapter";
-import { validateHorseIdentity } from "@/utils/horse-validation";
+import { clubDate, isValidIsoDate, validateHorseIdentity } from "@/utils/horse-validation";
+import { useI18n } from "@/context/I18nContext";
 
 import * as DocumentPicker from "expo-document-picker";
 
@@ -32,6 +33,7 @@ type SaveMode = "open" | "another";
 export default function RegisterHorse() {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
+  const { t } = useI18n();
   const { token, role, isLoading: authLoading } = useAuth();
   const [name, setName] = useState("");
   const [gender, setGender] = useState<HorseGenderDto>("MALE");
@@ -108,8 +110,50 @@ export default function RegisterHorse() {
     setFormError("");
   };
 
+  const microchipError = useMemo(() => {
+    const val = microchipId.trim();
+    if (!val) return "";
+    if (!/^\d+$/.test(val)) return t("Mã microchip chỉ được chứa các chữ số.");
+    if (val.length !== 15) return `${t("Mã microchip phải gồm đúng 15 chữ số")} (${val.length}/15).`;
+    return "";
+  }, [microchipId, t]);
+
+  const dobError = useMemo(() => {
+    const val = dateOfBirth.trim();
+    if (!val) return "";
+    if (!isValidIsoDate(val)) return t("Ngày sinh phải theo định dạng YYYY-MM-DD hợp lệ.");
+    const today = clubDate();
+    const [year, month, day] = val.split("-").map(Number);
+    const birth = new Date(Date.UTC(year, month - 1, day));
+    const [nowYear, nowMonth, nowDay] = today.split("-").map(Number);
+    const now = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay));
+    const ageYears = (now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    if (ageYears < 1) return t("Ngựa phải từ 1 tuổi trở lên.");
+    if (ageYears > 40) return t("Ngựa không được quá 40 tuổi.");
+    return "";
+  }, [dateOfBirth, t]);
+
+  const nameError = useMemo(() => {
+    const val = name.trim();
+    if (!val) return "";
+    if (val.length > 160) return t("Tên ngựa không được vượt quá 160 ký tự.");
+    return "";
+  }, [name, t]);
+
   const submit = async (mode: SaveMode) => {
     if (!token || role !== "manager" || savingRef.current) return;
+    if (!microchipId.trim()) {
+      setFormError("Enter the 15-digit microchip ID.");
+      return;
+    }
+    if (!/^\d{15}$/.test(microchipId.trim())) {
+      setFormError("Microchip must contain exactly 15 digits.");
+      return;
+    }
+    if (!ownerId) {
+      setFormError("Select an owner for the horse.");
+      return;
+    }
     const validationError = validateHorseIdentity({
       name,
       breed,
@@ -139,11 +183,11 @@ export default function RegisterHorse() {
       const input: CreateHorseInput = {
         name: name.trim(),
         gender,
-        ...(microchipId.trim() ? { microchipId: microchipId.trim() } : {}),
+        microchipId: microchipId.trim(),
+        ownerId,
         ...(breed.trim() ? { breed: breed.trim() } : {}),
         ...(color.trim() ? { color: color.trim() } : {}),
         ...(dateOfBirth.trim() ? { dateOfBirth: dateOfBirth.trim() } : {}),
-        ...(ownerId ? { ownerId } : {}),
         ...(sireId ? { sireId } : {}),
         ...(damId ? { damId } : {}),
         ...(barnId ? { barnId } : {}),
@@ -201,10 +245,7 @@ export default function RegisterHorse() {
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        "Quyền máy ảnh",
-        "Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh ngựa.",
-      );
+      Alert.alert("Quyền máy ảnh", "Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh ngựa.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -292,6 +333,11 @@ export default function RegisterHorse() {
             <View style={{ gap: 18 }}>
               <Field label="Horse name">
                 <NativeInput value={name} onChangeText={setName} placeholder="Horse name" />
+                {nameError ? (
+                  <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                    {nameError}
+                  </Text>
+                ) : null}
               </Field>
               <Field label="Gender">
                 <Chips
@@ -300,13 +346,18 @@ export default function RegisterHorse() {
                   onChange={(value) => setGender(value as HorseGenderDto)}
                 />
               </Field>
-              <Field label="Microchip ID">
+              <Field label="Microchip ID *">
                 <NativeInput
                   value={microchipId}
                   onChangeText={setMicrochipId}
-                  placeholder="15 digits (optional)"
+                  placeholder="15 digits (required)"
                   keyboardType="number-pad"
                 />
+                {microchipError ? (
+                  <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                    {microchipError}
+                  </Text>
+                ) : null}
               </Field>
               <Field label="Breed">
                 <NativeInput value={breed} onChangeText={setBreed} placeholder="Breed (optional)" />
@@ -324,6 +375,11 @@ export default function RegisterHorse() {
                   onChangeText={setDateOfBirth}
                   placeholder="2021-05-20"
                 />
+                {dobError ? (
+                  <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                    {dobError}
+                  </Text>
+                ) : null}
               </Field>
               <Field label="Sire (optional)">
                 <NativeInput
@@ -381,7 +437,7 @@ export default function RegisterHorse() {
                   emptyLabel="No dam profiles are available."
                 />
               </Field>
-              <Field label="Primary owner (optional)">
+              <Field label="Primary owner *">
                 <NativeInput
                   value={ownerSearch}
                   onChangeText={setOwnerSearch}
@@ -406,7 +462,7 @@ export default function RegisterHorse() {
                       setOwnerSearch(selected?.fullName ?? "");
                     }
                   }}
-                  emptyLabel="No active horse owners found. The horse can be assigned later."
+                  emptyLabel="No active horse owners found."
                 />
               </Field>
               <Field label="Initial barn (optional)">
@@ -473,7 +529,7 @@ export default function RegisterHorse() {
               uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save and open profile"
             }
             icon="checkmark"
-            disabled={saving}
+            disabled={saving || Boolean(nameError || microchipError || dobError)}
             onPress={() => void submit("open")}
           />
           <SecondaryButton
@@ -481,7 +537,7 @@ export default function RegisterHorse() {
               uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save and add another"
             }
             icon="add"
-            disabled={saving}
+            disabled={saving || Boolean(nameError || microchipError || dobError)}
             onPress={() => void submit("another")}
           />
         </>

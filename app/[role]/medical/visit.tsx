@@ -28,6 +28,7 @@ import {
   isValidRequiredText,
   MEDICAL_MEASUREMENT_RANGES,
   toClubDateTime,
+  validateMeasurementField,
 } from "@/features/medical/medical-validation";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime } from "@/utils/formatters";
@@ -76,19 +77,28 @@ export default function MedicalVisitForm() {
     horseId: horseParam,
     caseId: caseParam,
     requestId: requestParam,
+    requestIds: requestIdsParam,
+    replacesRecordId: replacesRecordParam,
     kind: kindParam,
   } = useLocalSearchParams<{
     role: string;
     horseId?: string;
     caseId?: string;
     requestId?: string;
+    requestIds?: string | string[];
+    replacesRecordId?: string;
     kind?: string;
   }>();
   const role = isRole(roleParam) ? roleParam : null;
   const horseId = Array.isArray(horseParam) ? horseParam[0] : (horseParam ?? "");
   const caseId = Array.isArray(caseParam) ? caseParam[0] : (caseParam ?? "");
   const requestId = Array.isArray(requestParam) ? requestParam[0] : (requestParam ?? "");
-  const initialKind = requestId || kindParam === "REQUEST" ? "REQUEST" : "ROUTINE";
+  const requestIdsText = Array.isArray(requestIdsParam) ? requestIdsParam[0] : requestIdsParam;
+  const replacementRequestIds = (requestIdsText ?? "").split(",").filter(Boolean);
+  const replacesRecordId = Array.isArray(replacesRecordParam)
+    ? replacesRecordParam[0]
+    : (replacesRecordParam ?? "");
+  const initialKind = requestId || replacementRequestIds.length || kindParam === "REQUEST" ? "REQUEST" : "ROUTINE";
   const { token } = useAuth();
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -98,7 +108,9 @@ export default function MedicalVisitForm() {
   const now = clubDateTimeParts();
   const [kind, setKind] = useState<"ROUTINE" | "REQUEST">(initialKind);
   const [conclusion, setConclusion] = useState<"NORMAL" | "ISSUE">("NORMAL");
-  const [selectedRequests, setSelectedRequests] = useState<string[]>(requestId ? [requestId] : []);
+  const [selectedRequests, setSelectedRequests] = useState<string[]>(
+    [...new Set([...(requestId ? [requestId] : []), ...replacementRequestIds])],
+  );
   const [diagnosis, setDiagnosis] = useState("");
   const [initialDiagnosis, setInitialDiagnosis] = useState("");
   const [healthStatus, setHealthStatus] = useState("");
@@ -315,6 +327,7 @@ export default function MedicalVisitForm() {
     }
 
     const base: VisitInputDto = {
+      ...(replacesRecordId ? { replacesRecordId } : {}),
       ...(selectedRequests.length ? { requestIds: selectedRequests } : {}),
       ...(diagnosis.trim() ? { diagnosis: diagnosis.trim() } : {}),
       ...(healthStatus && healthStatus !== resource.data.horse.healthStatus
@@ -533,7 +546,7 @@ export default function MedicalVisitForm() {
             ) : null}
 
             {/* If On-Demand: Request Selector */}
-            {!caseId && kind === "REQUEST" ? (
+            {caseId || kind === "REQUEST" || selectedRequests.length ? (
               <View style={{ gap: space.xs, marginTop: space.xs }}>
                 {(pendingRequests as ExamRequestDto[]).map((request) => {
                   const isSelected = selectedRequests.includes(request.id);
@@ -604,20 +617,29 @@ export default function MedicalVisitForm() {
             <SectionTitle>{t("2. Clinical vital signs")}</SectionTitle>
 
             <View style={styles.measurementGrid}>
-              {measurementInputs.map((item) => (
-                <View key={item.type} style={styles.measurementItem}>
-                  <Text style={styles.measurementItemLabel}>
-                    {item.label} ({item.unit})
-                  </Text>
-                  <NativeInput
-                    value={measurementValues[item.type] ?? ""}
-                    onChangeText={(value) => updateMeasurement(item.type, value)}
-                    keyboardType="decimal-pad"
-                    placeholder={item.placeholder}
-                  />
-                  <Text style={styles.measurementItemHint}>{item.reference}</Text>
-                </View>
-              ))}
+              {measurementInputs.map((item) => {
+                const rawVal = measurementValues[item.type] ?? "";
+                const validation = validateMeasurementField(item.type, rawVal, t);
+                return (
+                  <View key={item.type} style={styles.measurementItem}>
+                    <Text style={styles.measurementItemLabel}>
+                      {item.label} ({item.unit})
+                    </Text>
+                    <NativeInput
+                      value={rawVal}
+                      onChangeText={(value) => updateMeasurement(item.type, value)}
+                      keyboardType="decimal-pad"
+                      placeholder={item.placeholder}
+                    />
+                    {validation.error ? (
+                      <Text style={styles.inlineError}>{validation.error}</Text>
+                    ) : validation.warning ? (
+                      <Text style={styles.inlineWarning}>{validation.warning}</Text>
+                    ) : null}
+                    <Text style={styles.measurementItemHint}>{item.reference}</Text>
+                  </View>
+                );
+              })}
             </View>
 
             <Pressable
@@ -940,9 +962,7 @@ export default function MedicalVisitForm() {
                 Alert.alert(
                   t("Save examination?"),
                   conclusion === "ISSUE" && !caseId
-                    ? t(
-                        "The Backend will create an open treatment case with this visit in one transaction.",
-                      )
+                    ? t("Hệ thống sẽ tự động tạo một bệnh án điều trị đang mở cùng buổi khám này.")
                     : t("This visit will be recorded in the horse’s medical history."),
                   [
                     { text: t("Review"), style: "cancel" },
@@ -1072,6 +1092,18 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     measurementItemHint: {
       fontSize: 11,
       color: colors.mutedForeground,
+    },
+    inlineError: {
+      fontSize: 11,
+      color: colors.destructive,
+      fontWeight: "600",
+      marginTop: 2,
+    },
+    inlineWarning: {
+      fontSize: 11,
+      color: colors.monitor ?? "#d97706",
+      fontWeight: "600",
+      marginTop: 2,
     },
     confirmAbnormalCard: {
       flexDirection: "row",

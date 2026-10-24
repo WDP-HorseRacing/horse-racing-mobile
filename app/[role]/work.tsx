@@ -12,6 +12,7 @@ import { mapGroomTodayToTasks } from "@/adapters/groom.adapter";
 import type { MedicalDashboardDto } from "@/adapters/medical.adapter";
 import { formatDate, formatDateTime, formatDistance } from "@/utils/formatters";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
 import { groomService } from "@/services/groom.service";
@@ -99,7 +100,16 @@ async function loadRoleWork(token: string, role: RoleId): Promise<WorkPayload> {
     case "trainer":
       return { role, sessions: await trainingService.listAllVisibleSessions(token) };
     case "vet":
-      return { role, dashboard: await medicalService.getDashboard(token) };
+      return {
+        role,
+        dashboard: await medicalService.getDashboard(token).catch(() => ({
+          herd: { counts: { QUARANTINED: 0, INJURED: 0, UNDER_OBSERVATION: 0, ELIGIBLE: 0 }, horses: [] },
+          checkups: [],
+          careSchedules: [],
+          openCases: [],
+          pendingRequests: [],
+        })),
+      };
     case "owner": {
       const horses = await horseService.list(token);
       const resultsByHorse = await Promise.all(
@@ -184,6 +194,7 @@ function GroomWork({
 
 function TrainerWork({ sessions }: { sessions: TrainingSessionView[] }) {
   const uiStyles = getUiStyles(useTheme().colors);
+  const { t } = useI18n();
   const upcoming = sessions.filter(
     (session) => !["completed", "cancelled"].includes(session.status),
   );
@@ -208,13 +219,20 @@ function TrainerWork({ sessions }: { sessions: TrainingSessionView[] }) {
                 </Text>
               </View>
               <Text style={[uiStyles.label, { flexShrink: 0 }]}>
-                {session.status.replaceAll("_", " ")}
+                {session.status === "cancelled_by_lock"
+                  ? t("Cancelled by training lock")
+                  : session.status === "ineligible"
+                    ? t("Not eligible")
+                    : session.status.replaceAll("_", " ")}
               </Text>
             </View>
             <Text style={uiStyles.muted}>
               {session.distanceM == null ? "Distance not set" : formatDistance(session.distanceM)}
               {session.surface ? ` · ${session.surface}` : ""}
             </Text>
+            {session.cancelReason ? (
+              <Text style={uiStyles.muted}>{session.cancelReason}</Text>
+            ) : null}
           </Panel>
         </Pressable>
       ))}
@@ -380,7 +398,7 @@ function ManagerWork({
     <>
       <View style={uiStyles.metricGrid}>
         <Metric label="Horses" value={horses.length} hint="visible to the club" />
-        <Metric label="Staff" value={staff.length} hint="accounts from backend" />
+        <Metric label="Staff" value={staff.length} hint="nhân sự câu lạc bộ" />
         <Metric
           label="Low stock"
           value={lowStock.length}

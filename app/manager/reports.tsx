@@ -87,6 +87,7 @@ export default function ManagerReports() {
             <Panel>
               <Row label="Purchased" value={money(report.supplies.purchased)} />
               <Row label="Used" value={money(report.supplies.used)} />
+              <Row label="Inventory value at period end" value={money(report.supplies.inventoryValue)} />
             </Panel>
           </View>
           <View style={ui.section}>

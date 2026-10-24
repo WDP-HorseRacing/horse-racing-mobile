@@ -34,7 +34,9 @@ export function HorseRow({
   const ageLabel = horse.age ? `${horse.age} ${t("yo") === "yo" ? "tuổi" : t("yo")}` : null;
   const aptitudeLabel = aptitude ? t(aptitude) : horse.raceAptitude ? t(horse.raceAptitude) : null;
   const weightLabel = horse.weight && horse.weight > 0 ? formatWeight(horse.weight) : null;
-  const displayLocation = location ?? (horse.stall ? `Ô ${horse.stall}` : t("Pending stall"));
+  const displayLocation =
+    location ??
+    (horse.stall && horse.stall !== "Not assigned" ? `Ô ${horse.stall}` : t("Pending stall"));
 
   return (
     <Pressable
@@ -192,4 +194,3 @@ const getStyles = (colors: any) =>
     },
     pressed: { opacity: 0.75 },
   });
-

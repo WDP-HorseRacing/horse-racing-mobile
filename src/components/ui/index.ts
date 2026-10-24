@@ -8,4 +8,5 @@ export * from "./Field";
 export * from "./NativeInput";
 export * from "./ActionRow";
 export * from "./MiniChart";
+export * from "./BottomSheetModal";
 export * from "./styles";

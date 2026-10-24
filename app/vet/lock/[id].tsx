@@ -3,7 +3,15 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { useAuth } from "@/context/AuthContext";
-import { Chips, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import {
+  BottomSheetModal,
+  Chips,
+  Field,
+  NativeInput,
+  Panel,
+  PrimaryButton,
+  getUiStyles,
+} from "@/components/ui";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { useApiResource } from "@/hooks/useApiResource";
 import { horseService } from "@/services/horse.service";
@@ -81,7 +89,7 @@ export default function LockTraining() {
       await resource.refresh();
       Alert.alert(
         "Training lock released",
-        "Training eligibility has been refreshed from the Backend.",
+        "Điều kiện huấn luyện của ngựa đã được làm mới thành công.",
       );
     } catch (error) {
       Alert.alert("Could not release training lock", extractErrorMessage(error));
@@ -119,38 +127,33 @@ export default function LockTraining() {
                 })}
               </Text>
             </View>
-            {showReleaseForm ? (
-              <>
-                <Field label="Reason for releasing this lock">
-                  <NativeInput value={releaseReason} onChangeText={setReleaseReason} multiline />
-                </Field>
-                <PrimaryButton
-                  label={saving ? "Releasing…" : "Confirm release"}
-                  disabled={saving || !releaseReason.trim()}
-                  onPress={() =>
-                    Alert.alert(
-                      "Release this training lock?",
-                      "The Backend will update this horse’s training eligibility.",
-                      [
-                        { text: "Keep locked", style: "cancel" },
-                        { text: "Release", onPress: () => void submitRelease() },
-                      ],
-                    )
-                  }
-                />
-                <PrimaryButton
-                  label="Back"
-                  icon="arrow-back"
-                  onPress={() => setShowReleaseForm(false)}
-                />
-              </>
-            ) : (
-              <PrimaryButton
-                label="Release training lock"
-                icon="lock-open-outline"
-                onPress={() => setShowReleaseForm(true)}
-              />
-            )}
+            <PrimaryButton
+              label="Release training lock"
+              icon="lock-open-outline"
+              onPress={() => setShowReleaseForm(true)}
+            />
+            <BottomSheetModal
+              visible={showReleaseForm}
+              title="Release training lock"
+              saveLabel={saving ? "Releasing…" : "Confirm release"}
+              cancelLabel="Cancel"
+              saveDisabled={saving || !releaseReason.trim()}
+              onSave={() =>
+                Alert.alert(
+                  "Release this training lock?",
+                  "Hệ thống sẽ cập nhật điều kiện huấn luyện của ngựa tương ứng.",
+                  [
+                    { text: "Keep locked", style: "cancel" },
+                    { text: "Release", onPress: () => void submitRelease() },
+                  ],
+                )
+              }
+              onClose={() => setShowReleaseForm(false)}
+            >
+              <Field label="Reason for releasing this lock">
+                <NativeInput value={releaseReason} onChangeText={setReleaseReason} multiline />
+              </Field>
+            </BottomSheetModal>
             <PrimaryButton
               label="Open horse profile"
               onPress={() => router.push(`/vet/horse/${horseId}`)}
@@ -182,7 +185,7 @@ export default function LockTraining() {
             ) : null}
             <Panel>
               <Text style={uiStyles.muted}>
-                The lock is recorded in the backend and changes this horse’s training eligibility.
+                Lệnh khóa huấn luyện được lưu trữ và cập nhật điều kiện tham gia lớp của ngựa.
               </Text>
             </Panel>
             <PrimaryButton

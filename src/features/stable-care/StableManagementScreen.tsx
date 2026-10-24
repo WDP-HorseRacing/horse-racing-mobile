@@ -1,5 +1,5 @@
 import { type Href, router } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -34,9 +34,14 @@ import {
   type StallDto,
 } from "@/services/stable.service";
 import { horseService, type HorseHealthStatusDto } from "@/services/horse.service";
+import {
+  stableCareService,
+  type ChecklistStatus,
+} from "@/services/stable-care.service";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatEnum } from "@/utils/formatters";
+import { clubDate } from "@/utils/horse-validation";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/types/raceos";
 
@@ -57,6 +62,16 @@ function suggestNextStallCode(barnName: string, existingStalls: StallDto[]): str
   const nextNum = maxNum + 1;
   return `${prefix}${String(nextNum).padStart(2, "0")}`;
 }
+
+export type HorseCareSummary = {
+  horseId: string;
+  groomName: string | null;
+  checklistStatus: ChecklistStatus | "NOT_GENERATED";
+  checklistProgress?: { done: number; total: number };
+  feedingPlanStatus: "ACTIVE" | "NONE";
+  feedingPlanMealsCount?: number;
+  openIncidentsCount: number;
+};
 
 type StablePayload = {
   barns: BarnListItemDto[];
@@ -183,6 +198,14 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
     return pendingStallHorses.filter((h) => h.location.barn?.id === currentBarn.id);
   }, [pendingStallHorses, currentBarn]);
 
+  // All placed horses in current barn
+  const horsesInCurrentBarn = useMemo(() => {
+    if (!currentBarn) return [];
+    return (payload?.horses ?? []).filter(
+      (h) => h.location.barn?.id === currentBarn.id && Boolean(h.location.stall),
+    );
+  }, [payload?.horses, currentBarn]);
+
   const selectedHorseInModal = useMemo(() => {
     if (!selectedStall || !currentBarn) return undefined;
     return getHorseInStall(selectedStall, currentBarn.id);
@@ -213,6 +236,99 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
     }).length;
     return { total, occupied, vacant, attention };
   }, [currentBarnStalls, currentBarn, getHorseInStall]);
+
+  // Sub-view: "stalls" (Sơ đồ ô chuồng) vs "care" (Tổng quan chăm sóc theo ngựa - Step G1)
+  const [barnViewMode, setBarnViewMode] = useState<"stalls" | "care">("stalls");
+  const [careSummaries, setCareSummaries] = useState<Record<string, HorseCareSummary>>({});
+  const [loadingCare, setLoadingCare] = useState(false);
+
+  const loadCareOverview = useCallback(async () => {
+    if (!token || !currentBarn) return;
+    const targetHorses = (payload?.horses ?? []).filter(
+      (h) => h.location.barn?.id === currentBarn.id,
+    );
+    if (targetHorses.length === 0) {
+      setCareSummaries({});
+      return;
+    }
+
+    setLoadingCare(true);
+    const todayStr = clubDate();
+
+    try {
+      const openIncidents = await stableCareService
+        .listIncidents(token, { barnId: currentBarn.id, status: "OPEN" })
+        .catch(() => []);
+
+      const incidentsByHorse: Record<string, number> = {};
+      for (const inc of openIncidents) {
+        incidentsByHorse[inc.horseId] = (incidentsByHorse[inc.horseId] ?? 0) + 1;
+      }
+
+      const results = await Promise.allSettled(
+        targetHorses.map(async (horse) => {
+          const [horseDetail, checklists, feedingPlans] = await Promise.all([
+            horseService.get(token, horse.id).catch(() => null),
+            stableCareService.listChecklists(token, horse.id, todayStr, todayStr).catch(() => []),
+            stableCareService.listFeedingPlans(token, horse.id, "ACTIVE").catch(() => []),
+          ]);
+
+          const todayChecklist = checklists[0];
+          let checklistStatus: ChecklistStatus | "NOT_GENERATED" = "NOT_GENERATED";
+          let checklistProgress: { done: number; total: number } | undefined;
+
+          if (todayChecklist) {
+            checklistStatus = todayChecklist.status;
+            const done = todayChecklist.items.filter((item) => item.done).length;
+            checklistProgress = { done, total: todayChecklist.items.length };
+          }
+
+          const activePlan = feedingPlans[0];
+          const feedingPlanStatus = activePlan ? "ACTIVE" : "NONE";
+          const feedingPlanMealsCount = activePlan?.meals?.length ?? 0;
+
+          return {
+            horseId: horse.id,
+            groomName: horseDetail?.groom?.fullName ?? null,
+            checklistStatus,
+            checklistProgress,
+            feedingPlanStatus,
+            feedingPlanMealsCount,
+            openIncidentsCount: incidentsByHorse[horse.id] ?? 0,
+          } as HorseCareSummary;
+        }),
+      );
+
+      const summaries: Record<string, HorseCareSummary> = {};
+      for (const res of results) {
+        if (res.status === "fulfilled") {
+          summaries[res.value.horseId] = res.value;
+        }
+      }
+      setCareSummaries((prev) => ({ ...prev, ...summaries }));
+    } finally {
+      setLoadingCare(false);
+    }
+  }, [token, currentBarn, payload?.horses]);
+
+  useEffect(() => {
+    if (barnViewMode === "care") {
+      void loadCareOverview();
+    }
+  }, [barnViewMode, activeBarnIndex, loadCareOverview]);
+
+  const careCompletedCount = useMemo(() => {
+    return horsesInCurrentBarn.filter(
+      (h) => careSummaries[h.id]?.checklistStatus === "COMPLETED",
+    ).length;
+  }, [horsesInCurrentBarn, careSummaries]);
+
+  const careIncidentCount = useMemo(() => {
+    return horsesInCurrentBarn.reduce(
+      (sum, h) => sum + (careSummaries[h.id]?.openIncidentsCount ?? 0),
+      0,
+    );
+  }, [horsesInCurrentBarn, careSummaries]);
 
   const handleSelectBarn = (index: number) => {
     setActiveBarnIndex(index);
@@ -265,6 +381,65 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
             <Ionicons name="shield-checkmark" size={11} color={colors.primary} />
             <Text style={[styles.healthBadgeText, { color: colors.primary }]}>{t("Eligible")}</Text>
           </View>
+        );
+    }
+  };
+
+  const renderChecklistCareBadge = (
+    status: ChecklistStatus | "NOT_GENERATED",
+    progress?: { done: number; total: number },
+  ) => {
+    switch (status) {
+      case "COMPLETED":
+        return (
+          <View style={[styles.careStatusBadge, { backgroundColor: colors.fitSoft }]}>
+            <Ionicons name="checkmark-circle" size={11} color={colors.primary} />
+            <Text style={[styles.careStatusBadgeText, { color: colors.primary }]}>
+              {t("Completed")} {progress ? `(${progress.done}/${progress.total})` : ""}
+            </Text>
+          </View>
+        );
+      case "IN_PROGRESS":
+        return (
+          <View style={[styles.careStatusBadge, { backgroundColor: colors.monitorSoft }]}>
+            <Ionicons name="time" size={11} color={colors.monitor} />
+            <Text style={[styles.careStatusBadgeText, { color: colors.monitor }]}>
+              {t("In progress")} {progress ? `(${progress.done}/${progress.total})` : ""}
+            </Text>
+          </View>
+        );
+      case "INCOMPLETE":
+        return (
+          <View style={[styles.careStatusBadge, { backgroundColor: colors.injuredSoft }]}>
+            <Ionicons name="alert-circle" size={11} color={colors.destructive} />
+            <Text style={[styles.careStatusBadgeText, { color: colors.destructive }]}>
+              {t("Incomplete")}
+            </Text>
+          </View>
+        );
+      case "CANCELLED":
+        return (
+          <View style={[styles.careStatusBadge, { backgroundColor: colors.elevated }]}>
+            <Ionicons name="close-circle" size={11} color={colors.mutedForeground} />
+            <Text style={[styles.careStatusBadgeText, { color: colors.mutedForeground }]}>
+              {t("Cancelled")}
+            </Text>
+          </View>
+        );
+      case "PENDING":
+        return (
+          <View style={[styles.careStatusBadge, { backgroundColor: colors.elevated }]}>
+            <Ionicons name="ellipse-outline" size={11} color={colors.mutedForeground} />
+            <Text style={[styles.careStatusBadgeText, { color: colors.mutedForeground }]}>
+              {t("Pending")} {progress ? `(0/${progress.total})` : ""}
+            </Text>
+          </View>
+        );
+      default:
+        return (
+          <Text style={[styles.careAspectValue, { color: colors.mutedForeground }]}>
+            {t("Not generated")}
+          </Text>
         );
     }
   };
@@ -443,8 +618,62 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
             </ScrollView>
           </View>
 
-          {/* Swipe Hint */}
-          <View style={styles.swipeHintRow}>
+          {/* Barn View Mode Segment (Sơ đồ ô chuồng vs Tổng quan chăm sóc khu - Step G1) */}
+          <View style={styles.viewModeSegment}>
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: barnViewMode === "stalls" }}
+              onPress={() => setBarnViewMode("stalls")}
+              style={[
+                styles.viewModeSegmentBtn,
+                barnViewMode === "stalls" && styles.viewModeSegmentBtnActive,
+              ]}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={15}
+                color={
+                  barnViewMode === "stalls" ? colors.primaryForeground : colors.mutedForeground
+                }
+              />
+              <Text
+                style={[
+                  styles.viewModeSegmentText,
+                  barnViewMode === "stalls" && styles.viewModeSegmentTextActive,
+                ]}
+              >
+                {t("Stall layout")}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: barnViewMode === "care" }}
+              onPress={() => setBarnViewMode("care")}
+              style={[
+                styles.viewModeSegmentBtn,
+                barnViewMode === "care" && styles.viewModeSegmentBtnActive,
+              ]}
+            >
+              <Ionicons
+                name="clipboard-outline"
+                size={15}
+                color={barnViewMode === "care" ? colors.primaryForeground : colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.viewModeSegmentText,
+                  barnViewMode === "care" && styles.viewModeSegmentTextActive,
+                ]}
+              >
+                {t("Care overview")}
+              </Text>
+            </Pressable>
+          </View>
+
+          {barnViewMode === "stalls" ? (
+            <>
+              {/* Swipe Hint */}
+              <View style={styles.swipeHintRow}>
             <Ionicons name="swap-horizontal" size={14} color={colors.mutedForeground} />
             <Text style={styles.swipeHintText}>{t("Swipe or tap to switch barn")}</Text>
           </View>
@@ -677,6 +906,234 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               })}
             </ScrollView>
           ) : null}
+        </>
+      ) : (
+        /* Care Overview for currentBarn (Step G1: Bảng tổng quan chăm sóc khu theo ngựa) */
+        <View style={[uiStyles.section, { gap: space.sm }]}>
+          {/* Overview Header row */}
+          <View style={styles.careOverviewHeaderRow}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.careOverviewBarnTitle}>
+                {currentBarn?.name ?? t("Barn")} · {t("Care overview")}
+              </Text>
+              <Text style={uiStyles.muted}>
+                {t("Checklist, feeding, incidents & groom per horse in this barn")}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Refresh care overview"
+              onPress={() => void loadCareOverview()}
+              style={styles.careRefreshBtn}
+            >
+              <Ionicons name="refresh-outline" size={16} color={colors.primary} />
+            </Pressable>
+          </View>
+
+          {/* Summary Metric Pills for the Barn's care */}
+          <View style={styles.careSummaryMetricsRow}>
+            <View style={styles.careSummaryMetricPill}>
+              <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary} />
+              <Text style={styles.careSummaryMetricText}>
+                {horsesInCurrentBarn.length} {t("horses")}
+              </Text>
+            </View>
+            <View style={styles.careSummaryMetricPill}>
+              <Ionicons name="checkbox-outline" size={14} color={colors.primary} />
+              <Text style={styles.careSummaryMetricText}>
+                {careCompletedCount}/{horsesInCurrentBarn.length} {t("checklists done")}
+              </Text>
+            </View>
+            <View style={styles.careSummaryMetricPill}>
+              <Ionicons
+                name="warning-outline"
+                size={14}
+                color={careIncidentCount > 0 ? colors.destructive : colors.mutedForeground}
+              />
+              <Text
+                style={[
+                  styles.careSummaryMetricText,
+                  careIncidentCount > 0 && { color: colors.destructive },
+                ]}
+              >
+                {careIncidentCount} {t("incidents")}
+              </Text>
+            </View>
+          </View>
+
+          {/* Loading or Horse List */}
+          {loadingCare ? (
+            <Panel style={{ paddingVertical: space.lg, alignItems: "center", gap: space.xs }}>
+              <Ionicons name="reload-outline" size={24} color={colors.primary} />
+              <Text style={uiStyles.muted}>{t("Loading care details...")}</Text>
+            </Panel>
+          ) : horsesInCurrentBarn.length === 0 ? (
+            <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
+              <Ionicons
+                name="information-circle-outline"
+                size={24}
+                color={colors.mutedForeground}
+              />
+              <Text style={[uiStyles.muted, { marginTop: 4 }]}>
+                {t("No horses are currently assigned to this barn.")}
+              </Text>
+            </Panel>
+          ) : (
+            <View style={{ gap: space.sm }}>
+              {horsesInCurrentBarn.map((horse) => {
+                const summary = careSummaries[horse.id];
+                const stallCode = horse.location.stall?.code ?? "—";
+                const groomName = summary?.groomName;
+                const checklistStatus = summary?.checklistStatus ?? "NOT_GENERATED";
+                const progress = summary?.checklistProgress;
+                const hasFeeding = summary?.feedingPlanStatus === "ACTIVE";
+                const incidentsCount = summary?.openIncidentsCount ?? 0;
+
+                return (
+                  <View key={horse.id} style={styles.careHorseCard}>
+                    {/* Card Header: Stall Code + Horse Name + Health */}
+                    <View style={styles.careHorseCardHeader}>
+                      <View style={styles.stallCodeBadge}>
+                        <Text style={styles.stallCodeBadgeText}>
+                          {t("Stall")} {stallCode}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0, marginHorizontal: space.xs }}>
+                        <Text style={styles.careHorseName} numberOfLines={1}>
+                          {horse.name}
+                        </Text>
+                        <Text style={uiStyles.muted} numberOfLines={1}>
+                          {[horse.breed, horse.gender, horse.microchipId]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </Text>
+                      </View>
+                      {renderHealthBadge(horse.healthStatus)}
+                    </View>
+
+                    {/* 4 Care Aspects: Groom, Checklist, Feeding, Incidents */}
+                    <View style={styles.careAspectsGrid}>
+                      {/* 1. Assigned Groom */}
+                      <View style={styles.careAspectItem}>
+                        <View style={styles.careAspectLabelRow}>
+                          <Ionicons
+                            name="person-outline"
+                            size={13}
+                            color={colors.mutedForeground}
+                          />
+                          <Text style={styles.careAspectLabel}>{t("Groom")}</Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.careAspectValue,
+                            !groomName && { color: colors.destructive },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {groomName ?? t("Unassigned Groom")}
+                        </Text>
+                      </View>
+
+                      {/* 2. Today's Checklist */}
+                      <View style={styles.careAspectItem}>
+                        <View style={styles.careAspectLabelRow}>
+                          <Ionicons
+                            name="checkbox-outline"
+                            size={13}
+                            color={colors.mutedForeground}
+                          />
+                          <Text style={styles.careAspectLabel}>{t("Checklist")}</Text>
+                        </View>
+                        {renderChecklistCareBadge(checklistStatus, progress)}
+                      </View>
+
+                      {/* 3. Feeding Plan */}
+                      <View style={styles.careAspectItem}>
+                        <View style={styles.careAspectLabelRow}>
+                          <Ionicons
+                            name="restaurant-outline"
+                            size={13}
+                            color={colors.mutedForeground}
+                          />
+                          <Text style={styles.careAspectLabel}>{t("Feeding plan")}</Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.careAspectValue,
+                            hasFeeding
+                              ? { color: colors.primary }
+                              : { color: colors.mutedForeground },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {hasFeeding
+                            ? `${t("Active")} (${summary?.feedingPlanMealsCount ?? 0} ${t("meals")})`
+                            : t("No plan")}
+                        </Text>
+                      </View>
+
+                      {/* 4. Incidents */}
+                      <View style={styles.careAspectItem}>
+                        <View style={styles.careAspectLabelRow}>
+                          <Ionicons
+                            name="warning-outline"
+                            size={13}
+                            color={colors.mutedForeground}
+                          />
+                          <Text style={styles.careAspectLabel}>{t("Incidents")}</Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.careAspectValue,
+                            incidentsCount > 0
+                              ? { color: colors.destructive }
+                              : { color: colors.primary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {incidentsCount > 0
+                            ? `${incidentsCount} ${t("open incident(s)")}`
+                            : t("Normal")}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Action Buttons for Horse Care */}
+                    <View style={styles.careCardActionsRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() =>
+                          router.push(`/${role}/horse/${horse.id}/stable-care` as Href)
+                        }
+                        style={styles.careActionBtnPrimary}
+                      >
+                        <Ionicons
+                          name="restaurant-outline"
+                          size={14}
+                          color={colors.primaryForeground}
+                        />
+                        <Text style={styles.careActionBtnPrimaryText}>{t("Diet & Care")}</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() =>
+                          router.push(`/${role}/horse/${horse.id}/placement` as Href)
+                        }
+                        style={styles.careActionBtnSecondary}
+                      >
+                        <Ionicons name="people-outline" size={14} color={colors.foreground} />
+                        <Text style={styles.careActionBtnSecondaryText}>
+                          {t("Stall & Groom")}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
 
           {/* Section: Awaiting Placement / Pending Horses */}
           <View style={[uiStyles.section, { marginTop: space.md }]}>
@@ -1645,6 +2102,187 @@ const getStyles = (colors: any) =>
     trainerCareBannerTitle: {
       fontSize: 15,
       fontWeight: "700",
+      color: colors.foreground,
+    },
+    viewModeSegment: {
+      flexDirection: "row",
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    viewModeSegmentBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: space.xs,
+      paddingVertical: 8,
+      borderRadius: radius.sm,
+    },
+    viewModeSegmentBtnActive: {
+      backgroundColor: colors.primary,
+    },
+    viewModeSegmentText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    viewModeSegmentTextActive: {
+      color: colors.primaryForeground,
+    },
+    careOverviewHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: space.xs,
+    },
+    careOverviewBarnTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    careRefreshBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    careSummaryMetricsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.xs,
+      marginBottom: space.xs,
+    },
+    careSummaryMetricPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: space.sm,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+    },
+    careSummaryMetricText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    careHorseCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: space.md,
+      gap: space.sm,
+    },
+    careHorseCardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    stallCodeBadge: {
+      backgroundColor: colors.elevated,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+    },
+    stallCodeBadgeText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    careHorseName: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    careAspectsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.sm,
+      paddingVertical: space.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    careAspectItem: {
+      flex: 1,
+      minWidth: "45%",
+      gap: 2,
+    },
+    careAspectLabelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    careAspectLabel: {
+      fontSize: 11,
+      fontWeight: "500",
+      color: colors.mutedForeground,
+      textTransform: "uppercase",
+    },
+    careAspectValue: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    careStatusBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 3,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      marginTop: 2,
+    },
+    careStatusBadgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    careCardActionsRow: {
+      flexDirection: "row",
+      gap: space.xs,
+      marginTop: 2,
+    },
+    careActionBtnPrimary: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      backgroundColor: colors.primary,
+      paddingVertical: 8,
+      borderRadius: radius.sm,
+    },
+    careActionBtnPrimaryText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.primaryForeground,
+    },
+    careActionBtnSecondary: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingVertical: 8,
+      borderRadius: radius.sm,
+    },
+    careActionBtnSecondaryText: {
+      fontSize: 12,
+      fontWeight: "600",
       color: colors.foreground,
     },
   });

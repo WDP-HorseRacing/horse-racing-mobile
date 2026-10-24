@@ -13,17 +13,70 @@ export const MEDICAL_MEASUREMENT_TYPES = [
 ] as const;
 
 export const MEDICAL_MEASUREMENT_RANGES = {
-  WEIGHT: { min: 30, max: 1500 },
-  HEIGHT: { min: 50, max: 250 },
-  BODY_CONDITION: { min: 1, max: 9 },
-  TEMPERATURE: { min: 30, max: 45 },
+  WEIGHT: { min: 30, max: 1500, normalMin: 400, normalMax: 600, unit: "kg" },
+  HEIGHT: { min: 50, max: 250, normalMin: 150, normalMax: 175, unit: "cm" },
+  BODY_CONDITION: { min: 1, max: 9, normalMin: 4, normalMax: 6, unit: "score" },
+  TEMPERATURE: { min: 30, max: 45, normalMin: 37.2, normalMax: 38.3, unit: "°C" },
 } as const;
 
 export type MedicalMeasurementType = keyof typeof MEDICAL_MEASUREMENT_RANGES;
 
+export const MEASUREMENT_LABELS: Record<MedicalMeasurementType, string> = {
+  WEIGHT: "Cân nặng",
+  HEIGHT: "Chiều cao",
+  BODY_CONDITION: "Điểm thể trạng (BCS)",
+  TEMPERATURE: "Thân nhiệt",
+};
+
 export function isValidMedicalMeasurement(type: MedicalMeasurementType, value: number): boolean {
   const range = MEDICAL_MEASUREMENT_RANGES[type];
   return Number.isFinite(value) && value >= range.min && value <= range.max;
+}
+
+export function isAbnormalMedicalMeasurement(type: MedicalMeasurementType, value: number): boolean {
+  const range = MEDICAL_MEASUREMENT_RANGES[type];
+  return Number.isFinite(value) && (value < range.normalMin || value > range.normalMax);
+}
+
+export function validateMeasurementField(
+  type: MedicalMeasurementType,
+  rawText: string,
+  t: (text: string) => string = (x) => x,
+): {
+  isValid: boolean;
+  isAbnormal: boolean;
+  error?: string;
+  warning?: string;
+} {
+  const trimmed = rawText.trim();
+  if (!trimmed) {
+    return { isValid: true, isAbnormal: false };
+  }
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) {
+    return {
+      isValid: false,
+      isAbnormal: false,
+      error: t("Giá trị phải là một số hợp lệ."),
+    };
+  }
+  const spec = MEDICAL_MEASUREMENT_RANGES[type];
+  const label = MEASUREMENT_LABELS[type];
+  if (value < spec.min || value > spec.max) {
+    return {
+      isValid: false,
+      isAbnormal: false,
+      error: `${t(label)} ${t("phải trong khoảng")} ${spec.min} - ${spec.max} ${spec.unit}.`,
+    };
+  }
+  if (value < spec.normalMin || value > spec.normalMax) {
+    return {
+      isValid: true,
+      isAbnormal: true,
+      warning: `⚠️ ${t("Ngoài khoảng bình thường")} (${spec.normalMin} - ${spec.normalMax} ${spec.unit}).`,
+    };
+  }
+  return { isValid: true, isAbnormal: false };
 }
 
 export function clubDateTimeParts(now = new Date()): { date: string; time: string } {

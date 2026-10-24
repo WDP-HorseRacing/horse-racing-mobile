@@ -5,7 +5,7 @@ export type OwnerCostHorseDto = {
   horseName: string;
   billedDays: number;
   dailyFee: number;
-  caseCount: number;
+  visitCount: number;
   medicalCost: number;
   surcharge: number;
   total: number;
@@ -26,7 +26,7 @@ export type ClubFinanceReportDto = {
   from: string;
   to: string;
   ownerCharges: { dailyFee: number; medicalCost: number; surcharge: number; total: number };
-  supplies: { purchased: number; used: number };
+  supplies: { purchased: number; used: number; inventoryValue: number };
   prizeMoney: number;
   owners: {
     ownerId: string;

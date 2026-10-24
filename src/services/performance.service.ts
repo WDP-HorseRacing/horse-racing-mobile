@@ -39,18 +39,15 @@ export type ParticipantPerformanceSummaryDto = {
   lastRecordedAt: string | null;
 };
 
+export type ThresholdLimitsDto = {
+  heartRateWarningBpm: number;
+  heartRateCriticalBpm: number;
+  maxSpeedMps: number;
+};
+
 export type HorseThresholdsDto = {
-  source: "CLUB_DEFAULT" | "HORSE_SPECIFIC" | string;
-  activeLimits: { heartRateWarningBpm: number; heartRateCriticalBpm: number; maxSpeedMps: number };
-  profiles: {
-    id: string;
-    horseId: string;
-    profileName: string;
-    ruleVersion: number;
-    effectiveFrom: string;
-    effectiveTo: string | null;
-    limits: { heartRateWarningBpm: number; heartRateCriticalBpm: number; maxSpeedMps: number };
-  }[];
+  horseId: string;
+  limits: ThresholdLimitsDto;
 };
 
 export type HorseAlertDto = {
@@ -114,10 +111,12 @@ export const performanceService = {
       limits: { heartRateWarningBpm: number; heartRateCriticalBpm: number; maxSpeedMps: number };
     },
   ) {
-    return apiRequest<HorseThresholdsDto["profiles"][number]>(
-      `/horses/${encodeURIComponent(horseId)}/thresholds`,
-      { method: "PUT", token, body: input },
-    );
+    return apiRequest<{
+      profileName: string;
+      effectiveFrom: string;
+      effectiveTo?: string;
+      limits: ThresholdLimitsDto;
+    }>(`/horses/${encodeURIComponent(horseId)}/thresholds`, { method: "PUT", token, body: input });
   },
   listHorseAlerts(
     token: string,

@@ -18,9 +18,7 @@ import {
   type SessionParticipantDto,
   type TrainingSessionDto,
 } from "@/services/training.service";
-import {
-  formatDateTime,
-} from "@/utils/formatters";
+import { formatDateTime } from "@/utils/formatters";
 import { formatTrainingStatus, isParticipantWindowOpen } from "@/features/training/training-utils";
 import { extractErrorMessage } from "@/utils/errorHandler";
 
@@ -40,16 +38,22 @@ export default function GroomTraining() {
   const [absenceReason, setAbsenceReason] = useState("");
   const load = useCallback(async (): Promise<AssignedSession[]> => {
     const classes = await trainingService.listClasses(token!);
+    const now = Date.now();
     const groups = await Promise.all(
       classes.map(async (trainingClass) => {
         const sessions = await trainingService.listClassSessions(token!, trainingClass.id);
         return Promise.all(
-          sessions.map(async (session) => ({
-            session,
-            classCode: trainingClass.code,
-            className: trainingClass.name,
-            participants: await trainingService.listSessionParticipants(token!, session.id),
-          })),
+          sessions
+            .filter((session) => {
+              const endAt = new Date(session.scheduledEndAt).getTime();
+              return session.status !== "CANCELLED" && Number.isFinite(endAt) && endAt >= now;
+            })
+            .map(async (session) => ({
+              session,
+              classCode: trainingClass.code,
+              className: trainingClass.name,
+              participants: await trainingService.listSessionParticipants(token!, session.id),
+            })),
         );
       }),
     );
@@ -63,14 +67,9 @@ export default function GroomTraining() {
       .filter(
         ({ session, participant }) =>
           session.status !== "CANCELLED" &&
-          ![
-            "COMPLETED",
-            "ABSENT",
-            "SKIPPED",
-            "CANCELLED",
-            "CANCELLED_BY_LOCK",
-            "INELIGIBLE",
-          ].includes(participant.status),
+          !["COMPLETED", "SKIPPED", "CANCELLED", "CANCELLED_BY_LOCK", "INELIGIBLE"].includes(
+            participant.status,
+          ),
       )
       .sort((a, b) => a.session.scheduledStartAt.localeCompare(b.session.scheduledStartAt));
   }, [token, user?.userId]);
@@ -166,9 +165,9 @@ export default function GroomTraining() {
                     </Text>
                   ) : null}
                   <View style={{ flexDirection: "row", gap: 8 }}>
-                    {participant.status === "PLANNED" ? (
+                    {participant.status === "PLANNED" || participant.status === "ABSENT" ? (
                       <PrimaryButton
-                        label="Điểm danh"
+                        label={participant.status === "ABSENT" ? "Điểm danh lại" : "Điểm danh"}
                         icon="checkmark-circle-outline"
                         style={{ flex: 1 }}
                         disabled={!checkInOpen || pending !== ""}
@@ -204,7 +203,8 @@ export default function GroomTraining() {
                       />
                     ) : null}
                   </View>
-                  {participant.status === "PLANNED" && !checkInOpen ? (
+                  {(participant.status === "PLANNED" || participant.status === "ABSENT") &&
+                  !checkInOpen ? (
                     <Text style={ui.label}>Mở điểm danh 30 phút trước buổi tập.</Text>
                   ) : null}
                   {participant.status === "PRESENT" && !readyOpen ? (

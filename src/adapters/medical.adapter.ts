@@ -16,8 +16,16 @@ export type MedicalRecordDto = {
   voidedAt: string | null;
   voidReason: string | null;
   replacesRecordId: string | null;
+  healthOutcome?: "REVERTED" | "KEPT_LATER_CHANGE" | "NOT_CHANGED_BY_VISIT" | "UNKNOWN_BEFORE" | "UNCHANGED" | "UPDATED";
+  laterHealthChange?: {
+    changedAt: string;
+    changedBy: string | null;
+    to: string;
+  } | null;
   prescriptions: PrescriptionDto[];
   injuries: InjuryDto[];
+  cost?: number | string | null;
+  costHidden?: boolean;
 };
 
 export type PrescriptionDto = {
@@ -49,8 +57,7 @@ export type MedicalCaseSummaryDto = {
   initialDiagnosis: string;
   closedAt: string | null;
   finalConclusion: string | null;
-  totalCost?: number | null;
-  costHidden?: boolean;
+  totalCost?: number;
 };
 
 export type MedicalCaseDto = MedicalCaseSummaryDto & { visits: MedicalRecordDto[] };
@@ -125,6 +132,7 @@ export type CareScheduleDto = {
   horseId: string;
   type: string;
   dueAt: string;
+  assigneeType?: "GROOM" | "VET" | null;
   assignedTo: string | null;
   status: "SCHEDULED" | "COMPLETED" | "CANCELLED" | string;
   completedAt: string | null;
@@ -155,9 +163,9 @@ export type PageDto<T> = {
 export type MedicalCostReportDto = {
   from: string;
   to: string;
-  caseCount: number;
+  visitCount: number;
   totalCost: number;
-  items: { horseId: string; horseName: string; caseCount: number; totalCost: number }[];
+  items: { horseId: string; horseName: string; visitCount: number; totalCost: number }[];
 };
 
 export type TrainingLockDto = {
@@ -256,7 +264,7 @@ export function mapMedicalCase(
     closedAt: medicalCase.closedAt,
     finalConclusion: medicalCase.finalConclusion,
     totalCost: medicalCase.totalCost ?? null,
-    costHidden: Boolean(medicalCase.costHidden),
+    costHidden: Boolean((medicalCase as any).costHidden),
     visits: visits.map((visit) => ({
       id: visit.id,
       kind: visit.kind,

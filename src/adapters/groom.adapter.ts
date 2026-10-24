@@ -27,6 +27,13 @@ export type GroomTodayDto = {
       notes: string | null;
     }[];
   }[];
+  horseVetAppointments?: {
+    id: string;
+    horseId: string;
+    horseName: string;
+    type: "ROUTINE_CHECKUP" | "FOLLOW_UP";
+    scheduledAt: string;
+  }[];
 };
 
 /** Tasks are only backend-assigned work. Feeding instructions are shown separately as a plan. */
@@ -45,20 +52,31 @@ export function mapGroomTodayToTasks(today: GroomTodayDto): Task[] {
         detail: [item.note, location(horse.barnName, horse.stallCode)].filter(Boolean).join(" · "),
         kind: classifyTask(item.name),
         done: item.done,
-        actionable: horse.checklist?.status !== "INCOMPLETE",
+        actionable:
+          horse.checklist?.status !== "INCOMPLETE" && horse.checklist?.status !== "CANCELLED",
       });
     }
 
     for (const run of horse.trainingRuns) {
       const action =
-        run.status === "PLANNED" ? "check-in" : run.status === "PRESENT" ? "ready" : null;
+        run.status === "PLANNED" || run.status === "ABSENT"
+          ? "check-in"
+          : run.status === "PRESENT"
+            ? "ready"
+            : null;
       tasks.push({
         id: `training:${run.participantId}`,
         sourceId: run.participantId,
         sourceType: "training",
         sourceAction: action,
         actionLabel:
-          action === "check-in" ? "Check in" : action === "ready" ? "Mark ready" : undefined,
+          action === "check-in"
+            ? run.status === "ABSENT"
+              ? "Check in again"
+              : "Check in"
+            : action === "ready"
+              ? "Mark ready"
+              : undefined,
         time: formatTime(run.scheduledStartAt),
         horse: horse.horseName,
         horseId: horse.horseId,

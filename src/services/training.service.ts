@@ -17,6 +17,7 @@ export type ParticipantStatus =
   | "READY"
   | "ONGOING"
   | "COMPLETED"
+  | "STOPPED"
   | "ABSENT"
   | "SKIPPED"
   | "INELIGIBLE"
@@ -160,7 +161,7 @@ export type TrainingSessionInput = {
   targetTimeMs?: number | null;
 };
 export type TrainingSessionUpdate = Partial<
-  Omit<TrainingSessionInput, "targetTimeMs" | "location" | "surface" | "notes">
+  Omit<TrainingSessionInput, "sessionType" | "targetTimeMs" | "location" | "surface" | "notes">
 > & {
   location?: string | null;
   surface?: string | null;
@@ -219,7 +220,6 @@ export type EvaluationDto = {
 };
 export type TrialResultDto = {
   id: string;
-  timeTrialId: string;
   sessionParticipantId: string;
   attemptNo: number;
   elapsedMs: number;
@@ -341,7 +341,7 @@ export const trainingService = {
   leaveEnrollment(
     token: string,
     enrollmentId: string,
-    input: { leftAt?: string; reason?: string } = {},
+    input: { reason?: string } = {},
   ) {
     return apiRequest<HorseEnrollmentResponseDto>(
       `/enrollments/${encodeURIComponent(enrollmentId)}/leave`,
@@ -438,6 +438,16 @@ export const trainingService = {
       { method: "POST", token, body: input },
     );
   },
+  updateEvaluation(
+    token: string,
+    participantId: string,
+    input: { score?: number; comment?: string | null; reason: string },
+  ) {
+    return apiRequest<EvaluationDto>(
+      `/session-participants/${encodeURIComponent(participantId)}/evaluation`,
+      { method: "PATCH", token, body: input },
+    );
+  },
   getEvaluation(token: string, participantId: string) {
     return apiRequest<EvaluationDto>(
       `/session-participants/${encodeURIComponent(participantId)}/evaluation`,
@@ -460,16 +470,29 @@ export const trainingService = {
       { token },
     );
   },
+  updateTrialResult(
+    token: string,
+    participantId: string,
+    attemptNo: number,
+    input: {
+      videoMediaId?: string | null;
+      elapsedMs?: number;
+      notes?: string | null;
+      reason?: string;
+    },
+  ) {
+    return apiRequest<TrialResultDto>(
+      `/session-participants/${encodeURIComponent(participantId)}/trial-results/${attemptNo}`,
+      { method: "PATCH", token, body: input },
+    );
+  },
   updateTrialVideo(
     token: string,
     participantId: string,
     attemptNo: number,
     videoMediaId: string | null,
   ) {
-    return apiRequest<TrialResultDto>(
-      `/session-participants/${encodeURIComponent(participantId)}/trial-results/${attemptNo}`,
-      { method: "PATCH", token, body: { videoMediaId } },
-    );
+    return this.updateTrialResult(token, participantId, attemptNo, { videoMediaId });
   },
   getTimeTrial(token: string, sessionId: string) {
     return apiRequest<TimeTrialDto>(

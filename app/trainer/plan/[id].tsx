@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
+  BottomSheetModal,
   Chips,
   Field,
   NativeInput,
@@ -73,7 +74,6 @@ export default function TrainingClassDetail() {
   const [subjectId, setSubjectId] = useState("");
   const [location, setLocation] = useState("");
   const [sessionNotes, setSessionNotes] = useState("");
-  const [enrollable, setEnrollable] = useState<EnrollableHorseDto[] | null>(null);
   const [loadingEnrollable, setLoadingEnrollable] = useState(false);
   const [editClass, setEditClass] = useState(false);
   const [editName, setEditName] = useState("");
@@ -91,6 +91,7 @@ export default function TrainingClassDetail() {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [addModalHorses, setAddModalHorses] = useState<EnrollableHorseDto[]>([]);
+  const [addSearch, setAddSearch] = useState("");
   const [addedHorseIds, setAddedHorseIds] = useState<Set<string>>(new Set());
   const [editModalHorses, setEditModalHorses] = useState<HorseEnrollmentDto[]>([]);
 
@@ -115,6 +116,19 @@ export default function TrainingClassDetail() {
     }
     return map;
   }, [payload?.allHorses]);
+
+  const filteredAddModalHorses = useMemo(() => {
+    if (!addSearch.trim()) return addModalHorses;
+    const q = addSearch.trim().toLowerCase();
+    return addModalHorses.filter((h) => {
+      const profile = horseMap.get(h.horseId);
+      return (
+        h.horseName.toLowerCase().includes(q) ||
+        Boolean(profile?.microchipId?.toLowerCase().includes(q)) ||
+        Boolean(profile?.breed?.toLowerCase().includes(q))
+      );
+    });
+  }, [addModalHorses, addSearch, horseMap]);
   const currentDate = sessionDate || payload?.trainingClass.startDate || defaultClubDateTime().date;
   const weekNumber = payload ? classWeekNumber(payload.trainingClass.startDate, currentDate) : null;
   const activePhase = payload?.plan.phases.find((phase) => {
@@ -136,7 +150,6 @@ export default function TrainingClassDetail() {
     setPending(key);
     try {
       await action();
-      setEnrollable(null);
       await resource.refresh();
     } catch (error) {
       Alert.alert("Action failed", extractErrorMessage(error));
@@ -146,6 +159,7 @@ export default function TrainingClassDetail() {
   };
 
   const openAddModal = async () => {
+    setAddSearch("");
     setAddModalVisible(true);
     setLoadingEnrollable(true);
     setAddedHorseIds(new Set());
@@ -156,7 +170,7 @@ export default function TrainingClassDetail() {
       );
       setAddModalHorses(list.filter((h) => !activeHorseIds.has(h.horseId)));
     } catch (error) {
-      Alert.alert("Lỗi tải danh sách ngựa", extractErrorMessage(error));
+      Alert.alert(t("Lỗi tải danh sách ngựa"), extractErrorMessage(error));
     } finally {
       setLoadingEnrollable(false);
     }
@@ -366,101 +380,103 @@ export default function TrainingClassDetail() {
                   {payload.progress.scheduledMinutes} min
                 </Text>
               </Panel>
-              <View style={ui.row}>
-                {payload.trainingClass.status === "ACTIVE" ? (
-                  <>
-                    <SecondaryButton
-                      label="Edit class"
-                      icon="create-outline"
-                      style={{ flex: 1 }}
-                      onPress={() => {
-                        if (editClass) {
-                          setEditClass(false);
-                          return;
-                        }
-                        setEditName(payload.trainingClass.name);
-                        setEditCode(payload.trainingClass.code);
-                        setEditStartDate(payload.trainingClass.startDate);
-                        setEditCapacity(String(payload.trainingClass.maxHorses));
-                        setEditClass(true);
-                      }}
-                    />
-                    <SecondaryButton
-                      label="Complete class"
-                      icon="checkmark-done-outline"
-                      style={{ flex: 1 }}
-                      disabled={pending !== ""}
-                      onPress={() =>
-                        Alert.alert(
-                          "Complete class?",
-                          "The Backend will close this class; future session changes will no longer be available.",
-                          [
-                            { text: "Keep active", style: "cancel" },
-                            {
-                              text: "Complete",
-                              onPress: () =>
-                                void perform("complete", () =>
-                                  trainingService.setClassStatus(token!, classId, {
-                                    status: "COMPLETED",
-                                  }),
-                                ),
-                            },
-                          ],
-                        )
-                      }
-                    />
-                  </>
-                ) : null}
-              </View>
-              {editClass ? (
-                <Panel style={{ gap: 10 }}>
-                  <Field label="Class code">
-                    <NativeInput value={editCode} onChangeText={setEditCode} />
-                  </Field>
-                  <Field label="Class name">
-                    <NativeInput value={editName} onChangeText={setEditName} />
-                  </Field>
-                  <Field label="Start date (YYYY-MM-DD)">
-                    <NativeInput value={editStartDate} onChangeText={setEditStartDate} />
-                  </Field>
-                  <Field label="Maximum horses">
-                    <NativeInput
-                      value={editCapacity}
-                      onChangeText={setEditCapacity}
-                      keyboardType="number-pad"
-                    />
-                  </Field>
-                  <PrimaryButton
-                    label={pending === "class" ? "Saving…" : "Save class"}
-                    disabled={pending !== ""}
-                    onPress={() => void saveClass()}
+              {payload.trainingClass.status === "ACTIVE" ? (
+                <View style={styles.twoButtonRow}>
+                  <SecondaryButton
+                    label="Edit class"
+                    icon="create-outline"
+                    style={styles.flexButton}
+                    onPress={() => {
+                      setEditName(payload.trainingClass.name);
+                      setEditCode(payload.trainingClass.code);
+                      setEditStartDate(payload.trainingClass.startDate);
+                      setEditCapacity(String(payload.trainingClass.maxHorses));
+                      setEditClass(true);
+                    }}
                   />
-                </Panel>
+                  <SecondaryButton
+                    label="Complete class"
+                    icon="checkmark-done-outline"
+                    style={styles.flexButton}
+                    disabled={pending !== ""}
+                    onPress={() =>
+                      Alert.alert(
+                        "Complete class?",
+                        "The Backend will close this class; future session changes will no longer be available.",
+                        [
+                          { text: "Keep active", style: "cancel" },
+                          {
+                            text: "Complete",
+                            onPress: () =>
+                              void perform("complete", () =>
+                                trainingService.setClassStatus(token!, classId, {
+                                  status: "COMPLETED",
+                                }),
+                              ),
+                          },
+                        ],
+                      )
+                    }
+                  />
+                </View>
               ) : null}
+
+              {/* Bottom Sheet Modal: Sửa lớp học */}
+              <BottomSheetModal
+                visible={editClass}
+                title="Edit class"
+                onClose={() => setEditClass(false)}
+                onSave={() => void saveClass()}
+                saveLoading={pending === "class"}
+                saveDisabled={pending !== ""}
+                saveLabel="Save class"
+                cancelLabel="Cancel"
+              >
+                <Field label="Class code">
+                  <NativeInput value={editCode} onChangeText={setEditCode} />
+                </Field>
+                <Field label="Class name">
+                  <NativeInput value={editName} onChangeText={setEditName} />
+                </Field>
+                <Field label="Start date (YYYY-MM-DD)">
+                  <NativeInput value={editStartDate} onChangeText={setEditStartDate} />
+                </Field>
+                <Field label="Maximum horses">
+                  <NativeInput
+                    value={editCapacity}
+                    onChangeText={setEditCapacity}
+                    keyboardType="number-pad"
+                  />
+                </Field>
+              </BottomSheetModal>
+
               {payload.trainingClass.status === "ACTIVE" ? (
                 <>
                   <SecondaryButton
                     label="Cancel class"
                     icon="close-circle-outline"
-                    onPress={() => setShowCancelForm((value) => !value)}
+                    onPress={() => setShowCancelForm(true)}
                   />
-                  {showCancelForm ? (
-                    <Panel style={{ gap: 10 }}>
-                      <Field label="Cancellation reason (required)">
-                        <NativeInput
-                          value={cancelReason}
-                          onChangeText={setCancelReason}
-                          multiline
-                          placeholder="Why is this class being cancelled?"
-                        />
-                      </Field>
-                      <PrimaryButton
-                        label={pending === "cancel" ? "Cancelling…" : "Confirm cancellation"}
-                        disabled={pending !== ""}
-                        onPress={() => void cancelClass()}
+                  {/* Bottom Sheet Modal: Hủy lớp học */}
+                  <BottomSheetModal
+                    visible={showCancelForm}
+                    title="Cancel class"
+                    onClose={() => setShowCancelForm(false)}
+                    onSave={() => void cancelClass()}
+                    saveLoading={pending === "cancel"}
+                    saveDisabled={pending !== "" || !cancelReason.trim()}
+                    saveLabel="Confirm cancellation"
+                    cancelLabel="Cancel"
+                  >
+                    <Field label="Cancellation reason (required)">
+                      <NativeInput
+                        value={cancelReason}
+                        onChangeText={setCancelReason}
+                        multiline
+                        placeholder="Why is this class being cancelled?"
                       />
-                    </Panel>
-                  ) : null}
+                    </Field>
+                  </BottomSheetModal>
                 </>
               ) : null}
               <View style={ui.section}>
@@ -507,32 +523,61 @@ export default function TrainingClassDetail() {
 
           {tab === "Horses" ? (
             <View style={ui.section}>
-              {/* Search Box */}
-              <View style={styles.searchContainer}>
-                <Ionicons
-                  name="search-outline"
-                  size={18}
-                  color={colors.mutedForeground}
-                  style={{ marginRight: 8 }}
-                />
-                <TextInput
-                  value={horseSearch}
-                  onChangeText={setHorseSearch}
-                  placeholder={t("Tìm kiếm theo tên hoặc mã ngựa...")}
-                  placeholderTextColor={colors.mutedForeground}
-                  style={[styles.searchInput, { color: colors.foreground }]}
-                  autoCapitalize="none"
-                />
-                {horseSearch ? (
-                  <Pressable onPress={() => setHorseSearch("")} hitSlop={8}>
-                    <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
-                  </Pressable>
-                ) : null}
+              {/* Search & Sort Row */}
+              <View style={styles.searchSortRow}>
+                <View style={styles.searchContainer}>
+                  <Ionicons
+                    name="search-outline"
+                    size={18}
+                    color={colors.mutedForeground}
+                    style={{ marginRight: 8 }}
+                  />
+                  <TextInput
+                    value={horseSearch}
+                    onChangeText={setHorseSearch}
+                    placeholder={t("Tìm kiếm theo tên hoặc mã ngựa...")}
+                    placeholderTextColor={colors.mutedForeground}
+                    style={[styles.searchInput, { color: colors.foreground }]}
+                    autoCapitalize="none"
+                  />
+                  {horseSearch ? (
+                    <Pressable onPress={() => setHorseSearch("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+                    </Pressable>
+                  ) : null}
+                </View>
+
+                <Pressable
+                  style={[
+                    styles.sortBtn,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                    },
+                  ]}
+                  onPress={() => setSortModalVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Sắp xếp")}
+                >
+                  <Ionicons name="swap-vertical-outline" size={18} color={colors.foreground} />
+                  <Text
+                    style={[styles.sortBtnText, { color: colors.foreground }]}
+                    numberOfLines={1}
+                  >
+                    {horseSort === "name_asc"
+                      ? "A-Z"
+                      : horseSort === "name_desc"
+                        ? "Z-A"
+                        : horseSort === "recently_added"
+                          ? "Mới nhất"
+                          : "Cũ nhất"}
+                  </Text>
+                </Pressable>
               </View>
 
-              {/* Action Buttons Row: Đăng ký, Sắp xếp, Chỉnh sửa */}
-              <View style={styles.actionButtonsRow}>
-                {payload.trainingClass.status === "ACTIVE" ? (
+              {/* Action Buttons Row: Exactly TWO buttons side-by-side */}
+              {payload.trainingClass.status === "ACTIVE" ? (
+                <View style={styles.actionButtonsRow}>
                   <Pressable
                     style={[
                       styles.actionBtn,
@@ -540,33 +585,16 @@ export default function TrainingClassDetail() {
                     ]}
                     onPress={() => void openAddModal()}
                   >
-                    <Ionicons name="add" size={18} color={colors.primary} />
-                    <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+                    <Ionicons name="add-circle" size={18} color={colors.primary} />
+                    <Text
+                      style={[styles.actionBtnText, { color: colors.primary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {t("Đăng ký")}
                     </Text>
                   </Pressable>
-                ) : null}
 
-                <Pressable
-                  style={[
-                    styles.actionBtn,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                  ]}
-                  onPress={() => setSortModalVisible(true)}
-                >
-                  <Ionicons name="swap-vertical-outline" size={16} color={colors.foreground} />
-                  <Text style={[styles.actionBtnText, { color: colors.foreground }]}>
-                    {horseSort === "name_asc"
-                      ? "Tên A-Z"
-                      : horseSort === "name_desc"
-                        ? "Tên Z-A"
-                        : horseSort === "recently_added"
-                          ? "Mới nhất"
-                          : "Cũ nhất"}
-                  </Text>
-                </Pressable>
-
-                {payload.trainingClass.status === "ACTIVE" ? (
                   <Pressable
                     style={[
                       styles.actionBtn,
@@ -574,13 +602,17 @@ export default function TrainingClassDetail() {
                     ]}
                     onPress={openEditModal}
                   >
-                    <Ionicons name="create-outline" size={16} color={colors.foreground} />
-                    <Text style={[styles.actionBtnText, { color: colors.foreground }]}>
+                    <Ionicons name="create-outline" size={18} color={colors.foreground} />
+                    <Text
+                      style={[styles.actionBtnText, { color: colors.foreground }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {t("Chỉnh sửa")}
                     </Text>
                   </Pressable>
-                ) : null}
-              </View>
+                </View>
+              ) : null}
 
               {/* Capacity & Count banner */}
               <View style={styles.countBadgeRow}>
@@ -723,94 +755,94 @@ export default function TrainingClassDetail() {
               <SectionTitle>Sessions ({payload.sessions.length})</SectionTitle>
               {payload.trainingClass.status === "ACTIVE" ? (
                 <PrimaryButton
-                  label={showSessionForm ? "Close session form" : "Schedule session"}
-                  icon={showSessionForm ? "close" : "calendar-outline"}
-                  onPress={() => setShowSessionForm((value) => !value)}
+                  label="Schedule session"
+                  icon="calendar-outline"
+                  onPress={() => setShowSessionForm(true)}
                 />
               ) : null}
-              {showSessionForm && payload.trainingClass.status === "ACTIVE" ? (
-                <Panel style={{ gap: 12 }}>
-                  <Text style={ui.value}>Add a session from this class phase</Text>
-                  <Field label="Session date (club calendar, YYYY-MM-DD)">
-                    <NativeInput value={currentDate} onChangeText={setSessionDate} />
-                  </Field>
-                  <Field label="Start time (club time, HH:mm)">
-                    <NativeInput
-                      value={sessionTime}
-                      onChangeText={setSessionTime}
-                      placeholder="06:00"
-                    />
-                  </Field>
-                  <Field label="Subject in this phase">
-                    <View style={{ gap: 8 }}>
-                      {allowedSubjects.map((item) => (
-                        <Pressable
-                          key={item.subject.id}
-                          onPress={() => setSubjectId(item.subject.id)}
-                        >
-                          <Panel
-                            style={{
-                              borderColor:
-                                effectiveSubjectId === item.subject.id
-                                  ? colors.primary
-                                  : colors.border,
-                              backgroundColor:
-                                effectiveSubjectId === item.subject.id
-                                  ? colors.fitSoft
-                                  : colors.surface,
-                            }}
-                          >
-                            <Text style={ui.value}>{item.subject.name}</Text>
-                            <Text style={ui.muted}>
-                              {item.subject.intensity} · {item.subject.durationMinutes} min ·{" "}
-                              {item.subject.plannedDistanceM} m · min {item.minSessionsPerWeek}/week
-                            </Text>
-                          </Panel>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </Field>
-                  {!allowedSubjects.length ? (
-                    <Text style={{ color: colors.destructive }}>
-                      No plan phase covers this date.
-                    </Text>
-                  ) : null}
-                  <Field label="Repeat every week (1–100 sessions)">
-                    <NativeInput
-                      value={repeatWeeks}
-                      onChangeText={setRepeatWeeks}
-                      keyboardType="number-pad"
-                    />
-                  </Field>
-                  <Field label="Location (optional)">
-                    <NativeInput value={location} onChangeText={setLocation} />
-                  </Field>
-                  <Field label="Notes (optional)">
-                    <NativeInput value={sessionNotes} onChangeText={setSessionNotes} multiline />
-                  </Field>
-                  {selectedSubject?.sessionType === "TIME_TRIAL" ? (
-                    <Text style={ui.muted}>
-                      This trial subject’s distance and target are copied into each scheduled
-                      session.
-                    </Text>
-                  ) : null}
-                  <Text style={ui.label}>
-                    The Backend checks class dates, phase subject, overlaps, daily horse limits and
-                    rest gaps; all repeated sessions are saved together or none are saved.
-                  </Text>
-                  <PrimaryButton
-                    label={
-                      pending === "sessions"
-                        ? "Scheduling…"
-                        : repeatWeeks === "1"
-                          ? "Schedule session"
-                          : "Schedule repeated sessions"
-                    }
-                    disabled={pending !== "" || !allowedSubjects.length}
-                    onPress={() => void addSessions()}
+
+              {/* Bottom Sheet Modal: Lên lịch buổi tập */}
+              <BottomSheetModal
+                visible={showSessionForm && payload.trainingClass.status === "ACTIVE"}
+                title="Schedule session"
+                onClose={() => setShowSessionForm(false)}
+                onSave={() => void addSessions()}
+                saveLoading={pending === "sessions"}
+                saveDisabled={pending !== "" || !allowedSubjects.length}
+                saveLabel={
+                  repeatWeeks === "1" ? "Schedule session" : "Schedule repeated sessions"
+                }
+                cancelLabel="Cancel"
+              >
+                <Text style={ui.value}>Add a session from this class phase</Text>
+                <Field label="Session date (club calendar, YYYY-MM-DD)">
+                  <NativeInput value={currentDate} onChangeText={setSessionDate} />
+                </Field>
+                <Field label="Start time (club time, HH:mm)">
+                  <NativeInput
+                    value={sessionTime}
+                    onChangeText={setSessionTime}
+                    placeholder="06:00"
                   />
-                </Panel>
-              ) : null}
+                </Field>
+                <Field label="Subject in this phase">
+                  <View style={{ gap: 8 }}>
+                    {allowedSubjects.map((item) => (
+                      <Pressable
+                        key={item.subject.id}
+                        onPress={() => setSubjectId(item.subject.id)}
+                      >
+                        <Panel
+                          style={{
+                            borderColor:
+                              effectiveSubjectId === item.subject.id
+                                ? colors.primary
+                                : colors.border,
+                            backgroundColor:
+                              effectiveSubjectId === item.subject.id
+                                ? colors.fitSoft
+                                : colors.surface,
+                          }}
+                        >
+                          <Text style={ui.value}>{item.subject.name}</Text>
+                          <Text style={ui.muted}>
+                            {item.subject.intensity} · {item.subject.durationMinutes} min ·{" "}
+                            {item.subject.plannedDistanceM} m · min {item.minSessionsPerWeek}/week
+                          </Text>
+                        </Panel>
+                      </Pressable>
+                    ))}
+                  </View>
+                </Field>
+                {!allowedSubjects.length ? (
+                  <Text style={{ color: colors.destructive }}>
+                    No plan phase covers this date.
+                  </Text>
+                ) : null}
+                <Field label="Repeat every week (1–100 sessions)">
+                  <NativeInput
+                    value={repeatWeeks}
+                    onChangeText={setRepeatWeeks}
+                    keyboardType="number-pad"
+                  />
+                </Field>
+                <Field label="Location (optional)">
+                  <NativeInput value={location} onChangeText={setLocation} />
+                </Field>
+                <Field label="Notes (optional)">
+                  <NativeInput value={sessionNotes} onChangeText={setSessionNotes} multiline />
+                </Field>
+                {selectedSubject?.sessionType === "TIME_TRIAL" ? (
+                  <Text style={ui.muted}>
+                    This trial subject’s distance and target are copied into each scheduled
+                    session.
+                  </Text>
+                ) : null}
+                <Text style={ui.label}>
+                  The Backend checks class dates, phase subject, overlaps, daily horse limits and
+                  rest gaps; all repeated sessions are saved together or none are saved.
+                </Text>
+              </BottomSheetModal>
               {payload.sessions.length ? (
                 payload.sessions.map((session) => (
                   <Pressable
@@ -829,8 +861,8 @@ export default function TrainingClassDetail() {
                               flexShrink: 0,
                               color:
                                 session.status === "IN_PROGRESS"
-                                ? colors.monitor
-                                : colors.mutedForeground,
+                                  ? colors.monitor
+                                  : colors.mutedForeground,
                               fontWeight: "600",
                             },
                           ]}
@@ -869,21 +901,56 @@ export default function TrainingClassDetail() {
       ) : null}
 
       {/* ADD HORSES MODAL BOTTOM SHEET */}
-      <BottomSheetModal
+      <PlanBottomSheetModal
         visible={addModalVisible}
         onClose={() => setAddModalVisible(false)}
         title={t("Đăng ký ngựa vào lớp")}
         subtitle={t("Nhấn '+' để thêm ngựa vào lớp")}
         colors={colors}
       >
+        <View
+          style={[
+            styles.modalSearchContainer,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <Ionicons
+            name="search-outline"
+            size={16}
+            color={colors.mutedForeground}
+            style={{ marginRight: 6 }}
+          />
+          <TextInput
+            value={addSearch}
+            onChangeText={setAddSearch}
+            placeholder={t("Tìm ngựa đủ điều kiện...")}
+            placeholderTextColor={colors.mutedForeground}
+            style={[styles.modalSearchInput, { color: colors.foreground }]}
+            autoCapitalize="none"
+          />
+          {addSearch ? (
+            <Pressable onPress={() => setAddSearch("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
+        </View>
+
         <ScrollView
-          style={{ paddingHorizontal: 16 }}
-          contentContainerStyle={{ gap: 10, paddingVertical: 8 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            gap: 10,
+            paddingVertical: 8,
+            paddingBottom: 32,
+          }}
+          nestedScrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
         >
           {loadingEnrollable ? (
             <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 30 }} />
-          ) : addModalHorses.length ? (
-            addModalHorses.map((horse) => {
+          ) : filteredAddModalHorses.length ? (
+            filteredAddModalHorses.map((horse) => {
               const isAdded = addedHorseIds.has(horse.horseId);
               const profile = horseMap.get(horse.horseId);
               const photo = horse.horsePhotoUrl || profile?.photoUrl;
@@ -915,7 +982,7 @@ export default function TrainingClassDetail() {
                     >
                       {[profile?.breed, profile?.color, profile?.gender ? t(profile.gender) : null]
                         .filter(Boolean)
-                        .join(" · ") || "Ngựa đủ điều kiện"}
+                        .join(" · ") || t("Ngựa đủ điều kiện")}
                     </Text>
                   </View>
                   <Pressable
@@ -937,15 +1004,17 @@ export default function TrainingClassDetail() {
           ) : (
             <View style={{ paddingVertical: 30, alignItems: "center" }}>
               <Text style={{ color: colors.mutedForeground, textAlign: "center" }}>
-                {t("Không có ngựa nào đủ điều kiện để thêm vào lớp lúc này.")}
+                {addSearch
+                  ? t("Không tìm thấy ngựa nào phù hợp.")
+                  : t("Không có ngựa nào đủ điều kiện để thêm vào lớp lúc này.")}
               </Text>
             </View>
           )}
         </ScrollView>
-      </BottomSheetModal>
+      </PlanBottomSheetModal>
 
       {/* EDIT HORSES MODAL BOTTOM SHEET */}
-      <BottomSheetModal
+      <PlanBottomSheetModal
         visible={editModalVisible}
         onClose={() => setEditModalVisible(false)}
         title={t("Chỉnh sửa danh sách lớp")}
@@ -953,8 +1022,16 @@ export default function TrainingClassDetail() {
         colors={colors}
       >
         <ScrollView
-          style={{ paddingHorizontal: 16 }}
-          contentContainerStyle={{ gap: 10, paddingVertical: 8 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            gap: 10,
+            paddingVertical: 8,
+            paddingBottom: 32,
+          }}
+          nestedScrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={true}
         >
           {editModalHorses.length ? (
             editModalHorses.map((enrollment) => {
@@ -1011,16 +1088,26 @@ export default function TrainingClassDetail() {
             </View>
           )}
         </ScrollView>
-      </BottomSheetModal>
+      </PlanBottomSheetModal>
 
       {/* SORT MODAL BOTTOM SHEET */}
-      <BottomSheetModal
+      <PlanBottomSheetModal
         visible={sortModalVisible}
         onClose={() => setSortModalVisible(false)}
         title={t("Sắp xếp danh sách ngựa")}
         colors={colors}
       >
-        <View style={{ paddingHorizontal: 20, gap: 10, paddingVertical: 8 }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            gap: 10,
+            paddingVertical: 8,
+            paddingBottom: 32,
+          }}
+          nestedScrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+        >
           {SORT_OPTIONS.map((opt) => {
             const isSelected = horseSort === opt.id;
             return (
@@ -1046,6 +1133,7 @@ export default function TrainingClassDetail() {
                       fontWeight: isSelected ? "700" : "500",
                     },
                   ]}
+                  numberOfLines={1}
                 >
                   {opt.label}
                 </Text>
@@ -1057,13 +1145,13 @@ export default function TrainingClassDetail() {
               </Pressable>
             );
           })}
-        </View>
-      </BottomSheetModal>
+        </ScrollView>
+      </PlanBottomSheetModal>
     </Screen>
   );
 }
 
-function BottomSheetModal({
+function PlanBottomSheetModal({
   visible,
   onClose,
   title,
@@ -1078,71 +1166,65 @@ function BottomSheetModal({
   children: React.ReactNode;
   colors: any;
 }) {
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gesture) =>
-        gesture.dy > 6 && Math.abs(gesture.dx) < Math.abs(gesture.dy),
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dy > 40 || gesture.vy > 0.3) {
-          onClose();
-        }
-      },
-    }),
-  ).current;
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          gesture.dy > 10 && Math.abs(gesture.dx) < Math.abs(gesture.dy),
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > 50 || gesture.vy > 0.4) {
+            onClose();
+          }
+        },
+      }),
+    [onClose],
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
+      <View style={styles.sheetOverlay}>
         <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}
+          style={StyleSheet.absoluteFill}
           onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.sheetKeyboardAvoid}
+          pointerEvents="box-none"
         >
-          <Pressable
-            style={{
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              maxHeight: "85%",
-              minHeight: 280,
-              paddingBottom: 28,
-              borderTopWidth: 1,
-              borderColor: colors.border,
-            }}
-            onPress={(e) => e.stopPropagation()}
+          <View
+            style={[
+              styles.sheetCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
           >
             {/* Draggable header area */}
-            <View
-              {...panResponder.panHandlers}
-              style={{ alignItems: "center", paddingTop: 10, paddingBottom: 12 }}
-            >
+            <View {...panResponder.panHandlers} style={styles.sheetHeader}>
               <View
-                style={{
-                  width: 44,
-                  height: 5,
-                  borderRadius: 3,
-                  backgroundColor: colors.border,
-                  marginBottom: 10,
-                }}
+                style={[
+                  styles.sheetDragBar,
+                  {
+                    backgroundColor: colors.border,
+                  },
+                ]}
               />
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  width: "100%",
-                  paddingHorizontal: 20,
-                }}
-              >
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontSize: 17, fontWeight: "700", color: colors.foreground }}>
+              <View style={styles.sheetHeaderRow}>
+                <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                  <Text style={[styles.sheetTitle, { color: colors.foreground }]} numberOfLines={1}>
                     {title}
                   </Text>
                   {subtitle ? (
-                    <Text style={{ fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
+                    <Text
+                      style={[styles.sheetSubtitle, { color: colors.mutedForeground }]}
+                      numberOfLines={1}
+                    >
                       {subtitle}
                     </Text>
                   ) : null}
@@ -1150,30 +1232,38 @@ function BottomSheetModal({
                 <Pressable
                   onPress={onClose}
                   hitSlop={12}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: colors.fitSoft,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+                  style={[
+                    styles.sheetCloseBtn,
+                    {
+                      backgroundColor: colors.fitSoft,
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close"
                 >
                   <Ionicons name="close" size={18} color={colors.foreground} />
                 </Pressable>
               </View>
             </View>
-            {children}
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
+
+            <View style={styles.sheetBody}>{children}</View>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const getStyles = (colors: any) =>
   StyleSheet.create({
+    searchSortRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 10,
+    },
     searchContainer: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: colors.surface,
@@ -1182,33 +1272,57 @@ const getStyles = (colors: any) =>
       borderRadius: radius.md,
       paddingHorizontal: 12,
       height: 44,
-      marginBottom: 8,
     },
     searchInput: {
       flex: 1,
       fontSize: 14,
       paddingVertical: 0,
     },
+    sortBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      height: 44,
+      paddingHorizontal: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+    },
+    sortBtnText: {
+      fontSize: 13,
+      fontWeight: "700",
+    },
     actionButtonsRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      marginBottom: 8,
+      gap: 10,
+      marginBottom: 10,
+      width: "100%",
     },
     actionBtn: {
       flex: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 6,
-      height: 40,
+      gap: 8,
+      height: 44,
       borderRadius: radius.md,
       borderWidth: 1,
-      paddingHorizontal: 8,
+      paddingHorizontal: 10,
     },
     actionBtnText: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: "700",
+    },
+    twoButtonRow: {
+      flexDirection: "row",
+      alignItems: "stretch",
+      gap: 10,
+      width: "100%",
+    },
+    flexButton: {
+      flex: 1,
+      minHeight: 48,
     },
     countBadgeRow: {
       flexDirection: "row",
@@ -1334,5 +1448,78 @@ const getStyles = (colors: any) =>
     },
     sortLabel: {
       fontSize: 14,
+    },
+    sheetOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "flex-end",
+    },
+    sheetKeyboardAvoid: {
+      width: "100%",
+      height: "82%",
+      maxHeight: "85%",
+      justifyContent: "flex-end",
+    },
+    sheetCard: {
+      flex: 1,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      borderTopWidth: 1,
+      overflow: "hidden",
+      display: "flex",
+      flexDirection: "column",
+    },
+    sheetHeader: {
+      alignItems: "center",
+      paddingTop: 10,
+      paddingBottom: 12,
+    },
+    sheetDragBar: {
+      width: 44,
+      height: 5,
+      borderRadius: 3,
+      marginBottom: 10,
+    },
+    sheetHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      width: "100%",
+      paddingHorizontal: 20,
+    },
+    sheetTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+    },
+    sheetSubtitle: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    sheetCloseBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sheetBody: {
+      flex: 1,
+      minHeight: 0,
+      paddingBottom: Platform.OS === "ios" ? 34 : 16,
+    },
+    modalSearchContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: 16,
+      marginBottom: 10,
+      paddingHorizontal: 12,
+      height: 40,
+      borderRadius: radius.md,
+      borderWidth: 1,
+    },
+    modalSearchInput: {
+      flex: 1,
+      fontSize: 13,
+      paddingVertical: 0,
     },
   });

@@ -4,12 +4,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
 import {
+  BottomSheetModal,
   Field,
   NativeInput,
   Panel,
   PrimaryButton,
   ProgressBar,
-  SecondaryButton,
   getUiStyles,
 } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
@@ -188,6 +188,9 @@ export default function GroomTasks() {
           {filteredHorses.map((horse) => {
             const items = horse.checklist?.items ?? [];
             const horseDone = items.filter((i) => i.done).length;
+            const vetAppointments = (resource.data?.horseVetAppointments ?? []).filter(
+              (appointment) => appointment.horseId === horse.horseId,
+            );
 
             return (
               <View key={horse.horseId} style={ui.section}>
@@ -223,6 +226,22 @@ export default function GroomTasks() {
                   </View>
                 </View>
 
+                {vetAppointments.length ? (
+                  <View style={{ gap: space.xs, marginTop: space.sm }}>
+                    <Text style={ui.value}>{t("Today's vet appointments")}</Text>
+                    {vetAppointments.map((appointment) => (
+                      <Panel key={appointment.id}>
+                        <Text style={ui.value}>
+                          {appointment.type === "FOLLOW_UP"
+                            ? t("Follow-up appointment")
+                            : t("Routine checkup")}
+                        </Text>
+                        <Text style={ui.muted}>{formatTime(appointment.scheduledAt)}</Text>
+                      </Panel>
+                    ))}
+                  </View>
+                ) : null}
+
                 {/* To-Do List: All items stay visible and readable */}
                 {horse.checklist ? (
                   <View style={{ gap: space.xs, marginBottom: space.sm }}>
@@ -230,7 +249,35 @@ export default function GroomTasks() {
                       <Text style={styles.todoGroupTitle}>
                         {t("Work checklist")} ({items.length})
                       </Text>
+                      {horse.checklist.status === "CANCELLED" ? (
+                        <View
+                          style={{
+                            backgroundColor: colors.injuredSoft,
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: radius.pill,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: colors.destructive,
+                              fontSize: 11,
+                              fontWeight: "700",
+                            }}
+                          >
+                            {t("Cancelled")}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
+
+                    {horse.checklist.status === "CANCELLED" ? (
+                      <Panel style={{ paddingVertical: space.sm, backgroundColor: colors.injuredSoft }}>
+                        <Text style={{ color: colors.destructive, fontSize: 12, fontWeight: "600" }}>
+                          ⚠️ {t("Checklist này đã bị hủy. Không thể thực hiện hoặc sửa đổi.")}
+                        </Text>
+                      </Panel>
+                    ) : null}
 
                     {items.length === 0 ? (
                       <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
@@ -242,7 +289,6 @@ export default function GroomTasks() {
                     ) : (
                       items.map((item) => {
                         const isBusy = busyId === item.id;
-                        const isEditingNote = noteItemId === item.id;
                         const isExpanded = Boolean(expandedTaskDetails[item.id]);
 
                         return (
@@ -258,7 +304,11 @@ export default function GroomTasks() {
                               <Pressable
                                 accessibilityRole="checkbox"
                                 accessibilityState={{ checked: item.done }}
-                                disabled={isBusy || horse.checklist?.status === "INCOMPLETE"}
+                                disabled={
+                                  isBusy ||
+                                  horse.checklist?.status === "INCOMPLETE" ||
+                                  horse.checklist?.status === "CANCELLED"
+                                }
                                 onPress={() => void updateChecklist(item.id, !item.done)}
                                 style={styles.checkboxTouch}
                               >
@@ -312,23 +362,21 @@ export default function GroomTasks() {
                               </Pressable>
 
                               {/* Note icon or button */}
-                              {!isEditingNote ? (
-                                <Pressable
-                                  accessibilityRole="button"
-                                  accessibilityLabel={t(item.note ? "Edit note" : "Add note")}
-                                  onPress={() => {
-                                    setNoteItemId(item.id);
-                                    setNoteDraft(item.note ?? "");
-                                  }}
-                                  style={styles.noteIconBtn}
-                                >
-                                  <Ionicons
-                                    name={item.note ? "document-text" : "chatbubble-outline"}
-                                    size={18}
-                                    color={item.note ? colors.primary : colors.mutedForeground}
-                                  />
-                                </Pressable>
-                              ) : null}
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t(item.note ? "Edit note" : "Add note")}
+                                onPress={() => {
+                                  setNoteItemId(item.id);
+                                  setNoteDraft(item.note ?? "");
+                                }}
+                                style={styles.noteIconBtn}
+                              >
+                                <Ionicons
+                                  name={item.note ? "document-text" : "chatbubble-outline"}
+                                  size={18}
+                                  color={item.note ? colors.primary : colors.mutedForeground}
+                                />
+                              </Pressable>
                             </View>
 
                             {/* Expanded Details when item pressed */}
@@ -352,42 +400,10 @@ export default function GroomTasks() {
                             ) : null}
 
                             {/* Note preview if exists */}
-                            {item.note && !isEditingNote ? (
+                            {item.note ? (
                               <View style={styles.noteBubble}>
                                 <Ionicons name="create-outline" size={13} color={colors.primary} />
                                 <Text style={styles.noteText}>{item.note}</Text>
-                              </View>
-                            ) : null}
-
-                            {/* Note Editor */}
-                            {isEditingNote ? (
-                              <View style={styles.noteEditorBox}>
-                                <Field label="Checklist note">
-                                  <NativeInput
-                                    value={noteDraft}
-                                    onChangeText={setNoteDraft}
-                                    placeholder={t("Enter task note")}
-                                  />
-                                </Field>
-                                <View style={styles.noteActionsRow}>
-                                  <SecondaryButton
-                                    label="Cancel"
-                                    style={{ flex: 1 }}
-                                    onPress={() => setNoteItemId(null)}
-                                  />
-                                  <PrimaryButton
-                                    label="Save note"
-                                    style={{ flex: 1 }}
-                                    onPress={() =>
-                                      void updateChecklist(
-                                        item.id,
-                                        item.done,
-                                        noteDraft.trim() || null,
-                                      ).then(() => setNoteItemId(null))
-                                    }
-                                    disabled={busyId === item.id}
-                                  />
-                                </View>
                               </View>
                             ) : null}
                           </View>
@@ -481,6 +497,35 @@ export default function GroomTasks() {
           })}
         </>
       ) : null}
+
+      <BottomSheetModal
+        visible={Boolean(noteItemId)}
+        title="Checklist note"
+        saveLabel="Save note"
+        cancelLabel="Cancel"
+        onSave={() => {
+          if (!noteItemId) return;
+          const item = tracked.find((c) => c.id === noteItemId);
+          if (item) {
+            void updateChecklist(
+              item.id,
+              item.done,
+              noteDraft.trim() || null,
+            ).then(() => setNoteItemId(null));
+          } else {
+            setNoteItemId(null);
+          }
+        }}
+        onClose={() => setNoteItemId(null)}
+      >
+        <Field label="Checklist note">
+          <NativeInput
+            value={noteDraft}
+            onChangeText={setNoteDraft}
+            placeholder={t("Enter task note")}
+          />
+        </Field>
+      </BottomSheetModal>
     </Screen>
   );
 }

@@ -1,9 +1,9 @@
 import { router, type Href } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
-import { Panel, getUiStyles } from "@/components/ui";
+import { Chips, Panel, getUiStyles } from "@/components/ui";
 import { TimelineItem, Screen, SectionTitle } from "@/components/common";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
@@ -15,11 +15,24 @@ import { space, radius } from "@/config/theme";
 import { roles } from "@/features/auth/roles";
 
 export default function Operations() {
+  const auditFilters = [
+    { label: "All activity", feature: undefined },
+    { label: "Horse ownership", feature: "HORSE_OWNER" },
+    { label: "Medical visits", feature: "MED_VISIT" },
+    { label: "Case visits", feature: "MED_CASE_VISIT" },
+    { label: "Training", feature: "TRAIN_SESSION" },
+    { label: "Incidents", feature: "INCIDENT" },
+  ] as const;
+  const [auditFilterLabel, setAuditFilterLabel] = useState("All activity");
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   const styles = getStyles(colors);
   const { token } = useAuth();
-  const loadAuditLog = useCallback(() => auditService.list(token!), [token]);
+  const activeAuditFilter = auditFilters.find((filter) => filter.label === auditFilterLabel);
+  const loadAuditLog = useCallback(
+    () => auditService.list(token!, 20, { feature: activeAuditFilter?.feature }),
+    [activeAuditFilter?.feature, token],
+  );
   const auditResource = useApiResource(loadAuditLog, Boolean(token));
   const auditLog = auditResource.data ?? [];
 
@@ -58,6 +71,11 @@ export default function Operations() {
 
       <View style={uiStyles.section}>
         <SectionTitle>Recent activity (Audit Log)</SectionTitle>
+        <Chips
+          options={auditFilters.map((filter) => filter.label)}
+          value={auditFilterLabel}
+          onChange={setAuditFilterLabel}
+        />
         <AsyncStateView
           isLoading={auditResource.isLoading}
           error={auditResource.error}

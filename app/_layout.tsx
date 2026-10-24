@@ -1,11 +1,21 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as Notifications from "expo-notifications";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { RaceOSProvider } from "@/context/RaceOSContext";
 import { I18nProvider } from "@/context/I18nContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { AuthRouteGate } from "@/features/auth/AuthRouteGate";
 import { useTheme } from "@/hooks/useTheme";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
 
 export default function RootLayout() {
   const { colors, isDark } = useTheme();

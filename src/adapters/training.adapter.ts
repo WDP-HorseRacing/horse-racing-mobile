@@ -64,7 +64,17 @@ export type TrainingSessionView = {
   targetTimeMs: number | null;
   durationMin: number;
   intensity: string | null;
-  status: "planned" | "scheduled" | "in_progress" | "completed" | "cancelled";
+  status:
+    | "planned"
+    | "scheduled"
+    | "in_progress"
+    | "completed"
+    | "cancelled"
+    | "cancelled_by_lock"
+    | "ineligible";
+  sessionStatus: string;
+  participantStatus: string;
+  cancelReason: string | null;
   groomName: string | null;
   trials: (TrainingTrialResultDto & { elapsedLabel: string; targetTimeLabel: string | null })[];
   evaluation: HorseTrainingSessionDto["evaluation"];
@@ -112,7 +122,9 @@ export function mapOwnerTrainingRemarks(
       score: session.evaluation?.score ?? 0,
       observation:
         session.evaluation?.comment?.trim() ||
-        (session.evaluation?.score != null ? `Điểm đánh giá: ${session.evaluation.score}/10` : "Đã hoàn thành đánh giá"),
+        (session.evaluation?.score != null
+          ? `Điểm đánh giá: ${session.evaluation.score}/10`
+          : "Đã hoàn thành đánh giá"),
     }))
     .sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -177,6 +189,9 @@ export function mapTrainingSessions(
       durationMin: Math.round(durationMs / 60_000),
       intensity: session.intensity ?? null,
       status: mapParticipantStatus(session.participantStatus, session.sessionStatus),
+      sessionStatus: session.sessionStatus,
+      participantStatus: session.participantStatus,
+      cancelReason: session.cancelReason,
       groomName: session.groomName,
       trials: (session.trialResults ?? []).map((trial) => ({
         ...trial,
@@ -197,15 +212,20 @@ function mapParticipantStatus(
   participantStatus: string,
   sessionStatus: string,
 ): TrainingSessionView["status"] {
+  if (participantStatus === "CANCELLED_BY_LOCK") return "cancelled_by_lock";
+  if (participantStatus === "INELIGIBLE" && sessionStatus !== "CANCELLED") return "ineligible";
   if (
     sessionStatus === "CANCELLED" ||
-    ["ABSENT", "SKIPPED", "INELIGIBLE", "CANCELLED", "CANCELLED_BY_LOCK"].includes(
-      participantStatus,
-    )
+    ["ABSENT", "SKIPPED", "CANCELLED"].includes(participantStatus)
   ) {
     return "cancelled";
   }
-  if (sessionStatus === "COMPLETED" || participantStatus === "COMPLETED") return "completed";
+  if (
+    sessionStatus === "COMPLETED" ||
+    participantStatus === "COMPLETED" ||
+    participantStatus === "STOPPED"
+  )
+    return "completed";
   if (participantStatus === "ONGOING") return "in_progress";
   return "scheduled";
 }

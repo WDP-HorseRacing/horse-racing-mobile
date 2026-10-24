@@ -72,7 +72,7 @@ export default function OwnerReports() {
                 <Panel key={horse.horseId}>
                   <Text style={ui.value}>{horse.horseName}</Text>
                   <Text style={ui.muted}>
-                    {horse.billedDays} billed days · {horse.caseCount} medical cases
+                    {horse.billedDays} billed days · {horse.visitCount} medical visits
                   </Text>
                   <Row label="Daily fees" value={money(horse.dailyFee)} />
                   <Row label="Medical" value={money(horse.medicalCost)} />

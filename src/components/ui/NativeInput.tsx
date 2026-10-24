@@ -7,16 +7,28 @@ export function NativeInput({
   value,
   onChangeText,
   multiline,
+  numberOfLines,
   placeholder,
   secureTextEntry,
+  autoCapitalize,
   keyboardType,
+  autoFocus,
+  maxLength,
+  editable,
+  style,
 }: {
   value: string;
   onChangeText: (value: string) => void;
   multiline?: boolean;
+  numberOfLines?: number;
   placeholder?: string;
   secureTextEntry?: boolean;
+  autoCapitalize?: TextInputProps["autoCapitalize"];
   keyboardType?: TextInputProps["keyboardType"];
+  autoFocus?: boolean;
+  maxLength?: number;
+  editable?: boolean;
+  style?: any;
 }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -26,11 +38,16 @@ export function NativeInput({
       value={value}
       onChangeText={onChangeText}
       multiline={multiline}
+      numberOfLines={numberOfLines}
       secureTextEntry={secureTextEntry}
+      autoCapitalize={autoCapitalize}
       keyboardType={keyboardType}
+      autoFocus={autoFocus}
+      maxLength={maxLength}
+      editable={editable}
       placeholder={placeholder ? t(placeholder) : undefined}
       placeholderTextColor={colors.mutedForeground}
-      style={[styles.input, multiline && styles.multiline]}
+      style={[styles.input, multiline && styles.multiline, style]}
     />
   );
 }

@@ -83,11 +83,11 @@ export type CreateHorseInput = {
   gender: HorseGenderDto;
   breed?: string;
   color?: string;
-  microchipId?: string;
+  microchipId: string;
   dateOfBirth?: string;
   sireId?: string;
   damId?: string;
-  ownerId?: string;
+  ownerId: string;
   barnId?: string;
   mediaId?: string;
 };
@@ -97,7 +97,7 @@ export type UpdateHorseInput = {
   gender?: HorseGenderDto;
   breed?: string | null;
   color?: string | null;
-  microchipId?: string | null;
+  microchipId?: string;
   dateOfBirth?: string | null;
   sireId?: string | null;
   damId?: string | null;
@@ -139,6 +139,8 @@ export type HorseSummary = {
   color: string;
   raceAptitude: string;
 };
+
+export type HorseSummaryDto = HorseSummary;
 
 export function mapHorseSummary(horse: HorseListItemDto): HorseSummary {
   const hasActiveTrainingLock =

@@ -1,12 +1,15 @@
 import { apiRequest } from "@/services/api-client";
 
-export type BarnListItemDto = {
+export type BarnResponseDto = {
   id: string;
   name: string;
   description: string | null;
   capacity: number | null;
   status: string;
   headTrainerId: string | null;
+};
+
+export type BarnListItemDto = BarnResponseDto & {
   headTrainerFullName: string | null;
   hasActiveHeadTrainer: boolean;
   availableStallCount: number;
@@ -66,7 +69,7 @@ export const stableService = {
   },
 
   createBarn(token: string, input: CreateBarnInput) {
-    return apiRequest<BarnListItemDto>("/barns", {
+    return apiRequest<BarnResponseDto>("/barns", {
       method: "POST",
       token,
       body: input,
@@ -74,7 +77,7 @@ export const stableService = {
   },
 
   updateBarn(token: string, barnId: string, input: UpdateBarnInput) {
-    return apiRequest<BarnListItemDto>(`/barns/${encodeURIComponent(barnId)}`, {
+    return apiRequest<BarnResponseDto>(`/barns/${encodeURIComponent(barnId)}`, {
       method: "PATCH",
       token,
       body: input,

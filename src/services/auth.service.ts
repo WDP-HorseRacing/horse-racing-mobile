@@ -50,10 +50,10 @@ export const authService = {
     return apiRequest<AuthUser>("/auth/me", { token });
   },
 
-  logout(refreshToken: string) {
+  logout(refreshToken: string, deviceToken?: string) {
     return apiRequest<void>("/auth/logout", {
       method: "POST",
-      body: { refreshToken },
+      body: { refreshToken, ...(deviceToken ? { deviceToken } : {}) },
     });
   },
 

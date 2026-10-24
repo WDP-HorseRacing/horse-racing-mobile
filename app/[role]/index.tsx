@@ -19,6 +19,7 @@ import { groomService } from "@/services/groom.service";
 import { medicalService } from "@/services/medical.service";
 import { notificationsService } from "@/services/notifications.service";
 import { mapHorseSummary } from "@/adapters/horse.adapter";
+import type { MedicalDashboardDto } from "@/adapters/medical.adapter";
 
 export default function RoleHome() {
   const { role } = useLocalSearchParams<{ role: string }>();
@@ -60,7 +61,12 @@ export default function RoleHome() {
           months.map((m) =>
             medicalService
               .getCostReport(token, { from: m.from, to: m.to })
-              .then((r) => ({ key: m.key, label: m.label, total: r.totalCost, count: r.caseCount }))
+              .then((r) => ({
+                key: m.key,
+                label: m.label,
+                total: r.totalCost,
+                count: r.visitCount,
+              }))
               .catch(() => ({ key: m.key, label: m.label, total: 0, count: 0 })),
           ),
         ),
@@ -154,8 +160,18 @@ export default function RoleHome() {
       return { kind: "groom", today, supplies };
     }
     if (roleId === "vet") {
+      const fallbackDashboard: MedicalDashboardDto = {
+        herd: {
+          counts: { QUARANTINED: 0, INJURED: 0, UNDER_OBSERVATION: 0, ELIGIBLE: 0 },
+          horses: [],
+        },
+        checkups: [],
+        careSchedules: [],
+        openCases: [],
+        pendingRequests: [],
+      };
       const [dashboard, horses, checkups, supplies, notifications] = await Promise.all([
-        medicalService.getDashboard(token),
+        medicalService.getDashboard(token).catch(() => fallbackDashboard),
         horseService.list(token).catch(() => []),
         medicalService.listCheckups(token).catch(() => []),
         suppliesService.listItems(token).catch(() => []),

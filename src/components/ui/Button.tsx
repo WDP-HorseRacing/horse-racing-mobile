@@ -36,30 +36,34 @@ export function PrimaryButton({
         style,
       ]}
     >
-      <Text style={styles.buttonText}>{t(label)}</Text>
-      <Ionicons name={icon} size={18} color="#FFFFFF" />
+      <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
+        {t(label)}
+      </Text>
+      {icon && <Ionicons name={icon} size={18} color="#FFFFFF" />}
     </Pressable>
   );
 }
 
 const getStyles = (colors: any) =>
   StyleSheet.create({
-    buttonSpacing: { marginHorizontal: space.xs, marginVertical: space.xs },
+    buttonSpacing: { marginVertical: space.xs },
     button: {
-      minHeight: 52,
+      minHeight: 48,
       borderRadius: radius.md,
-      paddingHorizontal: space.lg,
+      paddingHorizontal: space.md,
       paddingVertical: space.sm,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: space.sm,
       backgroundColor: colors.primary,
+      borderWidth: 1,
+      borderColor: "transparent",
     },
     secondaryButton: {
-      minHeight: 52,
+      minHeight: 48,
       borderRadius: radius.md,
-      paddingHorizontal: space.lg,
+      paddingHorizontal: space.md,
       paddingVertical: space.sm,
       flexDirection: "row",
       alignItems: "center",
@@ -70,15 +74,17 @@ const getStyles = (colors: any) =>
       borderColor: colors.border,
     },
     dangerButton: {
-      minHeight: 52,
+      minHeight: 48,
       borderRadius: radius.md,
-      paddingHorizontal: space.lg,
+      paddingHorizontal: space.md,
       paddingVertical: space.sm,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: space.sm,
       backgroundColor: colors.destructive,
+      borderWidth: 1,
+      borderColor: "transparent",
     },
     buttonText: {
       color: "#FFFFFF",
@@ -134,7 +140,9 @@ export function DangerButton({
         style,
       ]}
     >
-      <Text style={styles.dangerButtonText}>{t(label)}</Text>
+      <Text style={styles.dangerButtonText} numberOfLines={1} ellipsizeMode="tail">
+        {t(label)}
+      </Text>
       {icon && <Ionicons name={icon} size={18} color="#FFFFFF" />}
     </Pressable>
   );
@@ -169,7 +177,9 @@ export function SecondaryButton({
         style,
       ]}
     >
-      <Text style={styles.secondaryButtonText}>{t(label)}</Text>
+      <Text style={styles.secondaryButtonText} numberOfLines={1} ellipsizeMode="tail">
+        {t(label)}
+      </Text>
       {icon && <Ionicons name={icon} size={18} color={colors.foreground} />}
     </Pressable>
   );

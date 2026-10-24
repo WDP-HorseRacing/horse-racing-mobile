@@ -46,7 +46,7 @@ function BottomNav({ role }: { role: RoleId }) {
           }
         },
       }),
-    [],
+    [setMoreVisible],
   );
 
   return (
@@ -97,7 +97,10 @@ function BottomNav({ role }: { role: RoleId }) {
             style={StyleSheet.absoluteFill}
           />
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.lg) }]}>
-            <View {...panResponder.panHandlers} style={{ width: "100%", alignItems: "center", paddingTop: 4, paddingBottom: 8 }}>
+            <View
+              {...panResponder.panHandlers}
+              style={{ width: "100%", alignItems: "center", paddingTop: 4, paddingBottom: 8 }}
+            >
               <View style={styles.sheetHandle} />
             </View>
             <View {...panResponder.panHandlers} style={styles.sheetHeader}>

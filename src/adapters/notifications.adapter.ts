@@ -35,6 +35,30 @@ export type HorseAlertView = HorseAlertDto & {
   recordedAtLabel: string;
 };
 
+const notificationCategoryLabels: Record<string, string> = {
+  MEASUREMENT_ALERT: "Measurement alert",
+  BARN_ASSIGNED: "Stable placement",
+  GROOM_ASSIGNMENT: "Groom assignment",
+  MEDICAL_CASE: "Medical case",
+  TRAINING_LOCK: "Training lock",
+  HEALTH_STATUS: "Health status",
+  EXAM_REQUEST: "Exam request",
+  CARE_REMINDER: "Care reminder",
+  HORSE_LIFECYCLE: "Horse lifecycle",
+  OWNERSHIP: "Horse ownership",
+  PERFORMANCE_ALERT: "Performance alert",
+  DAILY_CHECKLIST: "Daily checklist",
+  INCIDENT: "Stable incident",
+  SUPPLY: "Supply",
+  SURCHARGE: "Horse surcharge",
+  TRAINING_SESSION: "Training session",
+  TRAINING_CLASS: "Training class",
+};
+
+export function notificationCategoryLabel(category: string): string {
+  return notificationCategoryLabels[category] ?? category.replaceAll("_", " ");
+}
+
 export function mapNotification(item: NotificationDto): NotificationView {
   return { ...item, createdAtLabel: formatDateTime(item.createdAt) };
 }

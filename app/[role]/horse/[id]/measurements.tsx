@@ -14,7 +14,12 @@ import {
 } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
+import {
+  validateMeasurementField,
+  type MedicalMeasurementType,
+} from "@/features/medical/medical-validation";
 import { horseService, type HorseMeasurementDto } from "@/services/horse.service";
 import { isRole } from "@/features/auth/roles";
 import { extractErrorMessage } from "@/utils/errorHandler";
@@ -27,12 +32,12 @@ const UNITS: Record<MeasurementType, string> = {
   BODY_CONDITION: "score",
   TEMPERATURE: "°C",
 };
-const TODAY = new Date().toISOString().slice(0, 10);
 
 export default function BodyMeasurements() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const uiStyles = getUiStyles(colors);
+  const { t } = useI18n();
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
   const { token } = useAuth();
   const [values, setValues] = useState<Record<MeasurementType, string>>({
@@ -41,7 +46,6 @@ export default function BodyMeasurements() {
     BODY_CONDITION: "",
     TEMPERATURE: "",
   });
-  const [measurementDate, setMeasurementDate] = useState(TODAY);
   const [confirmAbnormal, setConfirmAbnormal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -77,62 +81,52 @@ export default function BodyMeasurements() {
 
   const updateValue = (type: MeasurementType, value: string) =>
     setValues((current) => ({ ...current, [type]: value }));
+
+  const fieldValidations = useMemo(() => {
+    return {
+      WEIGHT: validateMeasurementField("WEIGHT", values.WEIGHT, t),
+      HEIGHT: validateMeasurementField("HEIGHT", values.HEIGHT, t),
+      BODY_CONDITION: validateMeasurementField("BODY_CONDITION", values.BODY_CONDITION, t),
+      TEMPERATURE: validateMeasurementField("TEMPERATURE", values.TEMPERATURE, t),
+    };
+  }, [values, t]);
+
+  const hasAnyInvalidField = useMemo(
+    () => TYPES.some((type) => !fieldValidations[type].isValid),
+    [fieldValidations],
+  );
+
+  const hasAnyAbnormalField = useMemo(
+    () => TYPES.some((type) => fieldValidations[type].isAbnormal),
+    [fieldValidations],
+  );
+
   const addMeasurement = async () => {
     const selected = TYPES.filter((type) => values[type].trim() !== "");
     if (!token || !selected.length || saving) {
-      setFormError("Enter at least one measurement.");
+      setFormError(t("Enter at least one measurement."));
       return;
     }
-    const parsedDate = new Date(`${measurementDate}T12:00:00.000Z`);
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(measurementDate) ||
-      Number.isNaN(parsedDate.getTime()) ||
-      parsedDate.toISOString().slice(0, 10) !== measurementDate
-    ) {
-      setFormError("Measurement date must be valid and use YYYY-MM-DD format.");
-      return;
-    }
-    const now = new Date();
-    const daysOld = (now.getTime() - parsedDate.getTime()) / 86_400_000;
-    if (daysOld < -0.5 || daysOld > 7.5) {
-      setFormError("Backend accepts measurements from now back through the previous seven days.");
+    if (hasAnyInvalidField) {
+      setFormError(t("Một hoặc nhiều giá trị không hợp lệ. Vui lòng kiểm tra lại."));
       return;
     }
     const parsedValues = selected.map((type) => ({ type, value: Number(values[type]) }));
-    if (parsedValues.some((entry) => !Number.isFinite(entry.value))) {
-      setFormError("Each measurement must be a number.");
-      return;
-    }
-    const allowed: Record<MeasurementType, [number, number]> = {
-      WEIGHT: [30, 1500],
-      HEIGHT: [50, 250],
-      BODY_CONDITION: [1, 9],
-      TEMPERATURE: [30, 45],
-    };
-    if (
-      parsedValues.some(
-        (entry) => entry.value < allowed[entry.type][0] || entry.value > allowed[entry.type][1],
-      )
-    ) {
-      setFormError("One or more values are outside the valid range defined by Backend.");
-      return;
-    }
     setSaving(true);
     setFormError("");
     try {
       const result = await horseService.addMeasurements(token, id, {
         values: parsedValues,
-        measuredAt: parsedDate.toISOString(),
         ...(confirmAbnormal ? { confirmAbnormal: true } : {}),
       });
       const alerts = result.flatMap((measurement) =>
         measurement.alerts.map((alert) => alert.alert),
       );
       Alert.alert(
-        "Measurements saved",
+        t("Measurements saved"),
         alerts.length
-          ? `Saved. Backend generated: ${alerts.join(", ")}.`
-          : "Measurement history is up to date.",
+          ? `${t("Đã lưu thành công. Cảnh báo ghi nhận")}: ${alerts.join(", ")}.`
+          : t("Lịch sử đo lường đã được cập nhật."),
       );
       setValues({ WEIGHT: "", HEIGHT: "", BODY_CONDITION: "", TEMPERATURE: "" });
       setConfirmAbnormal(false);
@@ -140,7 +134,7 @@ export default function BodyMeasurements() {
     } catch (error) {
       const message = extractErrorMessage(error);
       setFormError(message);
-      Alert.alert("Could not save measurements", message);
+      Alert.alert(t("Could not save measurements"), message);
     } finally {
       setSaving(false);
     }
@@ -302,35 +296,43 @@ export default function BodyMeasurements() {
         <Panel>
           <SectionTitle>Add a measurement session</SectionTitle>
           <View style={{ gap: 14, marginTop: 12 }}>
-            {TYPES.map((type) => (
-              <Field key={type} label={`${type.replaceAll("_", " ")} (${UNITS[type]})`}>
-                <NativeInput
-                  value={values[type]}
-                  onChangeText={(value) => updateValue(type, value)}
-                  keyboardType="decimal-pad"
-                  placeholder="Optional · enter a value"
-                />
-              </Field>
-            ))}
-            <Field label="Measurement date (YYYY-MM-DD)">
-              <NativeInput
-                value={measurementDate}
-                onChangeText={setMeasurementDate}
-                placeholder="YYYY-MM-DD"
-              />
-            </Field>
+            {TYPES.map((type) => {
+              const validation = fieldValidations[type];
+              return (
+                <Field key={type} label={`${type.replaceAll("_", " ")} (${UNITS[type]})`}>
+                  <NativeInput
+                    value={values[type]}
+                    onChangeText={(value) => updateValue(type, value)}
+                    keyboardType="decimal-pad"
+                    placeholder={t("Optional · enter a value")}
+                  />
+                  {validation.error ? (
+                    <Text style={styles.fieldError}>{validation.error}</Text>
+                  ) : validation.warning ? (
+                    <Text style={styles.warningText}>{validation.warning}</Text>
+                  ) : null}
+                </Field>
+              );
+            })}
             <Chips
-              options={["Do not confirm abnormal", "Confirm abnormal if Backend requires"]}
-              value={
-                confirmAbnormal ? "Confirm abnormal if Backend requires" : "Do not confirm abnormal"
-              }
-              onChange={(value) => setConfirmAbnormal(value.startsWith("Confirm"))}
+              options={["Không xác nhận bất thường", "Xác nhận nếu có cảnh báo"]}
+              value={confirmAbnormal ? "Xác nhận nếu có cảnh báo" : "Không xác nhận bất thường"}
+              onChange={(value) => setConfirmAbnormal(value.startsWith("Xác nhận"))}
             />
+            {hasAnyAbnormalField && !confirmAbnormal ? (
+              <Text style={styles.warningNotice}>
+                ⚠️ {t("Có giá trị ngoài khoảng bình thường. Vui lòng chọn 'Xác nhận nếu có cảnh báo' để hệ thống cho phép lưu.")}
+              </Text>
+            ) : null}
             {formError ? <Text style={styles.error}>{formError}</Text> : null}
             <PrimaryButton
-              label={saving ? "Saving…" : "Save measurements"}
+              label={saving ? t("Saving…") : t("Save measurements")}
               icon="checkmark"
-              disabled={saving}
+              disabled={
+                saving ||
+                hasAnyInvalidField ||
+                !TYPES.some((type) => values[type].trim() !== "")
+              }
               onPress={() => void addMeasurement()}
             />
           </View>
@@ -352,4 +354,7 @@ const getStyles = (colors: any) =>
     alertLabel: { color: colors.destructive, fontSize: 11, fontWeight: "800" },
     deleteLink: { color: colors.destructive, fontSize: 13, fontWeight: "700", marginTop: 10 },
     error: { color: colors.destructive, fontSize: 13 },
+    fieldError: { color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" },
+    warningText: { color: colors.warning ?? "#d97706", fontSize: 12, marginTop: 4, fontWeight: "600" },
+    warningNotice: { color: colors.warning ?? "#d97706", fontSize: 13, lineHeight: 18, fontWeight: "600" },
   });

@@ -78,7 +78,7 @@ export function RoleDashboard({
     return (
       <>
         <View style={uiStyles.metricGrid}>
-          <Metric label="Visible horses" value={horses.length} hint="from backend" />
+          <Metric label="Visible horses" value={horses.length} hint="toàn câu lạc bộ" />
           <Metric
             label="Need attention"
             value={attention.length}
@@ -118,7 +118,12 @@ export function RoleDashboard({
     return (
       <>
         <View style={uiStyles.metricGrid}>
-          <Metric label="Classes" value={payload.classes.length} hint="from backend" tone="good" />
+          <Metric
+            label="Classes"
+            value={payload.classes.length}
+            hint="đang phụ trách"
+            tone="good"
+          />
           <Metric
             label="Sessions"
             value={sessions.length}

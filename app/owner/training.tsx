@@ -111,7 +111,13 @@ function OwnerSessionRow({ session }: { session: TrainingSessionView }) {
               { flexShrink: 0 },
             ]}
           >
-            {t(session.status)}
+            {t(
+              session.status === "cancelled_by_lock"
+                ? "Cancelled by training lock"
+                : session.status === "ineligible"
+                  ? "Not eligible"
+                  : session.status,
+            )}
           </Text>
         </View>
         <Text style={uiStyles.muted}>
@@ -119,6 +125,7 @@ function OwnerSessionRow({ session }: { session: TrainingSessionView }) {
           {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
           {session.surface ? ` · ${session.surface}` : ""}
         </Text>
+        {session.cancelReason ? <Text style={uiStyles.muted}>{session.cancelReason}</Text> : null}
         {session.evaluation ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }}>
             <Ionicons name="star" size={13} color={colors.monitor} />

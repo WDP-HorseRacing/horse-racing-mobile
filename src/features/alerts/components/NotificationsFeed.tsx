@@ -8,13 +8,19 @@ import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { horseService } from "@/services/horse.service";
 import { notificationsService } from "@/services/notifications.service";
-import { mapHorseAlert, mapNotification } from "@/adapters/notifications.adapter";
+import {
+  mapHorseAlert,
+  mapNotification,
+  notificationCategoryLabel,
+} from "@/adapters/notifications.adapter";
 import type { RoleId } from "@/types/raceos";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { useTheme } from "@/hooks/useTheme";
+import { useI18n } from "@/context/I18nContext";
 
 export function NotificationsFeed({ role }: { role: RoleId }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const uiStyles = getUiStyles(colors);
   const { token } = useAuth();
   const load = useCallback(async () => {
@@ -114,7 +120,7 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
                   }}
                   numberOfLines={1}
                 >
-                  {notification.priority} · {notification.category}
+                  {notification.priority} · {t(notificationCategoryLabel(notification.category))}
                 </Text>
                 <Text style={[uiStyles.muted, { flexShrink: 0 }]}>
                   {notification.createdAtLabel}

@@ -24,7 +24,8 @@ import type { StaffDto } from "@/adapters/staff.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import type { HorseDetailDto, HorseGenderDto, HorseListItemDto } from "@/adapters/horse.adapter";
 import { useTheme } from "@/hooks/useTheme";
-import { validateHorseIdentity } from "@/utils/horse-validation";
+import { useI18n } from "@/context/I18nContext";
+import { clubDate, isValidIsoDate, validateHorseIdentity } from "@/utils/horse-validation";
 
 export default function EditHorse() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -138,6 +139,7 @@ function EditHorseForm({
   retryHorses: () => void;
 }) {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const uiStyles = getUiStyles(colors);
   const [name, setName] = useState(horse.name);
   const [gender, setGender] = useState<HorseGenderDto>(
@@ -159,6 +161,36 @@ function EditHorseForm({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const savingRef = useRef(false);
+
+  const microchipError = useMemo(() => {
+    const val = microchipId.trim();
+    if (!val) return "";
+    if (!/^\d+$/.test(val)) return t("Mã microchip chỉ được chứa các chữ số.");
+    if (val.length !== 15) return `${t("Mã microchip phải gồm đúng 15 chữ số")} (${val.length}/15).`;
+    return "";
+  }, [microchipId, t]);
+
+  const dobError = useMemo(() => {
+    const val = dateOfBirth.trim();
+    if (!val) return "";
+    if (!isValidIsoDate(val)) return t("Ngày sinh phải theo định dạng YYYY-MM-DD hợp lệ.");
+    const today = clubDate();
+    const [year, month, day] = val.split("-").map(Number);
+    const birth = new Date(Date.UTC(year, month - 1, day));
+    const [nowYear, nowMonth, nowDay] = today.split("-").map(Number);
+    const now = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay));
+    const ageYears = (now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    if (ageYears < 1) return t("Ngựa phải từ 1 tuổi trở lên.");
+    if (ageYears > 40) return t("Ngựa không được quá 40 tuổi.");
+    return "";
+  }, [dateOfBirth, t]);
+
+  const nameError = useMemo(() => {
+    const val = name.trim();
+    if (!val) return "";
+    if (val.length > 160) return t("Tên ngựa không được vượt quá 160 ký tự.");
+    return "";
+  }, [name, t]);
   const loadPhoto = useCallback(() => horseService.getPhotoUrl(token, horseId), [horseId, token]);
   const photoResource = useApiResource(loadPhoto, Boolean(horse.mediaId));
   const candidateSires = useMemo(
@@ -219,7 +251,7 @@ function EditHorseForm({
         gender,
         breed: breed.trim() || null,
         color: color.trim() || null,
-        microchipId: microchipId.trim() || null,
+        ...(microchipId.trim() ? { microchipId: microchipId.trim() } : {}),
         dateOfBirth: dateOfBirth.trim() || null,
         sireId: sireId || null,
         damId: damId || null,
@@ -271,10 +303,7 @@ function EditHorseForm({
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        "Quyền máy ảnh",
-        "Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh ngựa.",
-      );
+      Alert.alert("Quyền máy ảnh", "Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh ngựa.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -340,6 +369,11 @@ function EditHorseForm({
         <View style={{ gap: 18 }}>
           <Field label="Horse name">
             <NativeInput value={name} onChangeText={setName} />
+            {nameError ? (
+              <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                {nameError}
+              </Text>
+            ) : null}
           </Field>
           <Field label="Gender">
             <Chips
@@ -360,9 +394,19 @@ function EditHorseForm({
               onChangeText={setMicrochipId}
               keyboardType="number-pad"
             />
+            {microchipError ? (
+              <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                {microchipError}
+              </Text>
+            ) : null}
           </Field>
           <Field label="Date of birth (YYYY-MM-DD)">
             <NativeInput value={dateOfBirth} onChangeText={setDateOfBirth} />
+            {dobError ? (
+              <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                {dobError}
+              </Text>
+            ) : null}
           </Field>
           <Field label="Sire">
             <NativeInput
@@ -524,7 +568,7 @@ function EditHorseForm({
       <PrimaryButton
         label={uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save profile"}
         icon="checkmark"
-        disabled={saving}
+        disabled={saving || Boolean(nameError || microchipError || dobError)}
         onPress={() => void save()}
       />
     </>

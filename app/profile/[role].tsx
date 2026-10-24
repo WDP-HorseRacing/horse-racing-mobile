@@ -1,10 +1,17 @@
 import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
-import { useCallback, useState } from "react";
-import { View, StyleSheet, Pressable, Alert } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, StyleSheet, Pressable, Alert, Platform } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { isRole, roles } from "@/features/auth/roles";
 import { Screen, SectionTitle } from "@/components/common";
-import { Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import {
+  Field,
+  NativeInput,
+  Panel,
+  PrimaryButton,
+  SecondaryButton,
+  getUiStyles,
+} from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { space, radius } from "@/config/theme";
 import { useAuth } from "@/context/AuthContext";
@@ -15,6 +22,7 @@ import { horseService } from "@/services/horse.service";
 import { stableService } from "@/services/stable.service";
 import { usersService } from "@/services/users.service";
 import { medicalService } from "@/services/medical.service";
+import { pushDeviceService } from "@/services/push-device.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import type { RoleId } from "@/types/raceos";
 
@@ -53,7 +61,13 @@ async function loadWorkStats(token: string, role: RoleId, userId: string): Promi
       ];
     }
     case "vet": {
-      const medical = await medicalService.getDashboard(token);
+      const medical = await medicalService.getDashboard(token).catch(() => ({
+        herd: { counts: { QUARANTINED: 0, INJURED: 0, UNDER_OBSERVATION: 0, ELIGIBLE: 0 }, horses: [] },
+        checkups: [],
+        careSchedules: [],
+        openCases: [],
+        pendingRequests: [],
+      }));
       const overdue = medical.checkups.filter((item) => item.daysLeft < 0).length;
       return [
         {
@@ -104,11 +118,30 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [pushRegistered, setPushRegistered] = useState(false);
+  const [registeringPush, setRegisteringPush] = useState(false);
 
   const roleId = isRole(role) ? (role as RoleId) : null;
   const authRole = auth.role;
   const authToken = auth.token;
   const authUserId = auth.user?.userId;
+  const supportsPushRegistration = Platform.OS === "android";
+  const pushUnavailableMessage =
+    Platform.OS === "ios"
+      ? t("iOS push registration needs Firebase Messaging and a configured native build.")
+      : t("Push registration is available only in the Android app.");
+  const pushUnavailableLabel =
+    Platform.OS === "ios" ? t("iOS push setup required") : t("Android app required");
+
+  useEffect(() => {
+    let active = true;
+    void pushDeviceService.hasStoredToken().then((registered) => {
+      if (active) setPushRegistered(registered);
+    });
+    return () => {
+      active = false;
+    };
+  }, [authUserId]);
 
   const loadWork = useCallback(async () => {
     if (!authToken || !authUserId || !roleId) return null;
@@ -139,10 +172,31 @@ export default function Profile() {
   ];
 
   const systemItems = [
-    { key: "Notifications", value: "Critical alerts always on" },
     { key: "Sensor pairing", value: "3 vests linked" },
     { key: "Audit trail", value: "Every action recorded" },
   ];
+
+  const enablePushNotifications = async () => {
+    if (!authToken) return;
+    setRegisteringPush(true);
+    try {
+      const registered = await pushDeviceService.enableForCurrentDevice(authToken);
+      setPushRegistered(registered);
+      Alert.alert(
+        registered ? t("Push notifications enabled") : t("Notification permission required"),
+        registered
+          ? t("This device will receive notifications for this account.")
+          : t("Allow notifications in system settings, then try again."),
+      );
+    } catch (error) {
+      Alert.alert(
+        t("Could not enable push notifications"),
+        extractErrorMessage(error, t("Push notification setup is unavailable on this build.")),
+      );
+    } finally {
+      setRegisteringPush(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (!auth.token) return;
@@ -287,6 +341,32 @@ export default function Profile() {
           </Panel>
         </View>
       ) : null}
+
+      <View style={uiStyles.section}>
+        <SectionTitle>Push notifications</SectionTitle>
+        <Panel style={{ gap: space.sm }}>
+          <Text style={uiStyles.muted}>
+            {!supportsPushRegistration
+              ? pushUnavailableMessage
+              : pushRegistered
+                ? t("This device is registered for push notifications.")
+                : t("This device is not registered for push notifications.")}
+          </Text>
+          <SecondaryButton
+            label={
+              !supportsPushRegistration
+                ? pushUnavailableLabel
+                : registeringPush
+                  ? t("Enabling notifications…")
+                  : pushRegistered
+                    ? t("Refresh push registration")
+                    : t("Enable push notifications")
+            }
+            disabled={!supportsPushRegistration || registeringPush}
+            onPress={() => void enablePushNotifications()}
+          />
+        </Panel>
+      </View>
 
       <View style={uiStyles.section}>
         <SectionTitle>System</SectionTitle>

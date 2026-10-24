@@ -29,13 +29,15 @@ import { radius, space } from "@/config/theme";
 export default function StaffManagement() {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [editingPerson, setEditingPerson] = useState<StaffDto | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newStaffPassword, setNewStaffPassword] = useState("");
+  const [confirmStaffPassword, setConfirmStaffPassword] = useState("");
   const [role, setRole] = useState("Groom");
 
   const loadStaff = useCallback(() => usersService.list(token!), [token]);
@@ -46,6 +48,8 @@ export default function StaffManagement() {
     setName("");
     setEmail("");
     setPassword("");
+    setNewStaffPassword("");
+    setConfirmStaffPassword("");
     setRole("Groom");
     setEditingPerson(null);
     setIsAdding(true);
@@ -55,6 +59,8 @@ export default function StaffManagement() {
     setName(person.fullName);
     setEmail(person.email);
     setPassword("");
+    setNewStaffPassword("");
+    setConfirmStaffPassword("");
     setRole(person.role ? mapStaffMember(person).roleLabel : "Groom");
     setEditingPerson(person);
     setIsAdding(true);
@@ -92,6 +98,47 @@ export default function StaffManagement() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const canResetPassword = Boolean(
+    editingPerson &&
+      editingPerson.id !== user?.userId &&
+      editingPerson.role !== "CLUB_MANAGER" &&
+      staffRoleFromLabel(role) !== "CLUB_MANAGER",
+  );
+
+  const resetStaffPassword = () => {
+    const target = editingPerson;
+    if (!token || !target || !canResetPassword) return;
+    if (newStaffPassword.length < 8 || newStaffPassword !== confirmStaffPassword) {
+      Alert.alert(
+        "Check the new password",
+        "Enter a password of at least 8 characters and confirm it exactly.",
+      );
+      return;
+    }
+    Alert.alert(
+      "Reset staff password?",
+      `All current sessions for ${target.fullName} will be signed out. The account status will stay ${target.status.toLowerCase()}.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset password",
+          onPress: () => {
+            setIsSaving(true);
+            void usersService
+              .resetPassword(token, target.id, newStaffPassword)
+              .then(() => {
+                setNewStaffPassword("");
+                setConfirmStaffPassword("");
+                Alert.alert("Password reset", "The new password is ready for the staff member.");
+              })
+              .catch((error) => showApiError(error, "Could not reset staff password"))
+              .finally(() => setIsSaving(false));
+          },
+        },
+      ],
+    );
   };
 
   const toggleStatus = (person: StaffDto) => {
@@ -163,6 +210,39 @@ export default function StaffManagement() {
           onPress={() => void savePerson()}
           disabled={isSaving}
         />
+        {canResetPassword ? (
+          <View style={uiStyles.section}>
+            <SectionTitle>Reset staff password</SectionTitle>
+            <Field label="New password (8+ characters)">
+              <NativeInput
+                value={newStaffPassword}
+                onChangeText={setNewStaffPassword}
+                placeholder="Enter new password"
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </Field>
+            <Field label="Confirm new password">
+              <NativeInput
+                value={confirmStaffPassword}
+                onChangeText={setConfirmStaffPassword}
+                placeholder="Re-enter new password"
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </Field>
+            <SecondaryButton
+              label="Reset password and sign out sessions"
+              icon="key-outline"
+              disabled={
+                isSaving ||
+                newStaffPassword.length < 8 ||
+                newStaffPassword !== confirmStaffPassword
+              }
+              onPress={resetStaffPassword}
+            />
+          </View>
+        ) : null}
         {editingPerson ? (
           <SecondaryButton
             label={editingPerson.status === "ACTIVE" ? "Deactivate account" : "Activate account"}

@@ -51,6 +51,7 @@ type ScreenMode =
   | "request-edit"
   | "reject"
   | "fulfill"
+  | "cancel-request"
   | null;
 
 const CATEGORIES: SupplyCategory[] = ["FEED", "SUPPLEMENT", "MEDICINE", "EQUIPMENT"];
@@ -61,7 +62,6 @@ const EMPTY_ITEMS: SupplyItemDto[] = [];
 const EMPTY_REQUESTS: SupplyRequestDto[] = [];
 
 const USE_QUICK_AMOUNTS = [1, 2, 5, 10];
-const REQUEST_QUICK_AMOUNTS = [5, 10, 20, 50, 100];
 const USE_NOTE_SUGGESTIONS = [
   "Breakfast",
   "Dinner",
@@ -80,7 +80,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
 
   const isManager = role === "manager";
   const canUse = EMPLOYEE_ROLES.includes(role as (typeof EMPLOYEE_ROLES)[number]);
-  const canRequest = role === "trainer" || role === "groom";
+  const canRequest = role === "trainer" || role === "groom" || role === "vet";
   const canViewRequests = isManager || canRequest;
 
   const [category, setCategory] = useState("All");
@@ -255,9 +255,13 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
           Alert.alert("Check usage", "Quantity used cannot exceed available stock.");
           return;
         }
+        if (!note.trim()) {
+          Alert.alert(t("Check usage"), t("Usage note is required."));
+          return;
+        }
         await suppliesService.use(token, selectedItem.id, {
           quantity: amount,
-          ...(note.trim() ? { note: note.trim() } : {}),
+          note: note.trim(),
         });
       } else if (mode === "request" && selectedItem) {
         await suppliesService.createRequest(token, selectedItem.id, note.trim() || undefined);
@@ -285,6 +289,14 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
         await suppliesService.updateRequestStatus(token, selectedRequest.id, "FULFILLED", {
           quantity: amount,
           unitPrice: price,
+        });
+      } else if (mode === "cancel-request" && selectedRequest) {
+        if (!requestReason.trim()) {
+          Alert.alert(t("Lý do bắt buộc"), t("Vui lòng nhập lý do hủy đề xuất đã duyệt."));
+          return;
+        }
+        await suppliesService.updateRequestStatus(token, selectedRequest.id, "CANCELLED", {
+          reason: requestReason.trim(),
         });
       }
       await refresh();
@@ -613,7 +625,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
 
           {/* Request Status Filter Chips */}
           <Chips
-            options={["All", "PENDING", "APPROVED", "FULFILLED", "REJECTED"]}
+            options={["All", "PENDING", "APPROVED", "FULFILLED", "REJECTED", "CANCELLED"]}
             value={requestFilter}
             onChange={setRequestFilter}
           />
@@ -632,6 +644,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
             const isPending = request.status === "PENDING";
             const isApproved = request.status === "APPROVED";
             const isFulfilled = request.status === "FULFILLED";
+            const isCancelled = request.status === "CANCELLED";
 
             const statusBorderColor = isPending
               ? colors.monitor
@@ -710,6 +723,17 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                   </View>
                 ) : null}
 
+                {/* Cancellation Reason */}
+                {request.cancellationReason ? (
+                  <View style={styles.rejectionReasonBox}>
+                    <Ionicons name="close-circle-outline" size={14} color={colors.destructive} />
+                    <Text style={styles.rejectionReasonText}>
+                      {t("Lý do hủy:")} {request.cancellationReason}
+                      {request.cancelledAt ? ` · ${formatDateTime(request.cancelledAt)}` : ""}
+                    </Text>
+                  </View>
+                ) : null}
+
                 {/* Reviewer / Fulfiller details */}
                 {request.reviewedAt ? (
                   <Text style={styles.requestFootnote}>
@@ -747,20 +771,33 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                 ) : null}
 
                 {isManager && isApproved ? (
-                  <PrimaryButton
-                    label="Confirm issue"
-                    icon="cube-outline"
-                    onPress={() => {
-                      setSelectedRequest(request);
-                      setQuantity(
-                        request.quantity && Number(request.quantity) > 0
-                          ? String(request.quantity)
-                          : "1",
-                      );
-                      setUnitPrice("0");
-                      setMode("fulfill");
-                    }}
-                  />
+                  <View style={styles.requestActionRow}>
+                    <PrimaryButton
+                      label="Confirm issue"
+                      icon="cube-outline"
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setSelectedRequest(request);
+                        setQuantity(
+                          request.quantity && Number(request.quantity) > 0
+                            ? String(request.quantity)
+                            : "1",
+                        );
+                        setUnitPrice("0");
+                        setMode("fulfill");
+                      }}
+                    />
+                    <DangerButton
+                      label="Cancel request"
+                      icon="close"
+                      style={{ flex: 1 }}
+                      onPress={() => {
+                        setSelectedRequest(request);
+                        setRequestReason("");
+                        setMode("cancel-request");
+                      }}
+                    />
+                  </View>
                 ) : null}
 
                 {/* Groom Action: Edit pending request */}
@@ -924,13 +961,18 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
               ) : null}
 
               {/* Usage Note & Suggestion Chips */}
-              <Field label={t("Usage note (optional)")}>
+              <Field label={`${t("Ghi chú xuất dùng (bắt buộc)")} *`}>
                 <NativeInput
                   value={note}
                   onChangeText={setNote}
                   multiline
                   placeholder={t("Usage reason or horse name")}
                 />
+                {!note.trim() ? (
+                  <Text style={styles.fieldError}>
+                    {t("Vui lòng nhập ghi chú hoặc lý do xuất dùng.")}
+                  </Text>
+                ) : null}
               </Field>
 
               <View style={styles.quickChipsContainer}>
@@ -958,7 +1000,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                   label={saving ? "Saving…" : "Confirm usage"}
                   icon="checkmark"
                   onPress={() => void save()}
-                  disabled={saving || isUsageOver || usedAmount <= 0}
+                  disabled={saving || isUsageOver || usedAmount <= 0 || !note.trim()}
                 />
                 <SecondaryButton label="Cancel" icon="close" onPress={closeForm} />
               </View>
@@ -1077,7 +1119,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
       </Modal>
 
       {/* ============================================================== */}
-      {/* MODAL 4: MANAGER MODALS (CREATE, EDIT, RECEIVE, REJECT, FULFILL) */}
+      {/* MODAL 4: MANAGER MODALS (CREATE, EDIT, RECEIVE, REJECT, FULFILL, CANCEL) */}
       {/* ============================================================== */}
       <Modal
         visible={
@@ -1085,7 +1127,8 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
           mode === "item-edit" ||
           mode === "receive" ||
           mode === "reject" ||
-          mode === "fulfill"
+          mode === "fulfill" ||
+          mode === "cancel-request"
         }
         transparent
         animationType="slide"
@@ -1117,7 +1160,9 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                           ? "Receive stock"
                           : mode === "reject"
                             ? "Reject request"
-                            : "Confirm supply issued",
+                            : mode === "cancel-request"
+                              ? "Hủy đề xuất đã duyệt"
+                              : "Confirm supply issued",
                   )}
                 </Text>
                 <Text style={styles.sheetSubtitle} numberOfLines={1}>
@@ -1212,9 +1257,24 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                 </>
               ) : null}
 
-              {mode === "reject" ? (
-                <Field label="Rejection reason (required)">
-                  <NativeInput value={requestReason} onChangeText={setRequestReason} multiline />
+              {mode === "reject" || mode === "cancel-request" ? (
+                <Field
+                  label={
+                    mode === "reject"
+                      ? t("Rejection reason (required)")
+                      : `${t("Lý do hủy (bắt buộc)")} *`
+                  }
+                >
+                  <NativeInput
+                    value={requestReason}
+                    onChangeText={setRequestReason}
+                    multiline
+                    placeholder={
+                      mode === "reject"
+                        ? t("Nhập lý do từ chối...")
+                        : t("Nhập lý do hủy (vd: Nhà cung cấp hết hàng...)")
+                    }
+                  />
                 </Field>
               ) : null}
 
@@ -1253,7 +1313,10 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                   label={saving ? "Saving…" : "Save"}
                   icon="checkmark"
                   onPress={() => void save()}
-                  disabled={saving}
+                  disabled={
+                    saving ||
+                    ((mode === "reject" || mode === "cancel-request") && !requestReason.trim())
+                  }
                 />
                 <SecondaryButton label="Cancel" icon="close" onPress={closeForm} />
               </View>
@@ -1285,6 +1348,10 @@ function SupplyDetailsModal({
   const styles = useMemo(() => getStyles(colors), [colors]);
 
   const [detailsTab, setDetailsTab] = useState<"lots" | "ledger">("lots");
+  const { user } = useAuth();
+  const [cancellingUsageId, setCancellingUsageId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [submittingCancel, setSubmittingCancel] = useState(false);
 
   const load = useCallback(async () => {
     const [lots, movements] = await Promise.all([
@@ -1457,18 +1524,35 @@ function SupplyDetailsModal({
               <View style={{ gap: space.sm }}>
                 {(resource.data?.movements ?? []).map((movement) => {
                   const isPositive = movement.delta > 0;
+                  const isUsage = movement.type === "USAGE";
+                  const isReversal = movement.type === "USAGE_REVERSAL";
+                  const isCancelled = Boolean(movement.cancelled);
+                  const isCreatorWithin24h =
+                    movement.creator?.id === user?.userId &&
+                    Date.now() - new Date(movement.createdAt).getTime() <= 24 * 60 * 60 * 1000;
+                  const canCancelUsage =
+                    isUsage &&
+                    !isCancelled &&
+                    Boolean(movement.usageId) &&
+                    (role === "manager" || isCreatorWithin24h);
 
                   return (
                     <View key={movement.id} style={styles.movementItemCard}>
                       <View style={ui.row}>
                         <View style={styles.movementTypeBadge}>
                           <Ionicons
-                            name={isPositive ? "arrow-down-circle" : "arrow-up-circle"}
+                            name={
+                              isReversal
+                                ? "arrow-undo-circle"
+                                : isPositive
+                                  ? "arrow-down-circle"
+                                  : "arrow-up-circle"
+                            }
                             size={16}
-                            color={isPositive ? colors.fit : colors.monitor}
+                            color={isReversal ? colors.primary : isPositive ? colors.fit : colors.monitor}
                           />
                           <Text style={styles.movementTypeText}>
-                            {movement.type.replaceAll("_", " ")}
+                            {isReversal ? t("Hoàn tồn") : movement.type.replaceAll("_", " ")}
                           </Text>
                         </View>
 
@@ -1507,6 +1591,36 @@ function SupplyDetailsModal({
                           {movement.unitPrice?.toLocaleString("vi-VN")} VND/unit
                         </Text>
                       ) : null}
+
+                      {isCancelled ? (
+                        <View
+                          style={{
+                            backgroundColor: colors.injuredSoft,
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: radius.pill,
+                            alignSelf: "flex-start",
+                            marginTop: space.xs,
+                          }}
+                        >
+                          <Text style={{ color: colors.destructive, fontSize: 11, fontWeight: "700" }}>
+                            {t("Lần xuất đã bị hủy")}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {canCancelUsage ? (
+                        <View style={{ marginTop: space.xs, alignSelf: "flex-end" }}>
+                          <SecondaryButton
+                            label={t("Hủy lần xuất này")}
+                            icon="close-circle-outline"
+                            onPress={() => {
+                              setCancellingUsageId(movement.usageId);
+                              setCancelReason("");
+                            }}
+                          />
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -1524,6 +1638,74 @@ function SupplyDetailsModal({
               </View>
             ) : null}
           </ScrollView>
+
+          {/* Modal for canceling usage */}
+          {cancellingUsageId ? (
+            <Modal
+              visible
+              transparent
+              animationType="fade"
+              onRequestClose={() => setCancellingUsageId(null)}
+            >
+              <View style={styles.modalRoot}>
+                <Pressable
+                  style={StyleSheet.absoluteFill}
+                  onPress={() => setCancellingUsageId(null)}
+                />
+                <View style={[styles.sheet, { maxHeight: 320 }]}>
+                  <View style={styles.sheetHeader}>
+                    <Text style={styles.sheetTitle}>{t("Hủy lần xuất dùng ghi nhầm")}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setCancellingUsageId(null)}
+                      style={styles.sheetCloseBtn}
+                    >
+                      <Ionicons name="close" size={20} color={colors.foreground} />
+                    </Pressable>
+                  </View>
+                  <Field label={`${t("Lý do hủy lần xuất (bắt buộc)")} *`}>
+                    <NativeInput
+                      value={cancelReason}
+                      onChangeText={setCancelReason}
+                      multiline
+                      placeholder={t("Nhập lý do hủy...")}
+                    />
+                  </Field>
+                  <View style={{ gap: space.sm, marginTop: space.sm }}>
+                    <PrimaryButton
+                      label={submittingCancel ? t("Đang hủy…") : t("Xác nhận hủy lần xuất")}
+                      icon="checkmark"
+                      disabled={submittingCancel || !cancelReason.trim()}
+                      onPress={async () => {
+                        if (!cancellingUsageId || !cancelReason.trim()) return;
+                        setSubmittingCancel(true);
+                        try {
+                          await suppliesService.cancelUsage(
+                            token,
+                            cancellingUsageId,
+                            cancelReason.trim(),
+                          );
+                          setCancellingUsageId(null);
+                          setCancelReason("");
+                          await resource.refresh();
+                          Alert.alert(t("Thành công"), t("Đã hủy lần xuất và hoàn trả tồn kho."));
+                        } catch (error) {
+                          showApiError(error, t("Không thể hủy lần xuất"));
+                        } finally {
+                          setSubmittingCancel(false);
+                        }
+                      }}
+                    />
+                    <SecondaryButton
+                      label={t("Cancel")}
+                      icon="close"
+                      onPress={() => setCancellingUsageId(null)}
+                    />
+                  </View>
+                </View>
+              </View>
+            </Modal>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -2133,5 +2315,10 @@ const getStyles = (colors: any) =>
       fontSize: 11,
       color: colors.mutedForeground,
       marginTop: 2,
+    },
+    fieldError: {
+      fontSize: 12,
+      color: colors.destructive,
+      marginTop: 4,
     },
   });

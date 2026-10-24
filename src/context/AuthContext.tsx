@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
+import * as Notifications from "expo-notifications";
 import {
   createContext,
   useCallback,
@@ -18,6 +19,7 @@ import {
   type GoogleOidcCallback,
 } from "@/services/auth.service";
 import { appRoleFromAuthRoles } from "@/features/auth/role-mapper";
+import { pushDeviceService } from "@/services/push-device.service";
 import type { RoleId } from "@/types/raceos";
 
 const STORAGE_KEY = "raceos.auth.session.v1";
@@ -195,6 +197,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
     void Promise.resolve().then(() => restoreSession());
   }, [restoreSession]);
 
+  useEffect(() => {
+    const accessToken = sessionRef.current?.accessToken;
+    if (!accessToken || Platform.OS !== "android") return;
+
+    void pushDeviceService.registerIfPermissionGranted(accessToken).catch(() => undefined);
+    const subscription = Notifications.addPushTokenListener((token) => {
+      const currentAccessToken = sessionRef.current?.accessToken;
+      if (!currentAccessToken) return;
+      void pushDeviceService.registerNativeToken(currentAccessToken, token).catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, [user?.userId]);
+
   const signIn = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     setAuthError(null);
@@ -278,10 +293,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       // Wait for a rotating refresh token to settle, then revoke the newest one.
       await refreshPromiseRef.current?.catch(() => null);
       const refreshToken = sessionRef.current?.refreshToken;
-      if (refreshToken) await authService.logout(refreshToken).catch(() => undefined);
+      const deviceToken = await pushDeviceService.getStoredToken().catch(() => null);
+      if (refreshToken) {
+        await authService.logout(refreshToken, deviceToken ?? undefined).catch(() => undefined);
+      }
     } finally {
       sessionRef.current = null;
       await AsyncStorage.removeItem(STORAGE_KEY);
+      await pushDeviceService.clearStoredToken().catch(() => undefined);
       setSession(null);
       setUser(null);
       setAuthError(null);

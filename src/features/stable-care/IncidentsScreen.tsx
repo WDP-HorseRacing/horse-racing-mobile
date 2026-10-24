@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
+  BottomSheetModal,
   Field,
   NativeInput,
   Panel,
@@ -18,6 +19,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
+import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
 import { radius, space } from "@/config/theme";
 import { isRole } from "@/features/auth/roles";
@@ -52,6 +54,7 @@ export default function IncidentsScreen() {
   }, [canReport, token]);
 
   const resource = useApiResource(load, Boolean(token));
+  useRefreshOnFocus(resource.revalidate);
   const horses = useMemo(() => resource.data?.today?.horses ?? [], [resource.data?.today?.horses]);
   const incidents = useMemo(() => resource.data?.incidents ?? [], [resource.data?.incidents]);
   const [horseId, setHorseId] = useState(requestedId ?? "");
@@ -825,6 +828,15 @@ export default function IncidentsScreen() {
                     {incident.resolver ? (
                       <Text style={ui.muted}>Resolved by {incident.resolver.fullName}</Text>
                     ) : null}
+                    {incident.resolutionSource ? (
+                      <Text style={ui.muted}>
+                        {incident.resolutionSource === "EXAM"
+                          ? "Closed automatically after the vet handled the request"
+                          : incident.resolutionSource === "LIFECYCLE"
+                            ? "Closed automatically after a lifecycle change"
+                            : "Closed by the Head Trainer"}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
               ) : null}
@@ -834,16 +846,18 @@ export default function IncidentsScreen() {
                 <View
                   style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: 4 }}
                 >
-                  <PrimaryButton
-                    label="Record examination"
-                    icon="medkit-outline"
-                    style={{ flexGrow: 1 }}
-                    onPress={() =>
-                      router.push(
-                        `/vet/medical/visit?horseId=${incident.horseId}&requestId=${incident.examRequest?.id ?? ""}&kind=${incident.examRequest ? "REQUEST" : "ROUTINE"}` as Href,
-                      )
-                    }
-                  />
+                  {!incident.examRequest || incident.examRequest.status === "PENDING" ? (
+                    <PrimaryButton
+                      label="Record examination"
+                      icon="medkit-outline"
+                      style={{ flexGrow: 1 }}
+                      onPress={() =>
+                        router.push(
+                          `/vet/medical/visit?horseId=${incident.horseId}&requestId=${incident.examRequest?.id ?? ""}&kind=${incident.examRequest ? "REQUEST" : "ROUTINE"}` as Href,
+                        )
+                      }
+                    />
+                  ) : null}
                   <SecondaryButton
                     label="Medical records"
                     icon="document-text-outline"
@@ -873,11 +887,11 @@ export default function IncidentsScreen() {
 
               {canManage &&
               incident.status === "OPEN" &&
-              incident.examRequest?.status !== "PENDING" ? (
+              !incident.examRequest ? (
                 <SecondaryButton
-                  label={resolveId === incident.id ? "Cancel resolution" : "Resolve incident"}
+                  label="Resolve incident"
                   onPress={() => {
-                    setResolveId(resolveId === incident.id ? null : incident.id);
+                    setResolveId(incident.id);
                     setResolution("");
                   }}
                 />
@@ -887,31 +901,42 @@ export default function IncidentsScreen() {
               incident.status === "OPEN" &&
               incident.examRequest?.status === "PENDING" ? (
                 <Text style={ui.muted}>
-                  Resolve the linked exam request before closing this incident.
+                  This incident stays open while the linked exam request is pending.
                 </Text>
               ) : null}
 
-              {canManage && resolveId === incident.id ? (
-                <>
-                  <Field label="Resolution">
-                    <NativeInput
-                      value={resolution}
-                      onChangeText={setResolution}
-                      multiline
-                      placeholder="Describe how this was handled"
-                    />
-                  </Field>
-                  <PrimaryButton
-                    label="Close incident"
-                    onPress={() => void resolve()}
-                    disabled={!resolution.trim()}
-                  />
-                </>
+              {canManage &&
+              incident.status === "OPEN" &&
+              Boolean(incident.examRequest && incident.examRequest.status !== "PENDING") ? (
+                <Text style={ui.muted}>
+                  The vet handled the linked request. This incident will close automatically.
+                </Text>
               ) : null}
             </Panel>
           );
         })}
       </View>
+
+      <BottomSheetModal
+        visible={Boolean(resolveId)}
+        title="Resolve incident"
+        saveLabel="Save"
+        cancelLabel="Cancel"
+        onSave={() => void resolve()}
+        onClose={() => {
+          setResolveId(null);
+          setResolution("");
+        }}
+      >
+        <Field label="Resolution">
+          <NativeInput
+            value={resolution}
+            onChangeText={setResolution}
+            multiline
+            placeholder="Describe how this was handled"
+          />
+        </Field>
+      </BottomSheetModal>
 
       {/* Enlarged Photo Modal */}
       <Modal

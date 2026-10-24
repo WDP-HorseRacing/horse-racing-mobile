@@ -199,7 +199,6 @@ export const horseService = {
     horseId: string,
     input: {
       values: { type: HorseMeasurementDto["type"]; value: number }[];
-      measuredAt?: string;
       confirmAbnormal?: boolean;
     },
   ) {
@@ -254,6 +253,29 @@ export const horseService = {
       method: "PUT",
       token,
       body: input,
+    });
+  },
+
+  assignStall(token: string, horseId: string, stallId: string) {
+    return apiRequest<unknown>(`/horses/${encodeURIComponent(horseId)}/stall`, {
+      method: "PUT",
+      token,
+      body: { stallId },
+    });
+  },
+
+  releaseStall(token: string, horseId: string) {
+    return apiRequest<unknown>(`/horses/${encodeURIComponent(horseId)}/stall`, {
+      method: "DELETE",
+      token,
+    });
+  },
+
+  assignGroom(token: string, horseId: string, groomId: string) {
+    return apiRequest<unknown>(`/horses/${encodeURIComponent(horseId)}/groom`, {
+      method: "PUT",
+      token,
+      body: { groomId },
     });
   },
 

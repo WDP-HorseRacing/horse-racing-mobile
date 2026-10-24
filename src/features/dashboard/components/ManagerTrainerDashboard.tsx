@@ -375,7 +375,7 @@ export function ManagerTrainerDashboard({
 
   // --- 5. COSTS (MANAGER) & UPCOMING SCHEDULE ---
   const totalCost6Months = (data.costs ?? []).reduce((sum, c) => sum + c.total, 0);
-  const totalCasesClosed6Months = (data.costs ?? []).reduce((sum, c) => sum + c.count, 0);
+  const totalVisits6Months = (data.costs ?? []).reduce((sum, c) => sum + c.count, 0);
   const maxCostValue = Math.max(1, ...(data.costs ?? []).map((c) => c.total));
 
   // 7-day upcoming medical schedule (checkups and follow-up visits)
@@ -927,7 +927,7 @@ export function ManagerTrainerDashboard({
               <View>
                 <Text style={styles.cardHighlightTitle}>{formatCurrency(totalCost6Months)}</Text>
                 <Text style={uiStyles.muted}>
-                  {totalCasesClosed6Months} {t("closed cases in past 6 months")}
+                  {totalVisits6Months} {t("medical visits in past 6 months")}
                 </Text>
               </View>
             </View>

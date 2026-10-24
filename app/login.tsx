@@ -168,31 +168,6 @@ export default function Login() {
           >
             <Text style={styles.submitText}>{isLoading ? t("Signing in…") : t("Sign in")}</Text>
           </Pressable>
-
-          <View style={styles.demoSection}>
-            <Text style={styles.demoTitle}>Demo Quick Fill:</Text>
-            <View style={styles.demoPills}>
-              {[
-                { label: "Trainer", email: "trainer@racehorse.com" },
-                { label: "Groom", email: "groom@racehorse.com" },
-                { label: "Vet", email: "vet@racehorse.com" },
-                { label: "Owner", email: "owner@racehorse.com" },
-                { label: "Manager", email: "manager@racehorse.com" },
-              ].map((acc) => (
-                <Pressable
-                  key={acc.email}
-                  onPress={() => {
-                    setEmail(acc.email);
-                    setPassword("Password123@");
-                    setFormError("");
-                  }}
-                  style={styles.demoPill}
-                >
-                  <Text style={styles.demoPillText}>{acc.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
         </View>
         <Text style={styles.footer}>
           {t("Your access is determined by the role on your account.")}
@@ -281,16 +256,4 @@ const getStyles = (colors: any) =>
     retry: { alignSelf: "flex-start", paddingVertical: space.xs },
     retryText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
     footer: { textAlign: "center", color: colors.mutedForeground, fontSize: 11 },
-    demoSection: { marginTop: space.md, gap: space.xs },
-    demoTitle: { color: colors.mutedForeground, fontSize: 11, fontWeight: "600" },
-    demoPills: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-    demoPill: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: radius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    demoPillText: { color: colors.foreground, fontSize: 12, fontWeight: "600" },
   });

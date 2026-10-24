@@ -1,30 +1,30 @@
 import { Redirect, router, type Href, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
-import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import {
-  Chips,
-  Field,
-  NativeInput,
-  Panel,
-  PrimaryButton,
-  SecondaryButton,
-  getUiStyles,
-} from "@/components/ui";
+import { AsyncStateView, Screen } from "@/components/common";
+import { Field, NativeInput, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
-import { useApiResource } from "@/hooks/useApiResource";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
 import { isRole } from "@/features/auth/roles";
 import { horseService } from "@/services/horse.service";
 import { medicalService } from "@/services/medical.service";
 import type { ExamRequestDto } from "@/adapters/medical.adapter";
+import type { HorseListItemDto } from "@/adapters/horse.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime } from "@/utils/formatters";
 import { isValidRequiredText } from "@/features/medical/medical-validation";
+import { radius, space } from "@/config/theme";
 
-const statuses = ["PENDING", "EXAMINED", "DISMISSED"] as const;
+type RequestStatus = "PENDING" | "EXAMINED" | "DISMISSED";
+
+const statusTabs: { key: RequestStatus; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "PENDING", label: "Đang chờ khám", icon: "time-outline" },
+  { key: "EXAMINED", label: "Đã khám", icon: "checkmark-circle-outline" },
+  { key: "DISMISSED", label: "Đã bỏ qua", icon: "close-circle-outline" },
+];
 
 export default function ExaminationRequests() {
   const { role: roleParam } = useLocalSearchParams<{ role: string }>();
@@ -32,357 +32,1194 @@ export default function ExaminationRequests() {
   const { token } = useAuth();
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
-  const [status, setStatus] = useState<(typeof statuses)[number]>("PENDING");
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
+  const [status, setStatus] = useState<RequestStatus>("PENDING");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ExamRequestDto | null>(null);
+
+  // Cache per status to make tab switching instantaneous and smooth
+  const [cache, setCache] = useState<
+    Partial<Record<RequestStatus, { items: ExamRequestDto[]; totalPages: number; total: number }>>
+  >({});
+  const [loadingStatus, setLoadingStatus] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Create form state
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [description, setDescription] = useState("");
   const [urgent, setUrgent] = useState(false);
-  const [horseQuery, setHorseQuery] = useState("");
-  const [horseId, setHorseId] = useState("");
+  const [selectedHorse, setSelectedHorse] = useState<HorseListItemDto | null>(null);
+  const [horsePickerVisible, setHorsePickerVisible] = useState(false);
+  const [horseSearch, setHorseSearch] = useState("");
+
+  // Action states
   const [urgencyReason, setUrgencyReason] = useState("");
   const [dismissReason, setDismissReason] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Horses list for creating requests
+  const [allHorses, setAllHorses] = useState<HorseListItemDto[]>([]);
+  const [loadingHorses, setLoadingHorses] = useState(false);
+
   const canCreate = role === "vet" || role === "manager" || role === "trainer";
   const isVet = role === "vet";
-  const load = useCallback(
-    () => medicalService.listExamRequests(token!, { page, limit: 20, status }),
-    [page, status, token],
-  );
-  const resource = useApiResource(
-    load,
-    Boolean(token && role && ["vet", "manager", "trainer", "groom"].includes(role)),
-  );
-  useRefreshOnFocus(resource.revalidate);
-  const loadHorses = useCallback(
-    () =>
-      horseService.list(token!, "", {
-        lifecycleStatus: "ACTIVE",
-        includeDeleted: false,
-        myBarns: role === "trainer",
-      }),
-    [role, token],
-  );
-  const horsesResource = useApiResource(loadHorses, Boolean(token && role && canCreate));
-  const visibleHorses = (horsesResource.data ?? [])
-    .filter((horse) => horse.name.toLowerCase().includes(horseQuery.trim().toLowerCase()))
-    .slice(0, 12);
-  const hasMore = (resource.data?.meta.totalPages ?? page) > page;
-  const hasPrevious = (resource.data?.meta.page ?? page) > 1;
 
-  if (!role) return <Redirect href="/" />;
-  if (!["vet", "manager", "trainer", "groom"].includes(role))
-    return <Redirect href={`/${role}` as Href} />;
+  const fetchTabRequests = useCallback(
+    async (targetStatus: RequestStatus, targetPage: number, isSilent = false) => {
+      if (!token) return;
+      if (!isSilent) setLoadingStatus(true);
+      setError(null);
+      try {
+        const response = await medicalService.listExamRequests(token, {
+          page: targetPage,
+          limit: 20,
+          status: targetStatus,
+        });
+        setCache((prev) => ({
+          ...prev,
+          [targetStatus]: {
+            items: response.items,
+            totalPages: response.meta.totalPages ?? 1,
+            total: response.meta.total ?? response.items.length,
+          },
+        }));
+      } catch (err) {
+        setError(extractErrorMessage(err));
+      } finally {
+        setLoadingStatus(false);
+        setInitialLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [token],
+  );
 
-  const runMutation = async (action: () => Promise<unknown>, success: string) => {
+  // Initial load
+  useEffect(() => {
+    let cancelled = false;
+    if (token) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) void fetchTabRequests("PENDING", 1);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTabRequests, token]);
+
+  // Tab switch handler: instantaneous display if cached, background refresh
+  const handleTabChange = (nextStatus: RequestStatus) => {
+    setStatus(nextStatus);
+    setPage(1);
+    setSelected(null);
+    const hasCached = Boolean(cache[nextStatus]);
+    void fetchTabRequests(nextStatus, 1, hasCached);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTabRequests(status, page, true);
+  };
+
+  useRefreshOnFocus(async () => {
+    await fetchTabRequests(status, page, true);
+  });
+
+  // Load horses when create modal opens
+  const openCreateModal = async () => {
+    setShowCreateModal(true);
+    if (!allHorses.length && token) {
+      setLoadingHorses(true);
+      try {
+        const list = await horseService.list(token, "", {
+          lifecycleStatus: "ACTIVE",
+          includeDeleted: false,
+          myBarns: role === "trainer",
+        });
+        setAllHorses(list);
+      } catch (err) {
+        Alert.alert("Không thể tải danh sách ngựa", extractErrorMessage(err));
+      } finally {
+        setLoadingHorses(false);
+      }
+    }
+  };
+
+  const runMutation = async (action: () => Promise<unknown>, successMsg: string) => {
     setSaving(true);
     try {
       await action();
       setSelected(null);
       setUrgencyReason("");
       setDismissReason("");
-      await resource.refresh();
-      Alert.alert("Updated", success);
-    } catch (error) {
-      Alert.alert("Could not update request", extractErrorMessage(error));
+      await fetchTabRequests(status, page, true);
+      // Invalidate pending tab if not currently on it
+      if (status !== "PENDING") {
+        void fetchTabRequests("PENDING", 1, true);
+      }
+      Alert.alert("Thành công", successMsg);
+    } catch (err) {
+      Alert.alert("Lỗi thao tác", extractErrorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
-  const create = async () => {
-    if (!token || !horseId || !isValidRequiredText(description, 2000)) {
+  const createRequest = async () => {
+    if (!token || !selectedHorse || !isValidRequiredText(description, 2000)) {
       Alert.alert(
-        "Request details required",
-        "Choose a horse and enter a description up to 2,000 characters.",
+        "Thiếu thông tin yêu cầu",
+        "Vui lòng chọn ngựa và nhập mô tả triệu chứng (tối đa 2,000 ký tự).",
       );
       return;
     }
     setSaving(true);
     try {
-      await medicalService.createExamRequest(token, horseId, {
+      await medicalService.createExamRequest(token, selectedHorse.id, {
         description: description.trim(),
         urgent,
       });
       setDescription("");
       setUrgent(false);
-      setHorseId("");
-      if (status === "PENDING" && page === 1) await resource.refresh();
-      else {
-        setStatus("PENDING");
-        setPage(1);
+      setSelectedHorse(null);
+      setShowCreateModal(false);
+      if (status === "PENDING" && page === 1) {
+        await fetchTabRequests("PENDING", 1, true);
+      } else {
+        handleTabChange("PENDING");
       }
-      Alert.alert("Request sent", "The request is now in the examination queue.");
-    } catch (error) {
-      Alert.alert("Could not create request", extractErrorMessage(error));
+      Alert.alert("Đã gửi yêu cầu", "Yêu cầu khám đã được thêm vào hàng đợi.");
+    } catch (err) {
+      Alert.alert("Không thể tạo yêu cầu", extractErrorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
+  const currentData = cache[status];
+  const items = currentData?.items ?? [];
+  const totalPages = currentData?.totalPages ?? 1;
+  const hasMore = totalPages > page;
+  const hasPrevious = page > 1;
+
+  const filteredHorses = useMemo(() => {
+    const q = horseSearch.trim().toLowerCase();
+    if (!q) return allHorses.slice(0, 30);
+    return allHorses
+      .filter(
+        (h) =>
+          h.name.toLowerCase().includes(q) ||
+          (h.microchipId && h.microchipId.toLowerCase().includes(q)) ||
+          (h.location?.barn?.name && h.location.barn.name.toLowerCase().includes(q)),
+      )
+      .slice(0, 30);
+  }, [allHorses, horseSearch]);
+
+  if (!role) return <Redirect href="/" />;
+  if (!["vet", "manager", "trainer", "groom"].includes(role)) {
+    return <Redirect href={`/${role}` as Href} />;
+  }
+
   return (
     <Screen
       role={role}
-      title="Examination requests"
+      title="Yêu cầu khám bệnh"
       subtitle={
         role === "groom"
-          ? "Requests for horses assigned to you"
-          : "Urgent requests are returned first"
+          ? "Danh sách yêu cầu khám của ngựa bạn phụ trách"
+          : "Hàng đợi yêu cầu khám và phân loại mức độ khẩn"
       }
-      refreshing={resource.isRefreshing}
-      onRefresh={() => void resource.refresh()}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
     >
-      <AsyncStateView
-        isLoading={resource.isLoading}
-        error={resource.error}
-        onRetry={() => void resource.retry()}
-      />
-      <Chips
-        options={[...statuses]}
-        value={status}
-        onChange={(next) => {
-          setStatus(next as (typeof statuses)[number]);
-          setPage(1);
-          setSelected(null);
-        }}
-      />
-
+      {/* Header action bar */}
       {canCreate ? (
-        <View style={uiStyles.section}>
-          <SectionTitle>Create examination request</SectionTitle>
-          <AsyncStateView
-            isLoading={horsesResource.isLoading}
-            error={horsesResource.error}
-            onRetry={() => void horsesResource.retry()}
-          />
-          <Field label="Find horse">
-            <NativeInput
-              value={horseQuery}
-              onChangeText={setHorseQuery}
-              placeholder="Search active horses"
-            />
-          </Field>
-          <Panel>
-            {visibleHorses.map((horse) => (
-              <Pressable
-                key={horse.id}
-                onPress={() => setHorseId(horse.id)}
-                style={{ paddingVertical: 7 }}
-              >
-                <Text
-                  style={{
-                    ...uiStyles.value,
-                    color: horseId === horse.id ? colors.primary : colors.foreground,
-                  }}
-                >
-                  {horse.name} · {horse.location.barn?.name ?? "No barn"}
-                </Text>
-              </Pressable>
-            ))}
-            {!visibleHorses.length ? (
-              <Text style={uiStyles.muted}>
-                {horsesResource.isLoading ? "Loading horses…" : "No active horses match."}
-              </Text>
-            ) : null}
-          </Panel>
-          <Field label="Request details">
-            <NativeInput
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              placeholder="Describe the signs that need examination"
-            />
-          </Field>
-          <Chips
-            options={["Standard", "Urgent"]}
-            value={urgent ? "Urgent" : "Standard"}
-            onChange={(value) => setUrgent(value === "Urgent")}
-          />
+        <View style={styles.createBar}>
           <PrimaryButton
-            label={saving ? "Sending…" : "Send request"}
-            icon="paper-plane-outline"
-            disabled={saving || !horseId || !description.trim()}
-            onPress={() => void create()}
+            label="Tạo yêu cầu khám mới"
+            icon="add-circle-outline"
+            onPress={() => void openCreateModal()}
           />
         </View>
       ) : null}
 
-      <View style={uiStyles.section}>
-        <SectionTitle>
-          {status === "PENDING"
-            ? "Waiting for examination"
-            : status === "EXAMINED"
-              ? "Examined"
-              : "Dismissed"}
-        </SectionTitle>
-        {(resource.data?.items ?? []).map((request) => (
-          <Panel key={request.id}>
+      {/* Modern custom segmented tab selector */}
+      <View style={styles.tabContainer}>
+        {statusTabs.map((tab) => {
+          const isActive = status === tab.key;
+          const count = cache[tab.key]?.total;
+          return (
             <Pressable
-              onPress={() => {
-                setSelected(selected?.id === request.id ? null : request);
-                setUrgencyReason("");
-                setDismissReason("");
-              }}
+              key={tab.key}
+              onPress={() => handleTabChange(tab.key)}
+              style={[styles.tabButton, isActive && styles.tabButtonActive]}
             >
-              <View style={uiStyles.row}>
-                <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
-                  {request.horseName}
-                </Text>
-                <Text
-                  style={{
-                    ...uiStyles.label,
-                    flexShrink: 0,
-                    color:
-                      request.status === "PENDING" && request.urgent
-                        ? colors.destructive
-                        : colors.monitor,
-                  }}
-                >
-                  {request.status === "PENDING" && request.urgent ? "Urgent" : request.status}
-                </Text>
-              </View>
-              <Text style={uiStyles.muted}>{request.description}</Text>
-              <Text style={uiStyles.label}>
-                {formatDateTime(request.createdAt)} · {request.source.replaceAll("_", " ")}
-              </Text>
-              <Text style={uiStyles.muted}>
-                Requested by{" "}
-                {request.requestedBy ? `staff ${request.requestedBy.slice(0, 8)}` : "system"}
-              </Text>
-              {request.dismissReason ? (
-                <Text style={uiStyles.muted}>Reason: {request.dismissReason}</Text>
+              <Ionicons
+                name={tab.icon}
+                size={16}
+                color={isActive ? colors.primary : colors.mutedForeground}
+              />
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              {typeof count === "number" && count > 0 ? (
+                <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                    {count}
+                  </Text>
+                </View>
               ) : null}
             </Pressable>
-            {selected?.id === request.id && request.status === "PENDING" ? (
-              <View style={{ gap: 10, marginTop: 12 }}>
-                {isVet ? (
-                  <>
-                    <PrimaryButton
-                      label="Start examination"
-                      icon="medkit-outline"
-                      onPress={() =>
-                        router.push(
-                          `/${role}/medical/visit?horseId=${request.horseId}&requestId=${request.id}` as Href,
-                        )
-                      }
-                    />
-                    <Field
-                      label={
-                        request.urgent
-                          ? "Reason to remove urgent priority"
-                          : "Reason to mark urgent"
-                      }
+          );
+        })}
+      </View>
+
+      {/* Initial load or error state */}
+      {initialLoading && !currentData ? (
+        <AsyncStateView
+          isLoading={true}
+          error={null}
+          onRetry={() => void fetchTabRequests(status, page)}
+        />
+      ) : error && !items.length ? (
+        <AsyncStateView
+          isLoading={false}
+          error={error}
+          onRetry={() => void fetchTabRequests(status, page)}
+        />
+      ) : null}
+
+      {/* Subtle indicator when revalidating in background without flickering */}
+      {loadingStatus && currentData ? (
+        <View style={styles.revalidatingBar}>
+          <Text style={styles.revalidatingText}>Đang cập nhật danh sách…</Text>
+        </View>
+      ) : null}
+
+      {/* Empty State */}
+      {!initialLoading && !loadingStatus && items.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="clipboard-outline" size={44} color={colors.mutedForeground} />
+          <Text style={styles.emptyTitle}>Không có yêu cầu nào</Text>
+          <Text style={styles.emptySubtitle}>
+            {status === "PENDING"
+              ? "Hiện tại không có yêu cầu chờ khám nào trong hàng đợi."
+              : status === "EXAMINED"
+                ? "Chưa có yêu cầu nào đã hoàn thành khám."
+                : "Không có yêu cầu nào bị bỏ qua."}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Request Cards List */}
+      <View style={styles.cardsList}>
+        {items.map((request) => {
+          const isSelected = selected?.id === request.id;
+          const isPending = request.status === "PENDING";
+          const isUrgent = request.urgent;
+
+          return (
+            <View
+              key={request.id}
+              style={[
+                styles.card,
+                isUrgent && isPending && styles.cardUrgent,
+                isSelected && styles.cardSelected,
+              ]}
+            >
+              <Pressable
+                onPress={() => {
+                  setSelected(isSelected ? null : request);
+                  setUrgencyReason("");
+                  setDismissReason("");
+                }}
+                style={styles.cardHeaderPressable}
+              >
+                {/* Header row: Horse identity & Urgency Badge */}
+                <View style={styles.cardHeaderRow}>
+                  <View style={styles.horseIdentityRow}>
+                    <View
+                      style={[
+                        styles.horseAvatar,
+                        isUrgent && isPending ? styles.horseAvatarUrgent : null,
+                      ]}
                     >
-                      <NativeInput
-                        value={urgencyReason}
-                        onChangeText={setUrgencyReason}
-                        multiline
+                      <Ionicons
+                        name="paw-outline"
+                        size={16}
+                        color={isUrgent && isPending ? colors.destructive : colors.primary}
                       />
-                    </Field>
-                    <SecondaryButton
-                      label={request.urgent ? "Remove urgent priority" : "Mark urgent"}
-                      disabled={saving || !isValidRequiredText(urgencyReason, 500)}
-                      onPress={() =>
-                        void runMutation(
-                          () =>
-                            medicalService.changeExamRequestUrgency(token!, request.id, {
-                              urgent: !request.urgent,
-                              reason: urgencyReason.trim(),
-                            }),
-                          "Urgency updated.",
-                        )
-                      }
-                    />
-                    <Field label="Dismiss reason">
-                      <NativeInput
-                        value={dismissReason}
-                        onChangeText={setDismissReason}
-                        multiline
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.horseName} numberOfLines={1}>
+                        {request.horseName}
+                      </Text>
+                      <Text style={styles.sourceText}>
+                        Nguồn: {request.source.replaceAll("_", " ")} ·{" "}
+                        {formatDateTime(request.createdAt)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Urgency Badge */}
+                  {isPending ? (
+                    <View
+                      style={[
+                        styles.urgencyBadge,
+                        isUrgent ? styles.urgencyBadgeUrgent : styles.urgencyBadgeNormal,
+                      ]}
+                    >
+                      <Ionicons
+                        name={isUrgent ? "warning" : "information-circle-outline"}
+                        size={12}
+                        color={isUrgent ? colors.destructive : colors.foreground}
                       />
-                    </Field>
-                    <SecondaryButton
-                      label="Dismiss request"
-                      disabled={saving || !isValidRequiredText(dismissReason, 500)}
-                      onPress={() =>
-                        Alert.alert(
-                          "Dismiss request?",
-                          "This request will leave the pending queue.",
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: "Dismiss",
-                              style: "destructive",
-                              onPress: () =>
-                                void runMutation(
-                                  () =>
-                                    medicalService.dismissExamRequest(
-                                      token!,
-                                      request.id,
-                                      dismissReason.trim(),
-                                    ),
-                                  "Request dismissed.",
-                                ),
-                            },
-                          ],
-                        )
-                      }
-                    />
-                  </>
-                ) : null}
-                {role === "manager" || role === "trainer" ? (
-                  <SecondaryButton
-                    label="Open horse profile"
-                    onPress={() => router.push(`/${role}/horse/${request.horseId}` as Href)}
+                      <Text
+                        style={[
+                          styles.urgencyBadgeText,
+                          isUrgent ? styles.urgencyBadgeTextUrgent : null,
+                        ]}
+                      >
+                        {isUrgent ? "CẤP CỨU" : "THƯỜNG"}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.statusCompletedBadge}>
+                      <Text style={styles.statusCompletedText}>
+                        {request.status === "EXAMINED" ? "ĐÃ KHÁM" : "ĐÃ BỎ QUA"}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Description Box */}
+                <View style={styles.symptomBox}>
+                  <Ionicons
+                    name="chatbox-ellipses-outline"
+                    size={14}
+                    color={colors.primary}
+                    style={{ marginTop: 2 }}
                   />
+                  <Text style={styles.symptomText}>{request.description}</Text>
+                </View>
+
+                {/* Requester / Dismissal details */}
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaText}>
+                    Người yêu cầu:{" "}
+                    {request.requestedBy
+                      ? `Nhân sự ${request.requestedBy.slice(0, 8)}`
+                      : "Hệ thống tự động"}
+                  </Text>
+                </View>
+
+                {request.dismissReason ? (
+                  <View style={styles.dismissBox}>
+                    <Text style={styles.dismissLabel}>Lý do bỏ qua:</Text>
+                    <Text style={styles.dismissText}>{request.dismissReason}</Text>
+                  </View>
                 ) : null}
-              </View>
-            ) : null}
-            {request.medicalRecordId ? (
-              <SecondaryButton
-                label="Open examination record"
-                onPress={() =>
-                  router.push(`/${role}/medical/visits/${request.medicalRecordId}` as Href)
-                }
-              />
-            ) : null}
-          </Panel>
-        ))}
-        {resource.data && !resource.data.items.length ? (
-          <AsyncStateView
-            isLoading={false}
-            error={null}
-            onRetry={() => undefined}
-            empty
-            emptyLabel="No requests in this status."
-          />
-        ) : null}
-        <View style={uiStyles.row}>
+
+                {/* Toggle details chevron */}
+                <View style={styles.expandRow}>
+                  <Text style={styles.expandText}>
+                    {isSelected ? "Thu gọn thao tác" : "Nhấn để xem thao tác xử lý"}
+                  </Text>
+                  <Ionicons
+                    name={isSelected ? "chevron-up" : "chevron-down"}
+                    size={16}
+                    color={colors.primary}
+                  />
+                </View>
+              </Pressable>
+
+              {/* Action Drawer */}
+              {isSelected ? (
+                <View style={styles.actionDrawer}>
+                  {isVet && isPending ? (
+                    <>
+                      <PrimaryButton
+                        label="Bắt đầu ghi nhận khám"
+                        icon="medkit-outline"
+                        onPress={() =>
+                          router.push(
+                            `/${role}/medical/visit?horseId=${request.horseId}&requestId=${request.id}` as Href,
+                          )
+                        }
+                      />
+
+                      {/* Urgency modification */}
+                      <View style={styles.inlineActionBox}>
+                        <Text style={styles.inlineActionTitle}>
+                          {isUrgent ? "Hạ mức độ khẩn cấp" : "Đánh dấu khẩn cấp (Cấp cứu)"}
+                        </Text>
+                        <Field label="Lý do thay đổi mức độ ưu tiên">
+                          <NativeInput
+                            value={urgencyReason}
+                            onChangeText={setUrgencyReason}
+                            placeholder="Nhập lý do thay đổi mức độ ưu tiên"
+                            multiline
+                          />
+                        </Field>
+                        <SecondaryButton
+                          label={isUrgent ? "Bỏ đánh dấu cấp cứu" : "Nâng lên cấp cứu"}
+                          disabled={saving || !isValidRequiredText(urgencyReason, 500)}
+                          onPress={() =>
+                            void runMutation(
+                              () =>
+                                medicalService.changeExamRequestUrgency(token!, request.id, {
+                                  urgent: !request.urgent,
+                                  reason: urgencyReason.trim(),
+                                }),
+                              "Đã cập nhật mức độ ưu tiên.",
+                            )
+                          }
+                        />
+                      </View>
+
+                      {/* Dismiss request */}
+                      <View style={styles.inlineActionBox}>
+                        <Text style={styles.inlineActionTitle}>Bỏ qua yêu cầu khám</Text>
+                        <Field label="Lý do bỏ qua">
+                          <NativeInput
+                            value={dismissReason}
+                            onChangeText={setDismissReason}
+                            placeholder="Nhập lý do không tiếp nhận khám"
+                            multiline
+                          />
+                        </Field>
+                        <SecondaryButton
+                          label="Xác nhận bỏ qua yêu cầu"
+                          disabled={saving || !isValidRequiredText(dismissReason, 500)}
+                          onPress={() =>
+                            Alert.alert(
+                              "Bỏ qua yêu cầu khám?",
+                              "Yêu cầu này sẽ được đưa vào danh sách bỏ qua.",
+                              [
+                                { text: "Hủy", style: "cancel" },
+                                {
+                                  text: "Xác nhận",
+                                  style: "destructive",
+                                  onPress: () =>
+                                    void runMutation(
+                                      () =>
+                                        medicalService.dismissExamRequest(
+                                          token!,
+                                          request.id,
+                                          dismissReason.trim(),
+                                        ),
+                                      "Yêu cầu đã được bỏ qua.",
+                                    ),
+                                },
+                              ],
+                            )
+                          }
+                        />
+                      </View>
+                    </>
+                  ) : null}
+
+                  {role === "manager" || role === "trainer" ? (
+                    <SecondaryButton
+                      label="Xem hồ sơ ngựa"
+                      icon="document-text-outline"
+                      onPress={() => router.push(`/${role}/horse/${request.horseId}` as Href)}
+                    />
+                  ) : null}
+
+                  {request.medicalRecordId ? (
+                    <PrimaryButton
+                      label="Xem biên bản khám đã lưu"
+                      icon="clipboard-outline"
+                      onPress={() =>
+                        router.push(`/${role}/medical/visits/${request.medicalRecordId}` as Href)
+                      }
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Pagination */}
+      {totalPages > 1 ? (
+        <View style={styles.paginationRow}>
           {hasPrevious ? (
             <SecondaryButton
-              label="Previous page"
+              label="Trang trước"
               style={{ flex: 1 }}
               onPress={() => {
                 setSelected(null);
-                setPage((current) => Math.max(1, current - 1));
+                const prev = Math.max(1, page - 1);
+                setPage(prev);
+                void fetchTabRequests(status, prev);
               }}
             />
           ) : null}
+          <Text style={styles.pageIndicator}>
+            Trang {page} / {totalPages}
+          </Text>
           {hasMore ? (
             <SecondaryButton
-              label="Next page"
+              label="Trang sau"
               style={{ flex: 1 }}
               onPress={() => {
                 setSelected(null);
-                setPage((current) => current + 1);
+                const next = page + 1;
+                setPage(next);
+                void fetchTabRequests(status, next);
               }}
             />
           ) : null}
         </View>
-        {resource.data?.meta.totalPages ? (
-          <Text style={uiStyles.muted}>
-            Page {resource.data.meta.page ?? page} of {resource.data.meta.totalPages}
-          </Text>
-        ) : null}
-      </View>
+      ) : null}
+
+      {/* CREATE REQUEST MODAL */}
+      <Modal visible={showCreateModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Tạo yêu cầu khám mới</Text>
+                <Text style={styles.modalSubtitle}>
+                  Gửi yêu cầu kiểm tra sức khỏe ngựa đến bác sĩ thú y
+                </Text>
+              </View>
+              <Pressable onPress={() => setShowCreateModal(false)} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={20} color={colors.foreground} />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={{ gap: space.md, paddingBottom: space.xl }}>
+              {/* Selected Horse Card */}
+              <View>
+                <Text style={styles.inputSectionLabel}>Ngựa cần khám *</Text>
+                {selectedHorse ? (
+                  <View style={styles.selectedHorseCard}>
+                    <View style={styles.selectedHorseAvatar}>
+                      <Ionicons name="paw" size={18} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.selectedHorseName}>{selectedHorse.name}</Text>
+                      <Text style={styles.selectedHorseDetail}>
+                        {selectedHorse.location?.barn?.name ?? "Chưa xếp khu"}
+                        {selectedHorse.location?.stall?.code
+                          ? ` · Ô ${selectedHorse.location.stall.code}`
+                          : ""}
+                        {selectedHorse.microchipId ? ` · Chip: ${selectedHorse.microchipId}` : ""}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => setHorsePickerVisible(true)}
+                      style={styles.changeHorseButton}
+                    >
+                      <Text style={styles.changeHorseText}>Đổi ngựa</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => setHorsePickerVisible(true)}
+                    style={styles.chooseHorseTrigger}
+                  >
+                    <Ionicons name="search-outline" size={18} color={colors.primary} />
+                    <Text style={styles.chooseHorseTriggerText}>
+                      {loadingHorses ? "Đang tải danh sách ngựa…" : "Nhấn để chọn ngựa cần khám…"}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Symptoms Description */}
+              <Field label="Triệu chứng & Chi tiết quan sát *">
+                <NativeInput
+                  value={description}
+                  onChangeText={setDescription}
+                  multiline
+                  placeholder="Mô tả dấu hiệu bất thường, hành vi hoặc vị trí nghi tổn thương..."
+                  style={{ minHeight: 90 }}
+                />
+              </Field>
+
+              {/* Urgency Level Selector */}
+              <View>
+                <Text style={styles.inputSectionLabel}>Mức độ khẩn cấp</Text>
+                <View style={styles.urgencyChoiceRow}>
+                  <Pressable
+                    onPress={() => setUrgent(false)}
+                    style={[
+                      styles.urgencyChoiceCard,
+                      !urgent && styles.urgencyChoiceCardActiveNormal,
+                    ]}
+                  >
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={20}
+                      color={!urgent ? colors.primary : colors.mutedForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.urgencyChoiceTitle,
+                        !urgent && styles.urgencyChoiceTitleActive,
+                      ]}
+                    >
+                      Thường
+                    </Text>
+                    <Text style={styles.urgencyChoiceSubtitle}>
+                      Khám theo lịch định kỳ hoặc hàng đợi thông thường
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setUrgent(true)}
+                    style={[
+                      styles.urgencyChoiceCard,
+                      urgent && styles.urgencyChoiceCardActiveUrgent,
+                    ]}
+                  >
+                    <Ionicons
+                      name="alert-circle"
+                      size={20}
+                      color={urgent ? colors.destructive : colors.mutedForeground}
+                    />
+                    <Text
+                      style={[styles.urgencyChoiceTitle, urgent && styles.urgencyChoiceTitleUrgent]}
+                    >
+                      Cấp cứu
+                    </Text>
+                    <Text style={styles.urgencyChoiceSubtitle}>
+                      Ưu tiên khám ngay, thông báo khẩn cho bác sĩ
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{ gap: space.sm, marginTop: space.sm }}>
+                <PrimaryButton
+                  label={saving ? "Đang gửi…" : "Gửi yêu cầu khám"}
+                  icon="paper-plane-outline"
+                  disabled={saving || !selectedHorse || !description.trim()}
+                  onPress={() => void createRequest()}
+                />
+                <SecondaryButton label="Hủy bỏ" onPress={() => setShowCreateModal(false)} />
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* HORSE PICKER MODAL */}
+      <Modal visible={horsePickerVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: "80%" }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Chọn ngựa</Text>
+                <Text style={styles.modalSubtitle}>
+                  Tìm kiếm theo tên ngựa, số chip hoặc khu chuồng
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setHorsePickerVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={20} color={colors.foreground} />
+              </Pressable>
+            </View>
+
+            <Field label="Tìm kiếm ngựa">
+              <NativeInput
+                value={horseSearch}
+                onChangeText={setHorseSearch}
+                placeholder="Nhập tên ngựa, số chip..."
+                autoFocus
+              />
+            </Field>
+
+            <ScrollView contentContainerStyle={{ gap: 6, paddingVertical: space.sm }}>
+              {filteredHorses.map((h) => {
+                const isCurrent = selectedHorse?.id === h.id;
+                return (
+                  <Pressable
+                    key={h.id}
+                    onPress={() => {
+                      setSelectedHorse(h);
+                      setHorsePickerVisible(false);
+                    }}
+                    style={[styles.horseListItem, isCurrent && styles.horseListItemActive]}
+                  >
+                    <View style={styles.horseListAvatar}>
+                      <Ionicons
+                        name="paw"
+                        size={16}
+                        color={isCurrent ? colors.primary : colors.foreground}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.horseListName, isCurrent && { color: colors.primary }]}>
+                        {h.name}
+                      </Text>
+                      <Text style={styles.horseListLocation}>
+                        {h.location?.barn?.name ?? "Chưa xếp khu"}
+                        {h.location?.stall?.code ? ` · Ô ${h.location.stall.code}` : ""}
+                        {h.microchipId ? ` · Chip: ${h.microchipId}` : ""}
+                      </Text>
+                    </View>
+                    {isCurrent ? (
+                      <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+
+              {!filteredHorses.length ? (
+                <View style={{ padding: space.lg, alignItems: "center" }}>
+                  <Text style={uiStyles.muted}>
+                    {loadingHorses ? "Đang tải danh sách ngựa..." : "Không tìm thấy ngựa phù hợp."}
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
+}
+
+function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
+  return StyleSheet.create({
+    createBar: {
+      marginBottom: space.sm,
+    },
+    tabContainer: {
+      flexDirection: "row",
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: 4,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+      marginBottom: space.sm,
+    },
+    tabButton: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      paddingVertical: 9,
+      borderRadius: radius.sm,
+    },
+    tabButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    tabText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    tabTextActive: {
+      color: "#ffffff",
+      fontWeight: "700",
+    },
+    tabBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: radius.pill,
+      backgroundColor: colors.muted,
+    },
+    tabBadgeActive: {
+      backgroundColor: "rgba(255,255,255,0.25)",
+    },
+    tabBadgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    tabBadgeTextActive: {
+      color: "#ffffff",
+    },
+    revalidatingBar: {
+      paddingVertical: 4,
+      alignItems: "center",
+      backgroundColor: colors.fitSoft,
+      borderRadius: radius.sm,
+      marginBottom: space.xs,
+    },
+    revalidatingText: {
+      fontSize: 11,
+      color: colors.primary,
+      fontWeight: "500",
+    },
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      padding: space.xl,
+      gap: space.xs,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: space.sm,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.foreground,
+      marginTop: space.xs,
+    },
+    emptySubtitle: {
+      fontSize: 13,
+      color: colors.mutedForeground,
+      textAlign: "center",
+      maxWidth: 280,
+    },
+    cardsList: {
+      gap: space.sm,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+    },
+    cardUrgent: {
+      borderColor: colors.destructive,
+      backgroundColor: colors.injuredSoft,
+    },
+    cardSelected: {
+      borderColor: colors.primary,
+      borderWidth: 1.5,
+    },
+    cardHeaderPressable: {
+      padding: space.md,
+      gap: space.xs,
+    },
+    cardHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: space.sm,
+    },
+    horseIdentityRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      flex: 1,
+    },
+    horseAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.pill,
+      backgroundColor: colors.fitSoft,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    horseAvatarUrgent: {
+      backgroundColor: colors.injuredSoft,
+    },
+    horseName: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    sourceText: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      marginTop: 1,
+    },
+    urgencyBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+    },
+    urgencyBadgeUrgent: {
+      backgroundColor: colors.injuredSoft,
+      borderWidth: 1,
+      borderColor: colors.destructive,
+    },
+    urgencyBadgeNormal: {
+      backgroundColor: colors.muted,
+    },
+    urgencyBadgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    urgencyBadgeTextUrgent: {
+      color: colors.destructive,
+    },
+    statusCompletedBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      backgroundColor: colors.muted,
+    },
+    statusCompletedText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.mutedForeground,
+    },
+    symptomBox: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 6,
+      backgroundColor: colors.background,
+      padding: space.sm,
+      borderRadius: radius.sm,
+      marginTop: 4,
+    },
+    symptomText: {
+      fontSize: 13,
+      color: colors.foreground,
+      lineHeight: 18,
+      flex: 1,
+    },
+    metaRow: {
+      marginTop: 2,
+    },
+    metaText: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+    },
+    dismissBox: {
+      backgroundColor: colors.muted,
+      padding: space.sm,
+      borderRadius: radius.sm,
+      marginTop: 4,
+    },
+    dismissLabel: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.mutedForeground,
+    },
+    dismissText: {
+      fontSize: 12,
+      color: colors.foreground,
+      marginTop: 2,
+    },
+    expandRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 6,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      marginTop: 4,
+    },
+    expandText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    actionDrawer: {
+      padding: space.md,
+      paddingTop: 0,
+      gap: space.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    inlineActionBox: {
+      backgroundColor: colors.background,
+      padding: space.sm,
+      borderRadius: radius.sm,
+      gap: space.xs,
+    },
+    inlineActionTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.foreground,
+      marginBottom: 2,
+    },
+    paginationRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: space.md,
+      marginTop: space.sm,
+    },
+    pageIndicator: {
+      fontSize: 13,
+      color: colors.mutedForeground,
+      fontWeight: "600",
+    },
+    // MODAL STYLES
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      justifyContent: "flex-end",
+    },
+    modalCard: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.lg,
+      borderTopRightRadius: radius.lg,
+      padding: space.lg,
+      maxHeight: "90%",
+      gap: space.md,
+    },
+    modalHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      paddingBottom: space.sm,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    modalSubtitle: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      marginTop: 2,
+    },
+    modalCloseButton: {
+      padding: 6,
+      borderRadius: radius.pill,
+      backgroundColor: colors.muted,
+    },
+    inputSectionLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.foreground,
+      marginBottom: 6,
+    },
+    chooseHorseTrigger: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      backgroundColor: colors.muted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      padding: space.md,
+    },
+    chooseHorseTriggerText: {
+      fontSize: 14,
+      color: colors.mutedForeground,
+      flex: 1,
+    },
+    selectedHorseCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      backgroundColor: colors.fitSoft,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      borderRadius: radius.md,
+      padding: space.md,
+    },
+    selectedHorseAvatar: {
+      width: 34,
+      height: 34,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    selectedHorseName: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    selectedHorseDetail: {
+      fontSize: 12,
+      color: colors.primary,
+      marginTop: 2,
+    },
+    changeHorseButton: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+    },
+    changeHorseText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    urgencyChoiceRow: {
+      flexDirection: "row",
+      gap: space.sm,
+    },
+    urgencyChoiceCard: {
+      flex: 1,
+      padding: space.md,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+      gap: 3,
+    },
+    urgencyChoiceCardActiveNormal: {
+      borderColor: colors.primary,
+      backgroundColor: colors.fitSoft,
+      borderWidth: 2,
+    },
+    urgencyChoiceCardActiveUrgent: {
+      borderColor: colors.destructive,
+      backgroundColor: colors.injuredSoft,
+      borderWidth: 2,
+    },
+    urgencyChoiceTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    urgencyChoiceTitleActive: {
+      color: colors.primary,
+    },
+    urgencyChoiceTitleUrgent: {
+      color: colors.destructive,
+    },
+    urgencyChoiceSubtitle: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      lineHeight: 14,
+    },
+    // HORSE LIST ITEM
+    horseListItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      padding: space.md,
+      borderRadius: radius.sm,
+      backgroundColor: colors.background,
+    },
+    horseListItemActive: {
+      backgroundColor: colors.fitSoft,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    horseListAvatar: {
+      width: 30,
+      height: 30,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    horseListName: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    horseListLocation: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      marginTop: 1,
+    },
+  });
 }

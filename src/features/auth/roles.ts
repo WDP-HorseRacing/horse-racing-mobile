@@ -101,7 +101,7 @@ export const roles: Record<RoleId, RoleConfig> = {
       {
         label: "Medical cases",
         icon: "folder-open-outline",
-        path: "/vet/medical",
+        path: "/vet/medical/cases",
         description: "Active cases, treatment history, and medical records.",
       },
       {

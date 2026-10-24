@@ -41,6 +41,14 @@ export const usersService = {
     });
   },
 
+  resetPassword(token: string, userId: string, newPassword: string) {
+    return apiRequest<void>(`/users/${encodeURIComponent(userId)}/reset-password`, {
+      method: "POST",
+      token,
+      body: { newPassword },
+    });
+  },
+
   handoverHeadTrainer(token: string, userId: string, toHeadTrainerId: string) {
     return apiRequest<{ barnsMoved: number; plansMoved: number; classesMoved: number }>(
       `/users/${encodeURIComponent(userId)}/head-trainer-handover`,

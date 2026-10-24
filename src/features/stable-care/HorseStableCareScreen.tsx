@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
+  BottomSheetModal,
   Chips,
   Field,
   NativeInput,
@@ -41,12 +42,6 @@ import { clubDate } from "@/utils/horse-validation";
 import { formatDate, formatTime } from "@/utils/formatters";
 
 const MEALS: FeedingMealName[] = ["EARLY_MORNING", "NOON", "AFTERNOON", "EVENING"];
-const MEAL_LABELS: Record<FeedingMealName, string> = {
-  EARLY_MORNING: "Early morning",
-  NOON: "Noon",
-  AFTERNOON: "Afternoon",
-  EVENING: "Evening",
-};
 
 const MEAL_METADATA: Record<
   FeedingMealName,
@@ -83,21 +78,30 @@ const TASK_DURATION_PRESETS = [1, 3, 7, 14, 30];
 const CHECKLIST_RANGE_PRESETS = [7, 14, 30];
 
 export default function HorseStableCareScreen() {
-  const { role: roleParam, id: horseIdParam } = useLocalSearchParams<{
+  const {
+    role: roleParam,
+    id: horseIdParam,
+    tab: tabParam,
+  } = useLocalSearchParams<{
     role: string;
     id: string;
+    tab?: string;
   }>();
   const role = isRole(roleParam) ? roleParam : "trainer";
   const horseId = Array.isArray(horseIdParam) ? horseIdParam[0] : horseIdParam;
+  const initialTab = Array.isArray(tabParam) ? tabParam[0] : tabParam;
   const options = useMemo(() => {
     const tabs: string[] = [];
     if (["trainer", "manager", "vet", "groom"].includes(role)) tabs.push("Feeding plan");
-    if (["trainer", "manager", "groom"].includes(role)) tabs.push("Care tasks");
+    if (["trainer", "manager", "vet", "groom"].includes(role)) tabs.push("Care tasks");
     if (["manager", "trainer", "groom"].includes(role)) tabs.push("Daily checklist");
     if (["manager", "trainer", "owner"].includes(role)) tabs.push("Surcharges");
     return tabs;
   }, [role]);
-  const [tab, setTab] = useState(options[0] ?? "Feeding plan");
+  const [tab, setTab] = useState(
+    () => (initialTab && options.includes(initialTab) ? initialTab : (options[0] ?? "Feeding plan")),
+  );
+
   const visibleTab = options.includes(tab) ? tab : (options[0] ?? "Feeding plan");
   const title = "Stable care";
 
@@ -192,7 +196,10 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
       return;
     }
     if (hasFeedingMealDuplicate(lines, meal, itemId)) {
-      Alert.alert(t("Duplicate meal item"), t("Each feed or supplement can appear only once in a meal."));
+      Alert.alert(
+        t("Duplicate meal item"),
+        t("Each feed or supplement can appear only once in a meal."),
+      );
       return;
     }
     setLines((current) => [
@@ -210,7 +217,8 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
   const handleQuickAddQty = (step: number) => {
     const current = Number(quantity);
-    const nextVal = Number.isFinite(current) && current > 0 ? Math.round((current + step) * 10) / 10 : step;
+    const nextVal =
+      Number.isFinite(current) && current > 0 ? Math.round((current + step) * 10) / 10 : step;
     setQuantity(String(nextVal));
   };
 
@@ -295,7 +303,11 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
         const isActive = plan.status === "ACTIVE";
         const isDraft = plan.status === "DRAFT";
         const statusBg = isActive ? colors.fitSoft : isDraft ? colors.monitorSoft : colors.elevated;
-        const statusColor = isActive ? colors.primary : isDraft ? colors.monitor : colors.mutedForeground;
+        const statusColor = isActive
+          ? colors.primary
+          : isDraft
+            ? colors.monitor
+            : colors.mutedForeground;
         const statusIcon: keyof typeof Ionicons.glyphMap = isActive
           ? "checkmark-circle"
           : isDraft
@@ -371,7 +383,14 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
             {/* Actions for draft plans */}
             {canEdit && plan.status === "DRAFT" ? (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.xs }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: space.sm,
+                  marginTop: space.xs,
+                }}
+              >
                 <SecondaryButton
                   label="Edit draft"
                   icon="create-outline"
@@ -412,16 +431,14 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
           ) : null}
 
           <Field label="Plan note">
-            <NativeInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Optional instructions"
-            />
+            <NativeInput value={note} onChangeText={setNote} placeholder="Optional instructions" />
           </Field>
 
           {!selectedPlan && plans.length ? (
             <>
-              <Text style={ui.muted}>{t("Start with a previous plan, or enter feed items below.")}</Text>
+              <Text style={ui.muted}>
+                {t("Start with a previous plan, or enter feed items below.")}
+              </Text>
               <Chips
                 options={[
                   "Build from items",
@@ -429,7 +446,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                 ]}
                 value={
                   copyFromPlanId
-                    ? `Copy ${(plans.find((p) => p.id === copyFromPlanId)?.horseName ?? "")} · ${(plans.find((p) => p.id === copyFromPlanId)?.status ?? "")}`
+                    ? `Copy ${plans.find((p) => p.id === copyFromPlanId)?.horseName ?? ""} · ${plans.find((p) => p.id === copyFromPlanId)?.status ?? ""}`
                     : "Build from items"
                 }
                 onChange={(value) =>
@@ -542,12 +559,29 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                 const itemMeta = feedItems.find((item) => item.id === line.supplyItemId);
                 const mealMeta = MEAL_METADATA[line.meal];
                 return (
-                  <View key={`${line.supplyItemId}-${line.meal}-${index}`} style={careStyles.configuredLineRow}>
+                  <View
+                    key={`${line.supplyItemId}-${line.meal}-${index}`}
+                    style={careStyles.configuredLineRow}
+                  >
                     <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <View style={[careStyles.statusBadge, { backgroundColor: mealMeta.bg, paddingHorizontal: 6, paddingVertical: 2 }]}>
+                        <View
+                          style={[
+                            careStyles.statusBadge,
+                            {
+                              backgroundColor: mealMeta.bg,
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                            },
+                          ]}
+                        >
                           <Ionicons name={mealMeta.icon} size={11} color={mealMeta.color} />
-                          <Text style={[careStyles.statusBadgeText, { color: mealMeta.color, fontSize: 11 }]}>
+                          <Text
+                            style={[
+                              careStyles.statusBadgeText,
+                              { color: mealMeta.color, fontSize: 11 },
+                            ]}
+                          >
                             {t(mealMeta.label)}
                           </Text>
                         </View>
@@ -595,7 +629,7 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
   const { t } = useI18n();
   const ui = getUiStyles(colors);
   const careStyles = useMemo(() => getCareStyles(colors), [colors]);
-  const canAssign = role === "trainer";
+  const canAssign = role === "trainer" || role === "vet";
   const load = useCallback(
     async () =>
       Promise.all([
@@ -605,11 +639,14 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
     [horseId, token],
   );
   const resource = useApiResource(load, Boolean(token && horseId));
+  const [taskMode, setTaskMode] = useState<"EXTRA" | "EXEMPT">("EXTRA");
   const [taskTypeId, setTaskTypeId] = useState("");
   const [fromDate, setFromDate] = useState(todayDate());
   const [toDate, setToDate] = useState(todayDate());
   const [note, setNote] = useState("");
-  const types = (resource.data?.[1] ?? []).filter((item) => item.active && !item.appliesToAll);
+  const types = (resource.data?.[1] ?? []).filter(
+    (item) => item.active && (taskMode === "EXTRA" ? !item.appliesToAll : item.appliesToAll),
+  );
   const tasks = resource.data?.[0] ?? [];
 
   const handleApplyPresetDays = (days: number) => {
@@ -632,14 +669,23 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
       );
       return;
     }
+    if (taskMode === "EXEMPT" && !note.trim()) {
+      Alert.alert(
+        t("Lý do bắt buộc"),
+        t("Vui lòng nhập lý do miễn loại việc chung này."),
+      );
+      return;
+    }
     try {
       await stableCareService.createHorseCareTask(token, horseId, {
         taskTypeId,
+        mode: taskMode,
         fromDate,
         toDate,
         note: note.trim() || undefined,
       });
       setNote("");
+      setTaskTypeId("");
       await resource.refresh();
     } catch (error) {
       Alert.alert(t("Could not assign care task"), extractErrorMessage(error));
@@ -683,6 +729,25 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
                 {task.taskType.name}
               </Text>
             </View>
+            <View
+              style={{
+                backgroundColor: task.mode === "EXEMPT" ? colors.monitorSoft : colors.fitSoft,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: radius.pill,
+                marginRight: space.xs,
+              }}
+            >
+              <Text
+                style={{
+                  color: task.mode === "EXEMPT" ? colors.monitor : colors.primary,
+                  fontSize: 11,
+                  fontWeight: "700",
+                }}
+              >
+                {task.mode === "EXEMPT" ? t("Miễn việc chung") : t("Việc riêng")}
+              </Text>
+            </View>
             {canAssign ? (
               <SecondaryButton
                 label="Remove"
@@ -702,10 +767,14 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
           </View>
           {task.note ? (
             <View style={careStyles.planNoteBox}>
-              <Text style={careStyles.planNoteText}>{task.note}</Text>
+              <Text style={careStyles.planNoteText}>
+                {task.mode === "EXEMPT" ? `Lý do: ${task.note}` : task.note}
+              </Text>
             </View>
           ) : null}
-          <Text style={ui.muted}>{t("Assigned by")} {task.creator.fullName}</Text>
+          <Text style={ui.muted}>
+            {t("Assigned by")} {task.creator.fullName}
+          </Text>
         </View>
       ))}
 
@@ -713,8 +782,21 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
         <View style={careStyles.builderCard}>
           <View style={careStyles.builderHeader}>
             <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-            <Text style={careStyles.builderTitle}>{t("Assign individual task")}</Text>
+            <Text style={careStyles.builderTitle}>
+              {taskMode === "EXTRA" ? t("Gắn việc riêng") : t("Miễn việc chung")}
+            </Text>
           </View>
+
+          <Chips
+            options={[t("Gắn việc riêng"), t("Miễn việc chung")]}
+            value={taskMode === "EXTRA" ? t("Gắn việc riêng") : t("Miễn việc chung")}
+            onChange={(val) => {
+              const newMode = val === t("Miễn việc chung") ? "EXEMPT" : "EXTRA";
+              setTaskMode(newMode);
+              setTaskTypeId("");
+            }}
+          />
+
           {types.length ? (
             <Chips
               options={types.map((item) => item.name)}
@@ -725,7 +807,9 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
             />
           ) : (
             <Text style={ui.muted}>
-              {t("No active individual task types are available. Club Manager can add them under Care task types.")}
+              {taskMode === "EXTRA"
+                ? t("No active individual task types are available. Club Manager can add them under Care task types.")
+                : t("Không có loại việc chung nào để miễn.")}
             </Text>
           )}
 
@@ -752,14 +836,28 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
           <Field label="End date · YYYY-MM-DD">
             <NativeInput value={toDate} onChangeText={setToDate} placeholder="YYYY-MM-DD" />
           </Field>
-          <Field label="Note">
-            <NativeInput value={note} onChangeText={setNote} placeholder="Optional instruction" />
+          <Field
+            label={
+              taskMode === "EXEMPT"
+                ? t("Lý do miễn việc chung (bắt buộc) *")
+                : t("Note")
+            }
+          >
+            <NativeInput
+              value={note}
+              onChangeText={setNote}
+              placeholder={
+                taskMode === "EXEMPT"
+                  ? t("Nhập lý do miễn (vd: Ngựa sốt, kiêng tắm...)")
+                  : t("Optional instruction")
+              }
+            />
           </Field>
           <PrimaryButton
-            label="Assign care task"
+            label={taskMode === "EXTRA" ? t("Assign care task") : t("Xác nhận miễn việc")}
             icon="calendar"
             onPress={() => void add()}
-            disabled={!taskTypeId}
+            disabled={!taskTypeId || (taskMode === "EXEMPT" && !note.trim())}
           />
         </View>
       ) : null}
@@ -776,11 +874,37 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
   const [from, setFrom] = useState(daysAgoDate(6));
   const [to, setTo] = useState(todayDate());
   const [range, setRange] = useState({ from: daysAgoDate(6), to: todayDate() });
+  const [regenerating, setRegenerating] = useState(false);
   const load = useCallback(
     () => stableCareService.listChecklists(token!, horseId, range.from, range.to),
     [horseId, range.from, range.to, token],
   );
   const resource = useApiResource(load, Boolean(token && horseId));
+
+  const handleRegenerateChecklists = async () => {
+    if (!token) return;
+    setRegenerating(true);
+    try {
+      const res = await stableCareService.regenerateChecklistsToday(token);
+      await resource.refresh();
+      if (res.failures.length === 0) {
+        Alert.alert(
+          t("Sinh checklist thành công"),
+          `${t("Đã sinh")} ${res.generated} ${t("checklist cho các ngựa có Groom còn thiếu.")}`,
+        );
+      } else {
+        Alert.alert(
+          t("Sinh checklist hôm nay"),
+          `${t("Đã sinh")} ${res.generated} ${t("checklist.")}\n${t("Còn")} ${res.failures.length} ${t("ngựa lỗi:")} ${res.failures.map((f) => f.horseName).join(", ")}`,
+        );
+      }
+    } catch (error) {
+      Alert.alert(t("Could not regenerate checklists"), extractErrorMessage(error));
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   const toggle = async (itemId: string, done: boolean) => {
     try {
       await stableCareService.tickChecklistItem(token!, itemId, { done });
@@ -812,6 +936,17 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
     <View style={ui.section}>
       <SectionTitle>Daily checklist history</SectionTitle>
 
+      {role === "manager" ? (
+        <View style={{ marginBottom: space.sm }}>
+          <PrimaryButton
+            label={regenerating ? t("Đang sinh checklist…") : t("Sinh lại checklist hôm nay")}
+            icon="refresh"
+            disabled={regenerating}
+            onPress={() => void handleRegenerateChecklists()}
+          />
+        </View>
+      ) : null}
+
       {/* Preset range chips */}
       <View style={careStyles.quickChipsRow}>
         <Text style={ui.muted}>{t("Range")}:</Text>
@@ -822,7 +957,9 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
             onPress={() => handlePresetRange(d)}
             style={careStyles.quickQtyChip}
           >
-            <Text style={careStyles.quickQtyChipText}>{d} {t("days")}</Text>
+            <Text style={careStyles.quickQtyChipText}>
+              {d} {t("days")}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -848,6 +985,7 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
         const doneItems = checklist.items.filter((item) => item.done).length;
         const progressPct = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
         const isCompleted = checklist.status === "COMPLETED";
+        const isCancelled = checklist.status === "CANCELLED";
 
         return (
           <View key={checklist.id} style={careStyles.checklistCard}>
@@ -861,33 +999,66 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
                 </View>
                 <Text style={ui.muted}>
                   {t("Groom")}: {checklist.groom.fullName}
-                  {checklist.completedAt ? ` · ${t("Completed")} ${formatTime(checklist.completedAt)}` : ""}
+                  {checklist.completedAt
+                    ? ` · ${t("Completed")} ${formatTime(checklist.completedAt)}`
+                    : ""}
                 </Text>
               </View>
               <View
                 style={[
                   careStyles.statusBadge,
-                  { backgroundColor: isCompleted ? colors.fitSoft : colors.monitorSoft },
+                  {
+                    backgroundColor: isCancelled
+                      ? colors.injuredSoft
+                      : isCompleted
+                        ? colors.fitSoft
+                        : colors.monitorSoft,
+                  },
                 ]}
               >
                 <Ionicons
-                  name={isCompleted ? "checkmark-circle" : "time-outline"}
+                  name={
+                    isCancelled
+                      ? "close-circle"
+                      : isCompleted
+                        ? "checkmark-circle"
+                        : "time-outline"
+                  }
                   size={13}
-                  color={isCompleted ? colors.primary : colors.monitor}
+                  color={
+                    isCancelled
+                      ? colors.destructive
+                      : isCompleted
+                        ? colors.primary
+                        : colors.monitor
+                  }
                 />
                 <Text
                   style={[
                     careStyles.statusBadgeText,
-                    { color: isCompleted ? colors.primary : colors.monitor },
+                    {
+                      color: isCancelled
+                        ? colors.destructive
+                        : isCompleted
+                          ? colors.primary
+                          : colors.monitor,
+                    },
                   ]}
                 >
-                  {doneItems}/{totalItems} ({progressPct}%)
+                  {isCancelled
+                    ? t("Cancelled")
+                    : totalItems === 0
+                      ? t(isCompleted ? "Completed" : "No tasks assigned")
+                      : `${doneItems}/${totalItems} (${progressPct}%)`}
                 </Text>
               </View>
             </View>
 
             {/* Checklist Items */}
             <View style={{ gap: space.xs, marginTop: space.xs }}>
+              {totalItems === 0 ? (
+                <Text style={ui.muted}>{t("No tasks assigned")}</Text>
+              ) : null}
               {checklist.items.map((item) => (
                 <View key={item.id} style={careStyles.checklistItemRow}>
                   <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
@@ -917,7 +1088,8 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
                   </View>
                   {role === "groom" &&
                   checklist.checklistDate === today &&
-                  checklist.status !== "INCOMPLETE" ? (
+                  checklist.status !== "INCOMPLETE" &&
+                  checklist.status !== "CANCELLED" ? (
                     <SecondaryButton
                       label={item.done ? "Undo" : "Done"}
                       style={{ flexShrink: 0 }}
@@ -933,7 +1105,9 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
 
       {role === "groom" ? (
         <Text style={ui.muted}>
-          {t("Only today’s checklist can be changed. Older or incomplete checklists are read-only.")}
+          {t(
+            "Only today’s checklist can be changed. Older or incomplete checklists are read-only.",
+          )}
         </Text>
       ) : null}
     </View>
@@ -957,6 +1131,32 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState(todayDate());
   const [endDate, setEndDate] = useState(todayDate());
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const amountError = useMemo(() => {
+    if (!amount.trim()) return "";
+    const num = Number(amount);
+    if (!Number.isInteger(num) || num < 1 || num > 1_000_000_000) {
+      return t("Số tiền phải là số nguyên dương từ 1 đến 1.000.000.000 đ/ngày.");
+    }
+    return "";
+  }, [amount, t]);
+
+  const descError = useMemo(() => {
+    if (!description.trim()) return "";
+    if (description.trim().length > 500) {
+      return t("Mô tả không được vượt quá 500 ký tự.");
+    }
+    return "";
+  }, [description, t]);
+
+  const dateError = useMemo(() => {
+    if (startDate && !isDateOnly(startDate)) return t("Ngày bắt đầu không đúng định dạng YYYY-MM-DD.");
+    if (startDate && startDate < todayDate()) return t("Ngày bắt đầu không được ở quá khứ.");
+    if (endDate && !isDateOnly(endDate)) return t("Ngày kết thúc không đúng định dạng YYYY-MM-DD.");
+    if (startDate && endDate && endDate < startDate) return t("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+    return "";
+  }, [startDate, endDate, t]);
   const create = async () => {
     const dailyAmount = Number(amount);
     if (
@@ -973,7 +1173,9 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
     ) {
       Alert.alert(
         t("Check surcharge details"),
-        t("Enter a description, a positive whole VND amount up to 1 billion, and valid dates starting today or later."),
+        t(
+          "Enter a description, a positive whole VND amount up to 1 billion, and valid dates starting today or later.",
+        ),
       );
       return;
     }
@@ -986,6 +1188,7 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
       });
       setDescription("");
       setAmount("");
+      setShowCreateModal(false);
       await resource.refresh();
     } catch (error) {
       Alert.alert(t("Could not create surcharge"), extractErrorMessage(error));
@@ -1003,7 +1206,9 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
             void stableCareService
               .endSurcharge(token!, surcharge.id)
               .then(() => resource.refresh())
-              .catch((error) => Alert.alert(t("Could not end surcharge"), extractErrorMessage(error))),
+              .catch((error) =>
+                Alert.alert(t("Could not end surcharge"), extractErrorMessage(error)),
+              ),
         },
       ],
     );
@@ -1059,7 +1264,12 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
               {surcharge.appliedAt ? ` · ${formatDate(surcharge.appliedAt)}` : ""}
             </Text>
           ) : (
-            <View style={[careStyles.statusBadge, { backgroundColor: colors.monitorSoft, alignSelf: "flex-start" }]}>
+            <View
+              style={[
+                careStyles.statusBadge,
+                { backgroundColor: colors.monitorSoft, alignSelf: "flex-start" },
+              ]}
+            >
               <Ionicons name="time-outline" size={12} color={colors.monitor} />
               <Text style={[careStyles.statusBadgeText, { color: colors.monitor }]}>
                 {t("Awaiting Head Trainer")}
@@ -1081,7 +1291,11 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
             />
           ) : null}
           {canCreate && !surcharge.appliedBy && surcharge.startDate > today ? (
-            <SecondaryButton label="Delete" icon="trash-outline" onPress={() => remove(surcharge)} />
+            <SecondaryButton
+              label="Delete"
+              icon="trash-outline"
+              onPress={() => remove(surcharge)}
+            />
           ) : null}
           {canCreate && surcharge.startDate <= today && surcharge.endDate >= today ? (
             <SecondaryButton label="End today" onPress={() => end(surcharge)} />
@@ -1089,35 +1303,63 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
         </View>
       ))}
       {canCreate ? (
-        <View style={careStyles.builderCard}>
-          <View style={careStyles.builderHeader}>
-            <Ionicons name="cash-outline" size={20} color={colors.primary} />
-            <Text style={careStyles.builderTitle}>{t("Create surcharge")}</Text>
-          </View>
-          <Field label="Description">
-            <NativeInput
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              placeholder="Reason for additional care cost"
-            />
-          </Field>
-          <Field label="Daily amount · VND">
-            <NativeInput
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="number-pad"
-              placeholder="e.g. 250000"
-            />
-          </Field>
-          <Field label="Start date · YYYY-MM-DD">
-            <NativeInput value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" />
-          </Field>
-          <Field label="End date · YYYY-MM-DD">
-            <NativeInput value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" />
-          </Field>
-          <PrimaryButton label="Create surcharge" icon="add" onPress={() => void create()} />
-        </View>
+        <>
+          <PrimaryButton
+            label="Create surcharge"
+            icon="add"
+            onPress={() => setShowCreateModal(true)}
+          />
+          <BottomSheetModal
+            visible={showCreateModal}
+            title="Create surcharge"
+            saveLabel="Save"
+            cancelLabel="Cancel"
+            onSave={() => void create()}
+            onClose={() => setShowCreateModal(false)}
+          >
+            <Field label="Description">
+              <NativeInput
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                placeholder={t("Reason for additional care cost")}
+              />
+              {descError ? (
+                <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                  {descError}
+                </Text>
+              ) : null}
+            </Field>
+            <Field label="Daily amount · VND">
+              <NativeInput
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="number-pad"
+                placeholder="e.g. 250000"
+              />
+              {amountError ? (
+                <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                  {amountError}
+                </Text>
+              ) : amount.trim() && Number(amount) > 0 ? (
+                <Text style={{ color: colors.primary, fontSize: 13, marginTop: 4, fontWeight: "600" }}>
+                  {formatVnd(Number(amount))} / {t("day")}
+                </Text>
+              ) : null}
+            </Field>
+            <Field label="Start date · YYYY-MM-DD">
+              <NativeInput value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" />
+            </Field>
+            <Field label="End date · YYYY-MM-DD">
+              <NativeInput value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" />
+              {dateError ? (
+                <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                  {dateError}
+                </Text>
+              ) : null}
+            </Field>
+          </BottomSheetModal>
+        </>
       ) : null}
     </View>
   );
@@ -1135,12 +1377,14 @@ export function CareTaskTypesScreen() {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const create = async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
       await stableCareService.createTaskType(token!, { name: name.trim(), appliesToAll });
       setName("");
+      setShowAddModal(false);
       await resource.refresh();
     } catch (error) {
       Alert.alert(t("Could not create task type"), extractErrorMessage(error));
@@ -1188,6 +1432,13 @@ export function CareTaskTypesScreen() {
         error={resource.error}
         onRetry={() => void resource.retry()}
       />
+      <View style={{ marginBottom: space.sm }}>
+        <PrimaryButton
+          label="Add care task type"
+          icon="add"
+          onPress={() => setShowAddModal(true)}
+        />
+      </View>
       {(resource.data ?? []).map((item) => (
         <Panel key={item.id}>
           <Text style={ui.value}>{item.name}</Text>
@@ -1209,42 +1460,53 @@ export function CareTaskTypesScreen() {
               onPress={() => void patch(item, { appliesToAll: !item.appliesToAll })}
             />
             <SecondaryButton
-              label={editingTypeId === item.id ? "Cancel rename" : "Rename"}
+              label="Rename"
               style={{ flexGrow: 1 }}
               onPress={() => {
-                setEditingTypeId(editingTypeId === item.id ? null : item.id);
-                setEditingName(editingTypeId === item.id ? "" : item.name);
+                setEditingTypeId(item.id);
+                setEditingName(item.name);
               }}
             />
           </View>
-          {editingTypeId === item.id ? (
-            <>
-              <Field label="Task type name">
-                <NativeInput value={editingName} onChangeText={setEditingName} />
-              </Field>
-              <PrimaryButton
-                label="Save name"
-                onPress={() => void rename(item)}
-                disabled={!editingName.trim()}
-              />
-            </>
-          ) : null}
         </Panel>
       ))}
-      <SectionTitle>Add care task type</SectionTitle>
-      <Field label="Name">
-        <NativeInput value={name} onChangeText={setName} placeholder="e.g. Special grooming" />
-      </Field>
-      <Chips
-        options={["Individual task", "Applies to all horses"]}
-        value={appliesToAll ? "Applies to all horses" : "Individual task"}
-        onChange={(value) => setAppliesToAll(value === "Applies to all horses")}
-      />
-      <PrimaryButton
-        label={saving ? "Saving…" : "Create task type"}
-        onPress={() => void create()}
-        disabled={saving || !name.trim()}
-      />
+
+      <BottomSheetModal
+        visible={Boolean(editingTypeId)}
+        title="Rename task type"
+        saveLabel="Save"
+        cancelLabel="Cancel"
+        onSave={() => {
+          const item = (resource.data ?? []).find((t) => t.id === editingTypeId);
+          if (item) void rename(item);
+        }}
+        onClose={() => {
+          setEditingTypeId(null);
+          setEditingName("");
+        }}
+      >
+        <Field label="Task type name">
+          <NativeInput value={editingName} onChangeText={setEditingName} />
+        </Field>
+      </BottomSheetModal>
+
+      <BottomSheetModal
+        visible={showAddModal}
+        title="Add care task type"
+        saveLabel={saving ? "Saving…" : "Save"}
+        cancelLabel="Cancel"
+        onSave={() => void create()}
+        onClose={() => setShowAddModal(false)}
+      >
+        <Field label="Name">
+          <NativeInput value={name} onChangeText={setName} placeholder="e.g. Special grooming" />
+        </Field>
+        <Chips
+          options={["Individual task", "Applies to all horses"]}
+          value={appliesToAll ? "Applies to all horses" : "Individual task"}
+          onChange={(value) => setAppliesToAll(value === "Applies to all horses")}
+        />
+      </BottomSheetModal>
     </Screen>
   );
 }
@@ -1279,7 +1541,8 @@ export function UnappliedSurchargesScreen() {
             {surcharge.horseName} · {surcharge.description}
           </Text>
           <Text style={ui.muted}>
-            {formatVnd(surcharge.dailyAmount)} / {t("day")} · {surcharge.startDate} → {surcharge.endDate}
+            {formatVnd(surcharge.dailyAmount)} / {t("day")} · {surcharge.startDate} →{" "}
+            {surcharge.endDate}
           </Text>
           <Text style={ui.muted}>
             {t("Barn")}: {surcharge.barnName ?? t("Unassigned")} · {t("Head Trainer")}:{" "}

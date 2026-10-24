@@ -62,8 +62,11 @@ export default function CreateTrainingClass() {
       );
     }
     const capacity = Number(maxHorses);
-    if (!Number.isInteger(capacity) || capacity < 1)
-      return Alert.alert("Check capacity", "Maximum horses must be a positive whole number.");
+    if (!Number.isInteger(capacity) || capacity < 1 || capacity > 2_147_483_647)
+      return Alert.alert(
+        "Check capacity",
+        "Maximum horses must be a whole number from 1 to 2,147,483,647.",
+      );
     setSaving(true);
     try {
       const created = await trainingService.createClass(token, {
@@ -172,13 +175,29 @@ export default function CreateTrainingClass() {
           </Panel>
         ) : null}
       </View>
-      <PrimaryButton
-        label={saving ? "Creating…" : "Create active class"}
-        icon="checkmark"
-        disabled={saving || !plansResource.data?.length}
-        onPress={() => void save()}
-      />
-      <SecondaryButton label="Cancel" icon="close" onPress={() => safeBack("/trainer/training")} />
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "stretch",
+          gap: 10,
+          width: "100%",
+          marginTop: 8,
+        }}
+      >
+        <SecondaryButton
+          label="Cancel"
+          icon="close"
+          style={{ flex: 1, minHeight: 48 }}
+          onPress={() => safeBack("/trainer/training")}
+        />
+        <PrimaryButton
+          label={saving ? "Creating…" : "Create active class"}
+          icon="checkmark"
+          style={{ flex: 1, minHeight: 48 }}
+          disabled={saving || !plansResource.data?.length}
+          onPress={() => void save()}
+        />
+      </View>
     </Screen>
   );
 }

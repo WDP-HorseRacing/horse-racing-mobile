@@ -45,17 +45,24 @@ export type CareTaskTypeDto = {
   appliesToAll: boolean;
   active: boolean;
 };
+export type HorseCareTaskMode = "EXTRA" | "EXEMPT";
 export type HorseCareTaskDto = {
   id: string;
   horseId: string;
   taskType: CareTaskTypeDto;
+  mode: HorseCareTaskMode;
   fromDate: string;
   toDate: string;
   note: string | null;
   creator: { id: string; fullName: string };
   createdAt: string;
 };
-export type ChecklistStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE";
+export type ChecklistStatus =
+  | "PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "INCOMPLETE"
+  | "CANCELLED";
 export type ChecklistItemDto = {
   id: string;
   taskTypeId: string;
@@ -76,6 +83,7 @@ export type DailyChecklistDto = {
   items: ChecklistItemDto[];
 };
 export type IncidentStatus = "OPEN" | "RESOLVED";
+export type IncidentResolutionSource = "HEAD_TRAINER" | "EXAM" | "LIFECYCLE";
 export type IncidentExamRequestDto = {
   id: string;
   status: string;
@@ -95,6 +103,7 @@ export type IncidentDto = {
   resolution: string | null;
   resolver: { id: string; fullName: string } | null;
   resolvedBySystem: boolean;
+  resolutionSource?: IncidentResolutionSource | null;
   resolvedAt: string | null;
   examRequest: IncidentExamRequestDto | null;
   createdAt: string;
@@ -121,6 +130,12 @@ export type IncidentQuery = {
   status?: IncidentStatus;
   horseId?: string;
   barnId?: string;
+};
+
+export type RegenerateChecklistsResponseDto = {
+  date: string;
+  generated: number;
+  failures: { horseId: string; horseName: string; message: string }[];
 };
 
 const MEAL_ORDER: FeedingMealName[] = ["EARLY_MORNING", "NOON", "AFTERNOON", "EVENING"];
@@ -191,7 +206,13 @@ export const stableCareService = {
   createHorseCareTask(
     token: string,
     horseId: string,
-    input: { taskTypeId: string; fromDate: string; toDate: string; note?: string },
+    input: {
+      taskTypeId: string;
+      mode?: HorseCareTaskMode;
+      fromDate: string;
+      toDate: string;
+      note?: string;
+    },
   ) {
     return apiRequest<HorseCareTaskDto>(`/horses/${encodeURIComponent(horseId)}/care-tasks`, {
       method: "POST",
@@ -210,6 +231,15 @@ export const stableCareService = {
     return apiRequest<DailyChecklistDto[]>(
       `/horses/${encodeURIComponent(horseId)}/checklists?${query.toString()}`,
       { token },
+    );
+  },
+  regenerateChecklistsToday(token: string) {
+    return apiRequest<RegenerateChecklistsResponseDto>(
+      "/daily-checklists/regenerate-today",
+      {
+        method: "POST",
+        token,
+      },
     );
   },
   tickChecklistItem(token: string, itemId: string, input: { done: boolean; note?: string | null }) {

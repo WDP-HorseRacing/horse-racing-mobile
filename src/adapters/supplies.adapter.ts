@@ -1,7 +1,12 @@
 import { formatQuantity } from "@/utils/formatters";
 
 export type SupplyCategory = "FEED" | "SUPPLEMENT" | "MEDICINE" | "EQUIPMENT";
-export type SupplyRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "FULFILLED";
+export type SupplyRequestStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "FULFILLED"
+  | "CANCELLED";
 export type SupplyItemDto = {
   id: string;
   name: string;
@@ -20,7 +25,7 @@ export type SupplyRequestDto = {
   item: SupplyItemDto;
   requestedBy: string;
   requester: { id: string; fullName: string; email: string };
-  quantity: number;
+  quantity: number | null;
   status: SupplyRequestStatus;
   note: string | null;
   reviewedBy: string | null;
@@ -30,6 +35,9 @@ export type SupplyRequestDto = {
   fulfiller: { id: string; fullName: string; email: string } | null;
   fulfilledAt: string | null;
   rejectionReason: string | null;
+  cancelledBy: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -45,11 +53,13 @@ export type SupplyStockMovementDto = {
   itemId: string;
   delta: number;
   balanceAfter: number;
-  type: "OPENING" | "RESTOCK" | "USAGE" | "COUNT_ADJUST";
+  type: "OPENING" | "RESTOCK" | "USAGE" | "USAGE_REVERSAL" | "COUNT_ADJUST";
   lotId: string | null;
   unitPrice: number | null;
   amount: number | null;
   requestId: string | null;
+  usageId: string | null;
+  cancelled: boolean;
   note: string | null;
   creator: { id: string; fullName: string; email: string };
   createdAt: string;
@@ -100,5 +110,7 @@ export function supplyRequestStatusLabel(status: SupplyRequestStatus): string {
       return "Rejected";
     case "FULFILLED":
       return "Fulfilled";
+    case "CANCELLED":
+      return "Cancelled";
   }
 }

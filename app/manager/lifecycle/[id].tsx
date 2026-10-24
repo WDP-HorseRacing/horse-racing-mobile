@@ -177,7 +177,7 @@ export default function LifecycleManagement() {
       ) : null}
       {actions.length ? (
         <Panel style={{ gap: space.sm }}>
-          <SectionTitle>Choose a Backend action</SectionTitle>
+          <SectionTitle>Chọn thao tác hệ thống</SectionTitle>
           <View style={{ gap: 14, marginTop: 12 }}>
             <Chips options={actions} value={action} onChange={chooseAction} />
             {action === "DECEASED" ? (
@@ -251,7 +251,7 @@ function PreviewCard({ preview }: { preview: Preview }) {
       <Panel>
         <SectionTitle>Deletion preview</SectionTitle>
         <Text>
-          {data.allowed ? "Backend allows soft deletion." : "Backend blocks soft deletion."}
+          {data.allowed ? "Hệ thống cho phép xóa mềm hồ sơ." : "Hệ thống chặn thao tác xóa."}
         </Text>
         {blockers.map((item) => (
           <Text key={item}>• {item}</Text>
@@ -283,8 +283,8 @@ function PreviewCard({ preview }: { preview: Preview }) {
       <SectionTitle>Lifecycle preview</SectionTitle>
       <Text>
         {data.allowed
-          ? (data.summary ?? `Backend allows ${data.from} → ${data.to}.`)
-          : (data.blockedReason ?? "Backend blocked this transition.")}
+          ? (data.summary ?? `Hệ thống cho phép chuyển từ ${data.from} → ${data.to}.`)
+          : (data.blockedReason ?? "Hệ thống đã chặn chuyển đổi trạng thái này.")}
       </Text>
       {data.allowed ? (
         <View style={{ gap: 6, marginTop: 8 }}>

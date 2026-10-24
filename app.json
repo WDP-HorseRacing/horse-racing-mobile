@@ -18,7 +18,11 @@
     "web": {
       "output": "static"
     },
-    "plugins": ["expo-router", "expo-video"],
+    "plugins": [
+      "expo-router",
+      "expo-video",
+      ["expo-notifications", { "defaultChannel": "default" }]
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

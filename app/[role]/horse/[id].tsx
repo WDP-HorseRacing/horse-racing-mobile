@@ -14,7 +14,6 @@ import {
   NativeInput,
   Panel,
   PrimaryButton,
-  SecondaryButton,
   StatusBadge,
   getUiStyles,
 } from "@/components/ui";
@@ -42,6 +41,7 @@ import { isValidRequiredText } from "@/features/medical/medical-validation";
 import { performanceService } from "@/services/performance.service";
 import { racingService } from "@/services/racing.service";
 import { auditService } from "@/services/audit.service";
+import { stableCareService } from "@/services/stable-care.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 
 const tabsByRole: Record<RoleId, string[]> = {
@@ -70,12 +70,6 @@ export default function HorseProfile() {
   const [healthStatusDraft, setHealthStatusDraft] = useState("");
   const [healthReason, setHealthReason] = useState("");
   const [savingHealth, setSavingHealth] = useState(false);
-  const [thresholdEditorOpen, setThresholdEditorOpen] = useState(false);
-  const [thresholdName, setThresholdName] = useState("Horse-specific limits");
-  const [thresholdWarning, setThresholdWarning] = useState("");
-  const [thresholdCritical, setThresholdCritical] = useState("");
-  const [thresholdSpeed, setThresholdSpeed] = useState("");
-  const [savingThreshold, setSavingThreshold] = useState(false);
   const [tab, setTab] = useState(() =>
     requestedTabValue && tabsByRole[roleId].includes(requestedTabValue)
       ? requestedTabValue
@@ -146,6 +140,19 @@ export default function HorseProfile() {
         visibleTab === "Injuries" ||
         visibleTab === "Treatment" ||
         visibleTab === "Costs"),
+    ),
+  );
+  const loadSurcharges = useCallback(
+    () => stableCareService.listSurcharges(token!, id),
+    [id, token],
+  );
+  const surchargesResource = useApiResource(
+    loadSurcharges,
+    Boolean(
+      token &&
+        isUuid(id) &&
+        ["manager", "owner", "trainer"].includes(roleId) &&
+        visibleTab === "Costs",
     ),
   );
   const loadPerformanceData = useCallback(async () => {
@@ -234,53 +241,6 @@ export default function HorseProfile() {
     }, []),
   );
 
-  const saveHorseThresholds = async () => {
-    if (!token || !isUuid(id) || !thresholdName.trim() || savingThreshold) return;
-    const warning = Number(thresholdWarning);
-    const critical = Number(thresholdCritical);
-    const maxSpeed = Number(thresholdSpeed);
-    if (
-      !Number.isInteger(warning) ||
-      warning < 1 ||
-      warning > 300 ||
-      !Number.isInteger(critical) ||
-      critical < 1 ||
-      critical > 300 ||
-      critical <= warning ||
-      !Number.isFinite(maxSpeed) ||
-      maxSpeed < 1 ||
-      maxSpeed > 30
-    ) {
-      Alert.alert(
-        "Check threshold values",
-        "Enter warning and critical heart-rate limits from 1–300 bpm with critical above warning, and maximum speed from 1–30 m/s.",
-      );
-      return;
-    }
-    setSavingThreshold(true);
-    try {
-      await performanceService.setThresholds(token, id, {
-        profileName: thresholdName.trim(),
-        effectiveFrom: new Date().toISOString(),
-        limits: {
-          heartRateWarningBpm: warning,
-          heartRateCriticalBpm: critical,
-          maxSpeedMps: maxSpeed,
-        },
-      });
-      setThresholdEditorOpen(false);
-      await performanceResource.refresh();
-      Alert.alert(
-        "Threshold version saved",
-        "The new horse-specific limits are now available from the Backend.",
-      );
-    } catch (error) {
-      Alert.alert("Could not save thresholds", extractErrorMessage(error));
-    } finally {
-      setSavingThreshold(false);
-    }
-  };
-
   const saveHealthStatus = async () => {
     if (
       !token ||
@@ -299,7 +259,7 @@ export default function HorseProfile() {
       setHealthStatusDraft("");
       setHealthReason("");
       await Promise.all([horseResource.refresh(), medicalResource.refresh()]);
-      Alert.alert("Health status updated", "The Backend history has been refreshed.");
+      Alert.alert("Health status updated", "Lịch sử trạng thái sức khỏe đã được làm mới.");
     } catch (error) {
       Alert.alert("Could not update health status", extractErrorMessage(error));
     } finally {
@@ -361,7 +321,7 @@ export default function HorseProfile() {
             owner: "Owner",
           } as const
         )[roleId],
-      )} · ${t(horseResource.data ? "Backend profile" : "Demo profile")}`}
+      )} · ${t(horseResource.data ? "Club profile" : "Demo profile")}`}
       back
       fallbackHref={`/${roleId}/horses` as any}
       refreshing={
@@ -516,11 +476,10 @@ export default function HorseProfile() {
                     const sire = ancestors.find(
                       (a) => a.generation === 1 && a.parentRole === "SIRE",
                     );
-                    const dam = ancestors.find(
-                      (a) => a.generation === 1 && a.parentRole === "DAM",
-                    );
+                    const dam = ancestors.find((a) => a.generation === 1 && a.parentRole === "DAM");
                     const paternalGrandsire = ancestors.find(
-                      (a) => a.generation === 2 && a.childId === sire?.id && a.parentRole === "SIRE",
+                      (a) =>
+                        a.generation === 2 && a.childId === sire?.id && a.parentRole === "SIRE",
                     );
                     const paternalGranddam = ancestors.find(
                       (a) => a.generation === 2 && a.childId === sire?.id && a.parentRole === "DAM",
@@ -532,7 +491,10 @@ export default function HorseProfile() {
                       (a) => a.generation === 2 && a.childId === dam?.id && a.parentRole === "DAM",
                     );
                     const hasGrandparents = Boolean(
-                      paternalGrandsire || paternalGranddam || maternalGrandsire || maternalGranddam,
+                      paternalGrandsire ||
+                      paternalGranddam ||
+                      maternalGrandsire ||
+                      maternalGranddam,
                     );
                     return (
                       <View style={{ gap: space.md, width: "100%" }}>
@@ -701,6 +663,15 @@ export default function HorseProfile() {
                 icon="leaf-outline"
                 onPress={() => router.push(`/${roleId}/horse/${horse.id}/stable-care` as Href)}
               />
+              {["manager", "trainer", "owner"].includes(roleId) ? (
+                <PrimaryButton
+                  label="Care surcharges"
+                  icon="cash-outline"
+                  onPress={() =>
+                    router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
+                  }
+                />
+              ) : null}
               {["trainer", "groom", "manager"].includes(roleId) && !horseResource.data.isDeleted ? (
                 <PrimaryButton
                   label="Request examination"
@@ -825,11 +796,19 @@ export default function HorseProfile() {
                 <Pressable
                   key={session.id}
                   disabled={roleId !== "trainer"}
-                  onPress={() =>
-                    router.push(
-                      `/trainer/plan/${session.classId}/session/${session.sessionId}` as Href,
-                    )
-                  }
+                  onPress={() => {
+                    const params = new URLSearchParams({
+                      horse: session.horseName,
+                      session: session.title,
+                      classId: session.classId,
+                      sessionId: session.sessionId,
+                      sessionType: session.type === "time_trial" ? "TIME_TRIAL" : "REGULAR",
+                      sessionStatus: session.sessionStatus,
+                      participantStatus: session.participantStatus,
+                      horseLifecycle: horseResource.data?.lifecycleStatus ?? "ACTIVE",
+                    });
+                    router.push(`/trainer/participant/${session.participantId}?${params.toString()}` as Href);
+                  }}
                 >
                   <Panel>
                     <View style={uiStyles.row}>
@@ -842,7 +821,11 @@ export default function HorseProfile() {
                         </Text>
                       </View>
                       <Text style={[uiStyles.label, { flexShrink: 0 }]}>
-                        {session.status.replaceAll("_", " ")}
+                        {session.status === "cancelled_by_lock"
+                          ? t("Cancelled by training lock")
+                          : session.status === "ineligible"
+                            ? t("Not eligible")
+                            : session.status.replaceAll("_", " ")}
                       </Text>
                     </View>
                     <Text style={uiStyles.muted}>
@@ -850,6 +833,9 @@ export default function HorseProfile() {
                       {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
                       {session.surface ? ` · ${session.surface}` : ""}
                     </Text>
+                    {session.cancelReason ? (
+                      <Text style={uiStyles.muted}>{session.cancelReason}</Text>
+                    ) : null}
                     {session.trials.length ? (
                       <Text style={uiStyles.label}>
                         Trial: {session.trials.map((trial) => trial.elapsedLabel).join(" · ")}
@@ -881,7 +867,7 @@ export default function HorseProfile() {
               error={null}
               onRetry={() => undefined}
               empty
-              emptyLabel="Training sessions are loaded for horse profiles returned by the backend."
+              emptyLabel="Danh sách buổi tập được đồng bộ cho các hồ sơ ngựa của câu lạc bộ."
             />
           ) : null}
         </>
@@ -1301,14 +1287,19 @@ export default function HorseProfile() {
                   </SectionTitle>
                   <Panel>
                     <Text style={uiStyles.value}>
-                      {performanceResource.data.workload.sessionsCompleted ?? 0} completed sessions ·{" "}
-                      {performanceResource.data.workload.byIntensity?.LIGHT ?? 0} light ·{" "}
+                      {performanceResource.data.workload.sessionsCompleted ?? 0} completed sessions
+                      · {performanceResource.data.workload.byIntensity?.LIGHT ?? 0} light ·{" "}
                       {performanceResource.data.workload.byIntensity?.HEAVY ?? 0} heavy
                     </Text>
                     <Text style={uiStyles.muted}>
-                      Planned {(performanceResource.data.workload.plannedDistanceM ?? 0).toLocaleString()} m
-                      · actual {(performanceResource.data.workload.actualDistanceM ?? 0).toLocaleString()} m
-                      · {Math.round((performanceResource.data.workload.actualDurationSeconds ?? 0) / 60)}{" "}
+                      Planned{" "}
+                      {(performanceResource.data.workload.plannedDistanceM ?? 0).toLocaleString()} m
+                      · actual{" "}
+                      {(performanceResource.data.workload.actualDistanceM ?? 0).toLocaleString()} m
+                      ·{" "}
+                      {Math.round(
+                        (performanceResource.data.workload.actualDurationSeconds ?? 0) / 60,
+                      )}{" "}
                       actual minutes
                     </Text>
                   </Panel>
@@ -1319,82 +1310,13 @@ export default function HorseProfile() {
                 <View style={uiStyles.section}>
                   <SectionTitle>Heart-rate and speed thresholds</SectionTitle>
                   <Panel style={{ gap: 6 }}>
-                    <Text style={uiStyles.label}>
-                      Source: {formatEnum(performanceResource.data.thresholds.source)}
-                    </Text>
+                    <Text style={uiStyles.label}>Source: Club default</Text>
                     <Text style={uiStyles.muted}>
-                      Warning {performanceResource.data.thresholds.activeLimits.heartRateWarningBpm}{" "}
-                      bpm · critical{" "}
-                      {performanceResource.data.thresholds.activeLimits.heartRateCriticalBpm} bpm ·
-                      max speed {performanceResource.data.thresholds.activeLimits.maxSpeedMps} m/s
+                      Warning {performanceResource.data.thresholds.limits.heartRateWarningBpm} bpm ·
+                      critical {performanceResource.data.thresholds.limits.heartRateCriticalBpm} bpm
+                      · max speed {performanceResource.data.thresholds.limits.maxSpeedMps} m/s
                     </Text>
-                    {performanceResource.data.thresholds.profiles.map((profile) => (
-                      <Text key={profile.id} style={uiStyles.label}>
-                        {profile.profileName} · v{profile.ruleVersion} ·{" "}
-                        {formatDateTime(profile.effectiveFrom)}
-                        {profile.effectiveTo ? ` – ${formatDateTime(profile.effectiveTo)}` : ""}
-                      </Text>
-                    ))}
-                    {roleId === "trainer" ? (
-                      <SecondaryButton
-                        label="Set horse-specific thresholds"
-                        icon="options-outline"
-                        onPress={() => {
-                          setThresholdWarning(
-                            String(
-                              performanceResource.data?.thresholds?.activeLimits
-                                .heartRateWarningBpm ?? 220,
-                            ),
-                          );
-                          setThresholdCritical(
-                            String(
-                              performanceResource.data?.thresholds?.activeLimits
-                                .heartRateCriticalBpm ?? 240,
-                            ),
-                          );
-                          setThresholdSpeed(
-                            String(
-                              performanceResource.data?.thresholds?.activeLimits.maxSpeedMps ?? 18,
-                            ),
-                          );
-                          setThresholdEditorOpen((value) => !value);
-                        }}
-                      />
-                    ) : null}
                   </Panel>
-                  {thresholdEditorOpen && roleId === "trainer" ? (
-                    <Panel style={{ gap: 10 }}>
-                      <Field label="Profile name">
-                        <NativeInput value={thresholdName} onChangeText={setThresholdName} />
-                      </Field>
-                      <Field label="Heart rate warning (1–300 bpm)">
-                        <NativeInput
-                          value={thresholdWarning}
-                          onChangeText={setThresholdWarning}
-                          keyboardType="number-pad"
-                        />
-                      </Field>
-                      <Field label="Heart rate critical (1–300 bpm)">
-                        <NativeInput
-                          value={thresholdCritical}
-                          onChangeText={setThresholdCritical}
-                          keyboardType="number-pad"
-                        />
-                      </Field>
-                      <Field label="Maximum speed (1–30 m/s)">
-                        <NativeInput
-                          value={thresholdSpeed}
-                          onChangeText={setThresholdSpeed}
-                          keyboardType="decimal-pad"
-                        />
-                      </Field>
-                      <PrimaryButton
-                        label={savingThreshold ? "Saving…" : "Create threshold version"}
-                        disabled={savingThreshold}
-                        onPress={() => void saveHorseThresholds()}
-                      />
-                    </Panel>
-                  ) : null}
                 </View>
               ) : null}
 
@@ -1558,6 +1480,53 @@ export default function HorseProfile() {
                 </Panel>
               ))}
             </>
+          ) : null}
+          {["manager", "owner", "trainer"].includes(roleId) ? (
+            <View style={{ gap: space.md, marginTop: space.md }}>
+              <Info
+                title="Care surcharges · VND"
+                items={[
+                  [
+                    "Active and scheduled surcharges",
+                    String(surchargesResource.data?.length ?? 0),
+                  ],
+                ]}
+              />
+              <AsyncStateView
+                isLoading={surchargesResource.isLoading}
+                error={surchargesResource.error}
+                onRetry={() => void surchargesResource.retry()}
+                empty={
+                  !surchargesResource.isLoading &&
+                  !surchargesResource.error &&
+                  (surchargesResource.data?.length ?? 0) === 0
+                }
+                emptyLabel="No surcharges are recorded for this horse."
+              />
+              {(surchargesResource.data ?? []).map((surcharge) => (
+                <Panel key={surcharge.id}>
+                  <Text style={uiStyles.value}>{surcharge.description}</Text>
+                  <Text style={[uiStyles.muted, { color: colors.primary, fontWeight: "700" }]}>
+                    {surcharge.dailyAmount.toLocaleString("vi-VN")} đ / {t("day")}
+                  </Text>
+                  <Text style={uiStyles.muted}>
+                    {surcharge.startDate} → {surcharge.endDate}
+                  </Text>
+                  <Text style={uiStyles.muted}>
+                    {surcharge.appliedByName
+                      ? `${t("Applied by")} ${surcharge.appliedByName}`
+                      : t("Chờ Huấn luyện viên trưởng xác nhận")}
+                  </Text>
+                </Panel>
+              ))}
+              <PrimaryButton
+                label={roleId === "manager" ? "Thêm hoặc quản lý phụ phí" : "Xem chi tiết phụ phí"}
+                icon="cash-outline"
+                onPress={() =>
+                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
+                }
+              />
+            </View>
           ) : null}
         </>
       ) : null}

@@ -1,12 +1,13 @@
 import { Redirect, useLocalSearchParams, type Href } from "expo-router";
 import { safeBack } from "@/utils/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import { Chips, Field, NativeInput, Panel, PrimaryButton } from "@/components/ui";
+import { Chips, Field, NativeInput, Panel, PrimaryButton, SecondaryButton } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { horseService, type HorseBarnPreviewDto } from "@/services/horse.service";
 import { stableService } from "@/services/stable.service";
@@ -17,6 +18,7 @@ export default function HorsePlacement() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
+  const { t } = useI18n();
   const { token } = useAuth();
   const [barnId, setBarnId] = useState("");
   const [reason, setReason] = useState("");
@@ -45,6 +47,21 @@ export default function HorsePlacement() {
   );
   const loadGrooms = useCallback(() => stableService.listGroomWorkload(token!), [token]);
   const groomsResource = useApiResource(loadGrooms, Boolean(token) && role === "trainer");
+
+  const currentStall = horseResource.data?.location.stall;
+  const currentGroom = horseResource.data?.groom;
+
+  useEffect(() => {
+    if (horseResource.data) {
+      if (horseResource.data.location.stall?.id && !stallId) {
+        setStallId(horseResource.data.location.stall.id);
+      }
+      if (horseResource.data.groom?.id && !groomId) {
+        setGroomId(horseResource.data.groom.id);
+      }
+    }
+  }, [horseResource.data]);
+
   const availableBarns = useMemo(
     () =>
       (barnsResource.data ?? []).filter(
@@ -53,10 +70,49 @@ export default function HorsePlacement() {
       ),
     [barnsResource.data],
   );
-  const availableStalls = useMemo(
-    () => (stallsResource.data ?? []).filter((stall) => stall.status === "AVAILABLE"),
-    [stallsResource.data],
+
+  const availableStalls = useMemo(() => {
+    const rawStalls = stallsResource.data ?? [];
+    return rawStalls.filter(
+      (stall) => stall.status === "AVAILABLE" || (currentStall && stall.id === currentStall.id),
+    );
+  }, [stallsResource.data, currentStall]);
+
+  const stallOptions = useMemo(
+    () =>
+      availableStalls.map((stall) =>
+        stall.id === currentStall?.id
+          ? `${stall.code} · ${stall.type} (${t("Current")})`
+          : `${stall.code} · ${stall.type}`,
+      ),
+    [availableStalls, currentStall, t],
   );
+
+  const selectedStallOption = useMemo(() => {
+    const found = availableStalls.find((stall) => stall.id === stallId);
+    if (!found) return "";
+    return found.id === currentStall?.id
+      ? `${found.code} · ${found.type} (${t("Current")})`
+      : `${found.code} · ${found.type}`;
+  }, [availableStalls, stallId, currentStall, t]);
+
+  const groomOptions = useMemo(
+    () =>
+      (groomsResource.data ?? []).map((groom) =>
+        groom.groomId === currentGroom?.id
+          ? `${groom.fullName} · ${groom.activeHorseCount} (${t("Current")})`
+          : `${groom.fullName} · ${groom.activeHorseCount}`,
+      ),
+    [groomsResource.data, currentGroom, t],
+  );
+
+  const selectedGroomOption = useMemo(() => {
+    const found = (groomsResource.data ?? []).find((groom) => groom.groomId === groomId);
+    if (!found) return "";
+    return found.groomId === currentGroom?.id
+      ? `${found.fullName} · ${found.activeHorseCount} (${t("Current")})`
+      : `${found.fullName} · ${found.activeHorseCount}`;
+  }, [groomsResource.data, groomId, currentGroom, t]);
 
   if (!isRole(role)) return <Redirect href="/" />;
 
@@ -69,7 +125,7 @@ export default function HorsePlacement() {
       setBarnPreview(preview);
       await confirmBarnChange(preview);
     } catch (error) {
-      setPreviewError(extractErrorMessage(error));
+      setPreviewError(t(extractErrorMessage(error)));
     } finally {
       setPreviewRequested(false);
     }
@@ -83,11 +139,11 @@ export default function HorsePlacement() {
       return;
     }
     Alert.alert(
-      "Confirm barn assignment",
+      t("Confirm barn assignment"),
       preview.summary ?? `Assign this horse to ${preview.toBarnName}?`,
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Confirm", onPress: () => void saveBarn() },
+        { text: t("Cancel"), style: "cancel" },
+        { text: t("Confirm"), onPress: () => void saveBarn() },
       ],
     );
   };
@@ -99,41 +155,85 @@ export default function HorsePlacement() {
     try {
       await horseService.assignBarn(token, id, barnId, reason.trim() || undefined);
       Alert.alert(
-        "Barn updated",
-        "The horse is now assigned to the selected barn. The Backend places it in pending stall assignment.",
+        t("Barn updated"),
+        t("Ngựa đã được phân vào khu chuồng đã chọn và chuyển sang trạng thái chờ xếp ô."),
       );
       await horseResource.refresh();
       safeBack(`/${role}/horse/${id}` as Href);
     } catch (error) {
-      const message = extractErrorMessage(error);
+      const message = t(extractErrorMessage(error));
       setFormError(message);
-      Alert.alert("Could not assign barn", message);
+      Alert.alert(t("Could not assign barn"), message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveStallOnly = async () => {
+    if (!token || !stallId || saving) return;
+    setSaving(true);
+    setFormError("");
+    try {
+      await horseService.assignStall(token, id, stallId);
+      Alert.alert(t("Stall updated"), t("Ô chuồng của ngựa đã được cập nhật thành công."));
+      await horseResource.refresh();
+      safeBack(`/${role}/horse/${id}` as Href);
+    } catch (error) {
+      const message = t(extractErrorMessage(error));
+      setFormError(message);
+      Alert.alert(t("Could not update stall"), message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveGroomOnly = async () => {
+    if (!token || !groomId || saving) return;
+    setSaving(true);
+    setFormError("");
+    try {
+      await horseService.assignGroom(token, id, groomId);
+      Alert.alert(t("Groom updated"), t("Groom phụ trách ngựa đã được cập nhật thành công."));
+      await horseResource.refresh();
+      safeBack(`/${role}/horse/${id}` as Href);
+    } catch (error) {
+      const message = t(extractErrorMessage(error));
+      setFormError(message);
+      Alert.alert(t("Could not update groom"), message);
     } finally {
       setSaving(false);
     }
   };
 
   const placeHorse = async () => {
-    if (!token || !stallId || !groomId || saving) return;
+    if (!token || (!stallId && !groomId) || saving) return;
+    if (stallId && !groomId) {
+      await saveStallOnly();
+      return;
+    }
+    if (!stallId && groomId) {
+      await saveGroomOnly();
+      return;
+    }
     setSaving(true);
     setFormError("");
     Alert.alert(
-      "Confirm stall and Groom assignment",
-      "The Backend applies both changes in one transaction. If either change fails, neither is saved.",
+      t("Confirm stall and Groom assignment"),
+      t("Hệ thống áp dụng phân ô chuồng và giao Groom đồng thời."),
       [
-        { text: "Cancel", style: "cancel", onPress: () => setSaving(false) },
+        { text: t("Cancel"), style: "cancel", onPress: () => setSaving(false) },
         {
-          text: "Confirm",
+          text: t("Confirm"),
           onPress: async () => {
             try {
               await horseService.placeHorse(token, id, { stallId, groomId });
-              Alert.alert("Placement updated", "Stall and Groom assignments have been refreshed.");
+              Alert.alert(t("Placement updated"), t("Stall and Groom assignments have been refreshed."));
               await horseResource.refresh();
               safeBack(`/${role}/horse/${id}` as Href);
             } catch (error) {
-              const message = extractErrorMessage(error);
+              const message = t(extractErrorMessage(error));
               setFormError(message);
-              Alert.alert("Could not update placement", message);
+              Alert.alert(t("Could not update placement"), message);
             } finally {
               setSaving(false);
             }
@@ -225,7 +325,7 @@ export default function HorsePlacement() {
                 </Pressable>
               ))
             ) : (
-              <Text>No active barn meets the Backend assignment requirements.</Text>
+              <Text>Không có khu chuồng nào phù hợp với yêu cầu phân công.</Text>
             )}
             {horseResource.data?.location.barn ? (
               <Field label="Reason for changing barn">
@@ -263,24 +363,30 @@ export default function HorsePlacement() {
                     onRetry={() => void stallsResource.retry()}
                   />
                 ) : availableStalls.length ? (
-                  <Chips
-                    options={availableStalls.map((stall) => `${stall.code} · ${stall.type}`)}
-                    value={
-                      availableStalls.find((stall) => stall.id === stallId)
-                        ? `${availableStalls.find((stall) => stall.id === stallId)!.code} · ${availableStalls.find((stall) => stall.id === stallId)!.type}`
-                        : ""
-                    }
-                    onChange={(value) =>
-                      setStallId(
-                        availableStalls.find((stall) => `${stall.code} · ${stall.type}` === value)
-                          ?.id ?? "",
-                      )
-                    }
-                  />
+                  <View style={{ gap: 8 }}>
+                    <Chips
+                      options={stallOptions}
+                      value={selectedStallOption}
+                      onChange={(value) => {
+                        const matched = availableStalls.find(
+                          (stall) =>
+                            `${stall.code} · ${stall.type}` === value ||
+                            `${stall.code} · ${stall.type} (${t("Current")})` === value,
+                        );
+                        setStallId(matched?.id ?? "");
+                      }}
+                    />
+                    {stallId && stallId !== currentStall?.id ? (
+                      <SecondaryButton
+                        label={saving ? t("Saving…") : t("Save stall only")}
+                        icon="checkmark-outline"
+                        disabled={saving}
+                        onPress={() => void saveStallOnly()}
+                      />
+                    ) : null}
+                  </View>
                 ) : (
-                  <Text>
-                    No available stall in this barn. Backend decides stall capacity and conflicts.
-                  </Text>
+                  <Text>Khu chuồng này hiện không còn ô chuồng trống phù hợp.</Text>
                 )}
               </Field>
               <Field label="Groom · horse count across club">
@@ -291,38 +397,56 @@ export default function HorsePlacement() {
                     onRetry={() => void groomsResource.retry()}
                   />
                 ) : groomsResource.data?.length ? (
-                  <Chips
-                    options={groomsResource.data.map(
-                      (groom) => `${groom.fullName} · ${groom.activeHorseCount}`,
-                    )}
-                    value={
-                      groomsResource.data.find((groom) => groom.groomId === groomId)
-                        ? `${groomsResource.data.find((groom) => groom.groomId === groomId)!.fullName} · ${groomsResource.data.find((groom) => groom.groomId === groomId)!.activeHorseCount}`
-                        : ""
-                    }
-                    onChange={(value) =>
-                      setGroomId(
-                        groomsResource.data?.find(
-                          (groom) => `${groom.fullName} · ${groom.activeHorseCount}` === value,
-                        )?.groomId ?? "",
-                      )
-                    }
-                  />
+                  <View style={{ gap: 8 }}>
+                    <Chips
+                      options={groomOptions}
+                      value={selectedGroomOption}
+                      onChange={(value) => {
+                        const matched = (groomsResource.data ?? []).find(
+                          (groom) =>
+                            `${groom.fullName} · ${groom.activeHorseCount}` === value ||
+                            `${groom.fullName} · ${groom.activeHorseCount} (${t("Current")})` === value,
+                        );
+                        setGroomId(matched?.groomId ?? "");
+                      }}
+                    />
+                    {groomId && groomId !== currentGroom?.id ? (
+                      <SecondaryButton
+                        label={saving ? t("Saving…") : t("Save Groom only")}
+                        icon="checkmark-outline"
+                        disabled={saving}
+                        onPress={() => void saveGroomOnly()}
+                      />
+                    ) : null}
+                  </View>
                 ) : (
                   <Text>No active Grooms are available.</Text>
                 )}
               </Field>
               {formError ? <Text style={styles.error}>{formError}</Text> : null}
               <PrimaryButton
-                label={saving ? "Saving…" : "Confirm stall and Groom"}
+                label={saving ? t("Saving…") : t("Confirm stall and Groom")}
                 icon="checkmark"
-                disabled={saving || !stallId || !groomId}
+                disabled={saving || (!stallId && !groomId)}
                 onPress={() => void placeHorse()}
               />
             </View>
           ) : (
             <Text>Assign the horse to a barn before choosing its stall and Groom.</Text>
           )}
+        </Panel>
+      ) : null}
+      {role === "manager" && horseResource.data?.location.barn ? (
+        <Panel>
+          <SectionTitle>{t("Stall and Groom management")}</SectionTitle>
+          <Text style={{ fontWeight: "700", color: colors.primary, marginBottom: 4 }}>
+            {t("Status")}: {t("Chờ xếp ô chuồng")} ({horseResource.data.location.placementStatus ?? "PENDING_STALL"})
+          </Text>
+          <Text>
+            {t(
+              "Ngựa đã được phân vào khu {barnName}. Việc xếp ô chuồng và giao Groom do Huấn luyện viên trưởng phụ trách khu này thực hiện.",
+            ).replace("{barnName}", horseResource.data.location.barn.name)}
+          </Text>
         </Panel>
       ) : null}
       {!canAssignBarn && !canPlace && permissionsResource.data ? (
@@ -342,8 +466,8 @@ function BarnPreview({ preview }: { preview: HorseBarnPreviewDto }) {
       </Text>
       <Text>
         {preview.allowed
-          ? (preview.summary ?? "Backend allows this assignment.")
-          : (preview.blockedReason ?? "Backend blocked this assignment.")}
+          ? (preview.summary ?? "Hệ thống xác nhận cho phép phân công này.")
+          : (preview.blockedReason ?? "Hệ thống chặn phân công này.")}
       </Text>
       {preview.stallReleased ? <Text>Stall released: {preview.stallReleased}</Text> : null}
       {preview.classesWithdrawn ? (

@@ -184,8 +184,14 @@ export default function Horses() {
           const summary = mapHorseSummary(item);
           const location =
             item.location.placementStatus === "PLACED"
-              ? `${item.location.barn?.name ?? "Barn"} · ${item.location.stall?.code ?? "Stall"}`
-              : item.location.placementStatus.replaceAll("_", " ");
+              ? `${item.location.barn?.name ?? t("Barn")} · ${item.location.stall?.code ? `Ô ${item.location.stall.code}` : t("Pending stall")}`
+              : item.location.placementStatus === "PENDING_STALL"
+                ? item.location.barn?.name
+                  ? `${item.location.barn.name} · ${t("Pending stall")}`
+                  : t("Pending stall")
+                : item.location.placementStatus === "PENDING_BARN"
+                  ? t("Pending barn")
+                  : t(item.location.placementStatus);
           return (
             <HorseRow
               horse={mapHorseSummaryToPrototype(summary)}
@@ -237,9 +243,7 @@ export default function Horses() {
             <Chips
               options={[...HEALTH_FILTERS]}
               value={health || "All"}
-              onChange={(value) =>
-                setHealth(value === "All" ? "" : value)
-              }
+              onChange={(value) => setHealth(value === "All" ? "" : value)}
             />
             {filterCount > 0 ? (
               <View style={styles.activeFilters}>

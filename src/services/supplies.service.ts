@@ -61,11 +61,18 @@ export const suppliesService = {
       body: input,
     });
   },
-  use(token: string, itemId: string, input: { quantity: number; note?: string }) {
+  use(token: string, itemId: string, input: { quantity: number; note: string }) {
     return apiRequest<SupplyItemDto>(`/supplies/items/${encodeURIComponent(itemId)}/usages`, {
       method: "POST",
       token,
       body: input,
+    });
+  },
+  cancelUsage(token: string, usageId: string, reason: string) {
+    return apiRequest<SupplyItemDto>(`/supplies/usages/${encodeURIComponent(usageId)}/cancel`, {
+      method: "POST",
+      token,
+      body: { reason },
     });
   },
   listLots(token: string, itemId: string) {

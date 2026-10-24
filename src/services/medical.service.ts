@@ -55,6 +55,36 @@ export type VisitInputDto = {
   replacesRecordId?: string;
 };
 
+export type MedicalRecordEditInputDto = {
+  reason: string;
+  diagnosis?: string | null;
+  careInstructions?: string | null;
+  nextVisitAt?: string | null;
+  healthStatus?: HealthStatusDto;
+  measurements?: { type: MeasurementTypeDto; value: number }[];
+  confirmAbnormal?: boolean;
+  prescriptions?: {
+    medicine: string;
+    dosage?: string;
+    frequency?: string;
+    startDate: string;
+    endDate?: string;
+  }[];
+  injuries?: {
+    injuryId: string;
+    recoveryStatus?: InjuryRecoveryStatus;
+    notes?: string | null;
+    bodyRegion?: InjuryBodyRegion;
+    injuryType?: InjuryType;
+    position?: { x: number; y: number; z: number };
+  }[];
+  removedInjuryIds?: string[];
+  kind?: "ROUTINE" | "REQUEST";
+  requestIds?: string[];
+  conclusion?: VisitConclusionDto;
+  initialDiagnosis?: string;
+};
+
 export type StandaloneVisitInputDto = VisitInputDto & {
   kind: "ROUTINE" | "REQUEST";
   conclusion: VisitConclusionDto;
@@ -63,10 +93,9 @@ export type StandaloneVisitInputDto = VisitInputDto & {
 
 export type CaseCloseInputDto = {
   finalConclusion: string;
-  totalCost: number;
   lockDecision?: "RELEASE" | "KEEP";
   lockExpectedEnd?: string;
-  dateOfDeath?: string;
+  deceased?: boolean;
 };
 
 export type MedicalDashboardFilters = { barnId?: string; healthStatus?: HealthStatusDto };
@@ -105,8 +134,20 @@ export const medicalService = {
     );
   },
 
+  cancelCheckupAppointment(token: string, horseId: string, reason: string) {
+    return apiRequest<void>(
+      `/horses/${encodeURIComponent(horseId)}/checkup-appointment`,
+      { method: "DELETE", token, body: { reason } },
+    );
+  },
+
   getCase(token: string, caseId: string) {
     return apiRequest<MedicalCaseDto>(`/medical-cases/${encodeURIComponent(caseId)}`, { token });
+  },
+
+  listAllCases(token: string, status?: "OPEN" | "CLOSED") {
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
+    return apiRequest<MedicalCaseSummaryDto[]>(`/medical-cases${query}`, { token });
   },
 
   listHorseCases(token: string, horseId: string) {
@@ -150,6 +191,14 @@ export const medicalService = {
       method: "POST",
       token,
       body: { reason },
+    });
+  },
+
+  editRecord(token: string, recordId: string, input: MedicalRecordEditInputDto) {
+    return apiRequest<MedicalRecordDto>(`/medical-records/${encodeURIComponent(recordId)}`, {
+      method: "PATCH",
+      token,
+      body: input,
     });
   },
 
@@ -282,8 +331,19 @@ export const medicalService = {
     });
   },
 
-  adjustCaseCost(token: string, caseId: string, input: { totalCost: number; reason: string }) {
-    return apiRequest<MedicalCaseSummaryDto>(`/medical-cases/${encodeURIComponent(caseId)}/cost`, {
+  correctCaseConclusion(
+    token: string,
+    caseId: string,
+    input: { finalConclusion: string; reason: string },
+  ) {
+    return apiRequest<MedicalCaseSummaryDto>(
+      `/medical-cases/${encodeURIComponent(caseId)}/conclusion`,
+      { method: "PATCH", token, body: input },
+    );
+  },
+
+  adjustVisitCost(token: string, recordId: string, input: { cost: number; reason: string }) {
+    return apiRequest<MedicalRecordDto>(`/medical-records/${encodeURIComponent(recordId)}/cost`, {
       method: "PATCH",
       token,
       body: input,
@@ -312,14 +372,22 @@ export const medicalService = {
     input: {
       type: CareTaskTypeDto;
       dueAt: string;
+      assigneeType?: "GROOM" | "VET";
       assignedTo?: string;
       notes?: string;
     },
   ) {
+    const body: Record<string, any> = {
+      type: input.type,
+      dueAt: input.dueAt,
+    };
+    if (input.assigneeType) body.assigneeType = input.assigneeType;
+    if (input.assignedTo) body.assignedTo = input.assignedTo;
+    if (input.notes) body.notes = input.notes;
     return apiRequest<CareScheduleDto>(`/horses/${encodeURIComponent(horseId)}/care-schedules`, {
       method: "POST",
       token,
-      body: input,
+      body,
     });
   },
 
@@ -328,15 +396,22 @@ export const medicalService = {
     scheduleId: string,
     input: {
       dueAt?: string;
+      assigneeType?: "GROOM" | "VET" | null;
       assignedTo?: string | null;
-      notes?: string | null;
+      notes?: string;
       reason?: string;
     },
   ) {
+    const body: Record<string, any> = {};
+    if (input.dueAt !== undefined) body.dueAt = input.dueAt;
+    if (input.assigneeType !== undefined) body.assigneeType = input.assigneeType;
+    if (input.assignedTo !== undefined) body.assignedTo = input.assignedTo;
+    if (input.notes !== undefined) body.notes = input.notes;
+    if (input.reason !== undefined) body.reason = input.reason;
     return apiRequest<CareScheduleDto>(`/care-schedules/${encodeURIComponent(scheduleId)}`, {
       method: "PATCH",
       token,
-      body: input,
+      body,
     });
   },
 
@@ -358,6 +433,22 @@ export const medicalService = {
       body: { reason },
     });
   },
+
+  reopenCareSchedule(token: string, scheduleId: string, reason: string) {
+    return apiRequest<CareScheduleDto>(`/care-schedules/${encodeURIComponent(scheduleId)}/reopen`, {
+      method: "POST",
+      token,
+      body: { reason },
+    });
+  },
 };
 
-export type { TrainingLockDto, InjuryTimelineItemDto } from "@/adapters/medical.adapter";
+export type {
+  TrainingLockDto,
+  InjuryTimelineItemDto,
+  MedicalCaseSummaryDto,
+  MedicalCaseDto,
+  MedicalRecordDto,
+  CareScheduleDto,
+  ExamRequestDto,
+} from "@/adapters/medical.adapter";

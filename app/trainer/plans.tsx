@@ -265,7 +265,14 @@ export default function TrainerPlans() {
                     </View>
 
                     {/* Summary row */}
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: 2 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        flexWrap: "wrap",
+                        gap: space.sm,
+                        marginTop: 2,
+                      }}
+                    >
                       <View
                         style={{
                           flexDirection: "row",
@@ -311,7 +318,10 @@ export default function TrainerPlans() {
                       }}
                     >
                       {plan.phases.map((phase, pIdx) => (
-                        <View key={pIdx} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <View
+                          key={pIdx}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                        >
                           <View
                             style={{
                               width: 22,
@@ -348,7 +358,8 @@ export default function TrainerPlans() {
                           >
                             {phase.subjects
                               .map(
-                                (item) => `${item.subject.name} (${item.minSessionsPerWeek} buổi/tuần)`,
+                                (item) =>
+                                  `${item.subject.name} (${item.minSessionsPerWeek} buổi/tuần)`,
                               )
                               .join(", ")}
                           </Text>
@@ -405,9 +416,7 @@ export default function TrainerPlans() {
                 {phases.length > 1 ? (
                   <Pressable
                     hitSlop={8}
-                    onPress={() =>
-                      setPhases((items) => items.filter((p) => p.id !== phase.id))
-                    }
+                    onPress={() => setPhases((items) => items.filter((p) => p.id !== phase.id))}
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
@@ -541,13 +550,29 @@ export default function TrainerPlans() {
             Each phase can be 1–52 weeks; total plan length is at most 104 weeks. A subject can
             appear once per phase.
           </Text>
-          <PrimaryButton
-            label={saving ? "Saving…" : editingId === "new" ? "Save plan" : "Replace plan"}
-            icon="checkmark"
-            disabled={saving}
-            onPress={() => void save()}
-          />
-          <SecondaryButton label="Cancel" icon="close" onPress={closeEditor} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              gap: 10,
+              width: "100%",
+              marginTop: 8,
+            }}
+          >
+            <SecondaryButton
+              label="Cancel"
+              icon="close"
+              style={{ flex: 1, minHeight: 48 }}
+              onPress={closeEditor}
+            />
+            <PrimaryButton
+              label={saving ? "Saving…" : editingId === "new" ? "Save plan" : "Replace plan"}
+              icon="checkmark"
+              style={{ flex: 1, minHeight: 48 }}
+              disabled={saving}
+              onPress={() => void save()}
+            />
+          </View>
         </>
       ) : null}
     </Screen>

@@ -4,6 +4,7 @@ import { router, type Href, useFocusEffect, useLocalSearchParams } from "expo-ro
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, KeyValue, Screen, SectionTitle } from "@/components/common";
 import {
+  BottomSheetModal,
   Field,
   NativeInput,
   Panel,
@@ -321,113 +322,117 @@ export default function TrainingSessionDetail() {
           {session?.status === "SCHEDULED" && payload.trainingClass.status === "ACTIVE" ? (
             <>
               <SecondaryButton
-                label={showEdit ? "Close edit form" : "Edit session time and details"}
-                icon={showEdit ? "close" : "create-outline"}
+                label="Edit session time and details"
+                icon="create-outline"
                 onPress={() => {
-                  if (!showEdit) initializeSessionEdit();
-                  setShowEdit((value) => !value);
+                  initializeSessionEdit();
+                  setShowEdit(true);
                 }}
               />
-              {showEdit ? (
-                <Panel style={{ gap: 10 }}>
-                  <Text style={ui.value}>Move or update this scheduled session</Text>
-                  <Field label="New date (club calendar, YYYY-MM-DD)">
-                    <NativeInput value={editDate} onChangeText={setEditDate} />
-                  </Field>
-                  <Field label="New start time (HH:mm)">
-                    <NativeInput value={editTime} onChangeText={setEditTime} />
-                  </Field>
-                  <Field label="Duration (minutes)">
-                    <NativeInput
-                      value={editDuration}
-                      onChangeText={setEditDuration}
-                      keyboardType="decimal-pad"
-                    />
-                  </Field>
-                  <Field label="Location (blank clears) ">
-                    <NativeInput value={editLocation} onChangeText={setEditLocation} />
-                  </Field>
-                  <Field label="Surface (blank clears)">
-                    <NativeInput value={editSurface} onChangeText={setEditSurface} />
-                  </Field>
-                  <Field label="Notes (blank clears)">
-                    <NativeInput value={editNotes} onChangeText={setEditNotes} multiline />
-                  </Field>
-                  <Text style={ui.label}>
-                    The Backend permits changes only before start and before a horse checks in. It
-                    rechecks class dates, plan phases, overlaps and daily load.
-                  </Text>
-                  <PrimaryButton
-                    label={pending === "edit-session" ? "Saving…" : "Save session changes"}
-                    disabled={pending !== ""}
-                    onPress={() => void saveSessionEdit()}
+              <BottomSheetModal
+                visible={showEdit}
+                title="Edit session"
+                onClose={() => setShowEdit(false)}
+                onSave={() => void saveSessionEdit()}
+                saveLoading={pending === "edit-session"}
+                saveDisabled={pending !== ""}
+                saveLabel="Save session changes"
+                cancelLabel="Cancel"
+              >
+                <Text style={ui.value}>Move or update this scheduled session</Text>
+                <Field label="New date (club calendar, YYYY-MM-DD)">
+                  <NativeInput value={editDate} onChangeText={setEditDate} />
+                </Field>
+                <Field label="New start time (HH:mm)">
+                  <NativeInput value={editTime} onChangeText={setEditTime} />
+                </Field>
+                <Field label="Duration (minutes)">
+                  <NativeInput
+                    value={editDuration}
+                    onChangeText={setEditDuration}
+                    keyboardType="decimal-pad"
                   />
-                </Panel>
-              ) : null}
+                </Field>
+                <Field label="Location (blank clears) ">
+                  <NativeInput value={editLocation} onChangeText={setEditLocation} />
+                </Field>
+                <Field label="Surface (blank clears)">
+                  <NativeInput value={editSurface} onChangeText={setEditSurface} />
+                </Field>
+                <Field label="Notes (blank clears)">
+                  <NativeInput value={editNotes} onChangeText={setEditNotes} multiline />
+                </Field>
+                <Text style={ui.label}>
+                  The Backend permits changes only before start and before a horse checks in. It
+                  rechecks class dates, plan phases, overlaps and daily load.
+                </Text>
+              </BottomSheetModal>
+
               {payload.timeTrial ? (
                 <>
                   <SecondaryButton
-                    label={showTrialEdit ? "Close trial setup" : "Edit time-trial setup"}
-                    icon={showTrialEdit ? "close" : "timer-outline"}
+                    label="Edit time-trial setup"
+                    icon="timer-outline"
                     onPress={() => {
-                      if (!showTrialEdit) initializeTrialEdit();
-                      setShowTrialEdit((value) => !value);
+                      initializeTrialEdit();
+                      setShowTrialEdit(true);
                     }}
                   />
-                  {showTrialEdit ? (
-                    <Panel style={{ gap: 10 }}>
-                      <Field label="Trial distance (m)">
-                        <NativeInput
-                          value={trialDistance}
-                          onChangeText={setTrialDistance}
-                          keyboardType="decimal-pad"
-                        />
-                      </Field>
-                      <Field label="Target time (milliseconds, optional)">
-                        <NativeInput
-                          value={trialTarget}
-                          onChangeText={setTrialTarget}
-                          keyboardType="number-pad"
-                        />
-                      </Field>
-                      <Field label="Trial notes">
-                        <NativeInput value={trialNotes} onChangeText={setTrialNotes} multiline />
-                      </Field>
-                      <PrimaryButton
-                        label={pending === "edit-trial" ? "Saving…" : "Save trial setup"}
-                        disabled={pending !== ""}
-                        onPress={() => void saveTrialConfig()}
+                  <BottomSheetModal
+                    visible={showTrialEdit}
+                    title="Time-trial setup"
+                    onClose={() => setShowTrialEdit(false)}
+                    onSave={() => void saveTrialConfig()}
+                    saveLoading={pending === "edit-trial"}
+                    saveDisabled={pending !== ""}
+                    saveLabel="Save trial setup"
+                    cancelLabel="Cancel"
+                  >
+                    <Field label="Trial distance (m)">
+                      <NativeInput
+                        value={trialDistance}
+                        onChangeText={setTrialDistance}
+                        keyboardType="decimal-pad"
                       />
-                    </Panel>
-                  ) : null}
+                    </Field>
+                    <Field label="Target time (milliseconds, optional)">
+                      <NativeInput
+                        value={trialTarget}
+                        onChangeText={setTrialTarget}
+                        keyboardType="number-pad"
+                      />
+                    </Field>
+                    <Field label="Trial notes">
+                      <NativeInput value={trialNotes} onChangeText={setTrialNotes} multiline />
+                    </Field>
+                  </BottomSheetModal>
                 </>
               ) : null}
-            </>
-          ) : null}
-          {session?.status === "SCHEDULED" && payload.trainingClass.status === "ACTIVE" ? (
-            <>
+
               <SecondaryButton
-                label={showCancel ? "Close cancellation form" : "Cancel session"}
+                label="Cancel session"
                 icon="close-circle-outline"
-                onPress={() => setShowCancel((value) => !value)}
+                onPress={() => setShowCancel(true)}
               />
-              {showCancel ? (
-                <Panel style={{ gap: 10 }}>
-                  <Field label="Cancellation reason (required)">
-                    <NativeInput
-                      value={cancelReason}
-                      onChangeText={setCancelReason}
-                      multiline
-                      placeholder="Why is this session cancelled?"
-                    />
-                  </Field>
-                  <PrimaryButton
-                    label={pending === "cancel" ? "Cancelling…" : "Confirm cancellation"}
-                    disabled={pending !== ""}
-                    onPress={() => void cancelSession()}
+              <BottomSheetModal
+                visible={showCancel}
+                title="Cancel session"
+                onClose={() => setShowCancel(false)}
+                onSave={() => void cancelSession()}
+                saveLoading={pending === "cancel"}
+                saveDisabled={pending !== "" || !cancelReason.trim()}
+                saveLabel="Confirm cancellation"
+                cancelLabel="Cancel"
+              >
+                <Field label="Cancellation reason (required)">
+                  <NativeInput
+                    value={cancelReason}
+                    onChangeText={setCancelReason}
+                    multiline
+                    placeholder="Why is this session cancelled?"
                   />
-                </Panel>
-              ) : null}
+                </Field>
+              </BottomSheetModal>
             </>
           ) : null}
 
@@ -441,7 +446,7 @@ export default function TrainingSessionDetail() {
               payload.rows.map(({ participant, evaluation, results, summary }) => {
                 const liveMetric = liveMetrics[participant.id];
                 const canCheckIn =
-                  participant.status === "PLANNED" &&
+                  (participant.status === "PLANNED" || participant.status === "ABSENT") &&
                   isParticipantWindowOpen(
                     session!.scheduledStartAt,
                     session!.scheduledEndAt,
@@ -604,9 +609,10 @@ export default function TrainingSessionDetail() {
 
                     {canCheckIn || canReady || canStart || canComplete ? (
                       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        {participant.status === "PLANNED" && canCheckIn ? (
+                        {(participant.status === "PLANNED" || participant.status === "ABSENT") &&
+                        canCheckIn ? (
                           <SecondaryButton
-                            label="Check in"
+                            label={participant.status === "ABSENT" ? "Check in again" : "Check in"}
                             icon="checkmark-circle-outline"
                             disabled={pending !== ""}
                             style={{ flexGrow: 1 }}
@@ -697,13 +703,23 @@ export default function TrainingSessionDetail() {
                         label="Performance"
                         icon="pulse-outline"
                         style={{ flexGrow: 1 }}
-                        onPress={() =>
-                          router.push(
-                            `/trainer/participant/${participant.id}?horse=${encodeURIComponent(participant.horseName)}&session=${encodeURIComponent(session!.name)}` as Href,
-                          )
-                        }
+                        onPress={() => {
+                          const params = new URLSearchParams({
+                            horse: participant.horseName,
+                            session: session!.name,
+                            classId: payload.trainingClass.id,
+                            sessionId: session!.id,
+                            sessionType: session!.sessionType,
+                            sessionStatus: session!.status,
+                            participantStatus: participant.status,
+                            horseId: participant.horseId,
+                          });
+                          router.push(`/trainer/participant/${participant.id}?${params.toString()}` as Href);
+                        }}
                       />
-                      {participant.status === "COMPLETED" && !evaluation ? (
+                      {session && session.status !== "CANCELLED" &&
+                      ["COMPLETED", "STOPPED"].includes(participant.status) &&
+                      !evaluation ? (
                         <SecondaryButton
                           label="Add evaluation"
                           icon="star-outline"
@@ -715,12 +731,24 @@ export default function TrainingSessionDetail() {
                           }
                         />
                       ) : null}
-                      {evaluation ? (
-                        <Text style={[ui.label, { alignSelf: "center", color: colors.primary }]}>
-                          Evaluated · {evaluation.score}/10
-                        </Text>
+                      {evaluation && session && session.status !== "CANCELLED" ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Text style={[ui.label, { alignSelf: "center", color: colors.primary }]}>
+                            Evaluated · {evaluation.score}/10
+                          </Text>
+                          <SecondaryButton
+                            label="Edit evaluation"
+                            onPress={() =>
+                              router.push(
+                                `/trainer/eval/${participant.id}?edit=1&horse=${encodeURIComponent(participant.horseName)}&session=${encodeURIComponent(session!.name)}` as Href,
+                              )
+                            }
+                          />
+                        </View>
                       ) : null}
-                      {session?.sessionType === "TIME_TRIAL" && participant.status === "ONGOING" ? (
+                      {session && session.status !== "CANCELLED" &&
+                      session?.sessionType === "TIME_TRIAL" &&
+                      ["ONGOING", "COMPLETED", "STOPPED"].includes(participant.status) ? (
                         <SecondaryButton
                           label="Record trial result"
                           icon="timer-outline"

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
+  BottomSheetModal,
   Chips,
   Field,
   NativeInput,
@@ -336,134 +337,126 @@ export default function ManagerTraining() {
             </View>
           </View>
 
-          {/* Action button to open Create/Edit Form */}
+          {/* Action button to open Create Form */}
           <PrimaryButton
-            label={subjectForm ? t("Close subject form") : t("Add subject")}
-            icon={subjectForm ? "close" : "add-circle-outline"}
-            onPress={() => setSubjectForm(subjectForm ? null : emptySubject())}
+            label={t("Add subject")}
+            icon="add-circle-outline"
+            onPress={() => setSubjectForm(emptySubject())}
           />
 
-          {/* Form: Thêm / Sửa môn học */}
-          {subjectForm ? (
-            <Panel style={{ gap: space.md }}>
-              <Text style={styles.formSectionTitle}>
-                {subjectForm.id ? t("Edit subject") : t("Add subject")}
-              </Text>
-
-              {/* Group 1: Thông tin cơ bản */}
-              <View style={styles.formGroup}>
-                <Text style={styles.groupHeading}>{t("Basic information")}</Text>
-                <Field label={t("Subject name")}>
-                  <NativeInput
-                    value={subjectForm.name}
-                    onChangeText={(value) =>
-                      setSubjectForm((form) => form && { ...form, name: value })
-                    }
-                    placeholder={t("e.g. 800m sprint")}
-                  />
-                </Field>
-                <Field label={t("Description")}>
-                  <NativeInput
-                    value={subjectForm.description}
-                    onChangeText={(value) =>
-                      setSubjectForm((form) => form && { ...form, description: value })
-                    }
-                    placeholder={t("Training goals, technical instructions…")}
-                    multiline
-                  />
-                </Field>
-              </View>
-
-              {/* Group 2: Cấu hình tập luyện */}
-              <View style={styles.formGroup}>
-                <Text style={styles.groupHeading}>{t("Training configuration")}</Text>
-                <Field label={t("Session type")}>
-                  <Chips
-                    options={["REGULAR", "TIME_TRIAL"]}
-                    value={subjectForm.sessionType}
-                    onChange={(value) =>
-                      setSubjectForm(
-                        (form) =>
-                          form && { ...form, sessionType: value as SubjectForm["sessionType"] },
-                      )
-                    }
-                  />
-                </Field>
-                <Field label={t("Intensity")}>
-                  <Chips
-                    options={["LIGHT", "HEAVY"]}
-                    value={subjectForm.intensity}
-                    onChange={(value) =>
-                      setSubjectForm(
-                        (form) => form && { ...form, intensity: value as SubjectForm["intensity"] },
-                      )
-                    }
-                  />
-                </Field>
-              </View>
-
-              {/* Group 3: Thông số kỹ thuật */}
-              <View style={styles.formGroup}>
-                <Text style={styles.groupHeading}>{t("Technical specifications")}</Text>
-                <Field label={t("Planned distance (m)")}>
-                  <NativeInput
-                    value={subjectForm.distance}
-                    onChangeText={(value) =>
-                      setSubjectForm((form) => form && { ...form, distance: value })
-                    }
-                    keyboardType="number-pad"
-                    placeholder="1600"
-                  />
-                </Field>
-                <Field label={t("Session duration (15–480 minutes)")}>
-                  <NativeInput
-                    value={subjectForm.duration}
-                    onChangeText={(value) =>
-                      setSubjectForm((form) => form && { ...form, duration: value })
-                    }
-                    keyboardType="number-pad"
-                    placeholder="60"
-                  />
-                </Field>
-                <Field label={t("Track surface (optional)")}>
-                  <NativeInput
-                    value={subjectForm.surface}
-                    onChangeText={(value) =>
-                      setSubjectForm((form) => form && { ...form, surface: value })
-                    }
-                    placeholder={t("e.g. Dirt track, Turf…")}
-                  />
-                </Field>
-                {subjectForm.sessionType === "TIME_TRIAL" ? (
-                  <Field label={t("Target time (milliseconds, optional)")}>
+          {/* Modal Bottom Sheet: Thêm / Sửa môn học */}
+          <BottomSheetModal
+            visible={Boolean(subjectForm)}
+            title={subjectForm?.id ? t("Edit subject") : t("Add subject")}
+            onClose={() => setSubjectForm(null)}
+            onSave={() => void saveSubject()}
+            saveDisabled={saving || !subjectForm?.name.trim()}
+            saveLoading={saving}
+            saveLabel={subjectForm?.id ? t("Save subject") : t("Create subject")}
+            cancelLabel={t("Cancel")}
+          >
+            {subjectForm ? (
+              <>
+                {/* Group 1: Thông tin cơ bản */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.groupHeading}>{t("Basic information")}</Text>
+                  <Field label={t("Subject name")}>
                     <NativeInput
-                      value={subjectForm.target}
+                      value={subjectForm.name}
                       onChangeText={(value) =>
-                        setSubjectForm((form) => form && { ...form, target: value })
+                        setSubjectForm((form) => form && { ...form, name: value })
                       }
-                      keyboardType="number-pad"
-                      placeholder="105000"
+                      placeholder={t("e.g. 800m sprint")}
                     />
                   </Field>
-                ) : null}
-              </View>
+                  <Field label={t("Description")}>
+                    <NativeInput
+                      value={subjectForm.description}
+                      onChangeText={(value) =>
+                        setSubjectForm((form) => form && { ...form, description: value })
+                      }
+                      placeholder={t("Training goals, technical instructions…")}
+                      multiline
+                    />
+                  </Field>
+                </View>
 
-              <View style={{ gap: space.xs, marginTop: space.xs }}>
-                <PrimaryButton
-                  label={
-                    saving ? t("Saving…") : subjectForm.id ? t("Save subject") : t("Create subject")
-                  }
-                  disabled={saving || !subjectForm.name.trim()}
-                  onPress={() => void saveSubject()}
-                />
-                <SecondaryButton
-                  label={t("Cancel")}
-                  disabled={saving}
-                  onPress={() => setSubjectForm(null)}
-                />
-              </View>
-            </Panel>
-          ) : null}
+                {/* Group 2: Cấu hình tập luyện */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.groupHeading}>{t("Training configuration")}</Text>
+                  <Field label={t("Session type")}>
+                    <Chips
+                      options={["REGULAR", "TIME_TRIAL"]}
+                      value={subjectForm.sessionType}
+                      onChange={(value) =>
+                        setSubjectForm(
+                          (form) =>
+                            form && { ...form, sessionType: value as SubjectForm["sessionType"] },
+                        )
+                      }
+                    />
+                  </Field>
+                  <Field label={t("Intensity")}>
+                    <Chips
+                      options={["LIGHT", "HEAVY"]}
+                      value={subjectForm.intensity}
+                      onChange={(value) =>
+                        setSubjectForm(
+                          (form) => form && { ...form, intensity: value as SubjectForm["intensity"] },
+                        )
+                      }
+                    />
+                  </Field>
+                </View>
+
+                {/* Group 3: Thông số kỹ thuật */}
+                <View style={styles.formGroup}>
+                  <Text style={styles.groupHeading}>{t("Technical specifications")}</Text>
+                  <Field label={t("Planned distance (m)")}>
+                    <NativeInput
+                      value={subjectForm.distance}
+                      onChangeText={(value) =>
+                        setSubjectForm((form) => form && { ...form, distance: value })
+                      }
+                      keyboardType="number-pad"
+                      placeholder="1600"
+                    />
+                  </Field>
+                  <Field label={t("Session duration (15–480 minutes)")}>
+                    <NativeInput
+                      value={subjectForm.duration}
+                      onChangeText={(value) =>
+                        setSubjectForm((form) => form && { ...form, duration: value })
+                      }
+                      keyboardType="number-pad"
+                      placeholder="60"
+                    />
+                  </Field>
+                  <Field label={t("Track surface (optional)")}>
+                    <NativeInput
+                      value={subjectForm.surface}
+                      onChangeText={(value) =>
+                        setSubjectForm((form) => form && { ...form, surface: value })
+                      }
+                      placeholder={t("e.g. Dirt track, Turf…")}
+                    />
+                  </Field>
+                  {subjectForm.sessionType === "TIME_TRIAL" ? (
+                    <Field label={t("Target time (milliseconds, optional)")}>
+                      <NativeInput
+                        value={subjectForm.target}
+                        onChangeText={(value) =>
+                          setSubjectForm((form) => form && { ...form, target: value })
+                        }
+                        keyboardType="number-pad"
+                        placeholder="105000"
+                      />
+                    </Field>
+                  ) : null}
+                </View>
+              </>
+            ) : null}
+          </BottomSheetModal>
 
           {/* Search & Filter Bar */}
           <View style={styles.searchFilterRow}>
