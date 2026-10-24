@@ -1,6 +1,6 @@
 import { type Href, router } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, Image, View } from "react-native";
+import { Alert, Image, Pressable, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Text } from "@/components/common/LocalizedText";
 import { useAuth } from "@/context/AuthContext";
@@ -23,7 +23,7 @@ import { mediaService, type LocalMediaAsset } from "@/services/media.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import type { StaffDto } from "@/adapters/staff.adapter";
 import type { CreateHorseInput, HorseGenderDto } from "@/adapters/horse.adapter";
-import { clubDate, isValidIsoDate, validateHorseIdentity } from "@/utils/horse-validation";
+import { clubDate, isValidIsoDate, subtractYears, validateHorseIdentity } from "@/utils/horse-validation";
 import { useI18n } from "@/context/I18nContext";
 
 import * as DocumentPicker from "expo-document-picker";
@@ -69,12 +69,27 @@ export default function RegisterHorse() {
   const horsesResource = useApiResource(loadHorses, Boolean(token && role === "manager"));
   const loadBarns = useCallback(() => stableService.listBarns(token!), [token]);
   const barnsResource = useApiResource(loadBarns, Boolean(token && role === "manager"));
-  const candidateSires = (horsesResource.data ?? []).filter(
-    (horse) => ["MALE", "GELDING"].includes(horse.gender ?? "") && !horse.isDeleted,
-  );
-  const candidateDams = (horsesResource.data ?? []).filter(
-    (horse) => horse.gender === "FEMALE" && !horse.isDeleted,
-  );
+  const candidateSires = useMemo(() => {
+    let list = (horsesResource.data ?? []).filter(
+      (horse) => ["MALE", "GELDING"].includes(horse.gender ?? "") && !horse.isDeleted,
+    );
+    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
+      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+      list = list.filter((horse) => !horse.dateOfBirth || horse.dateOfBirth <= maxDob);
+    }
+    return list;
+  }, [horsesResource.data, dateOfBirth]);
+
+  const candidateDams = useMemo(() => {
+    let list = (horsesResource.data ?? []).filter(
+      (horse) => horse.gender === "FEMALE" && !horse.isDeleted,
+    );
+    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
+      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+      list = list.filter((horse) => !horse.dateOfBirth || horse.dateOfBirth <= maxDob);
+    }
+    return list;
+  }, [horsesResource.data, dateOfBirth]);
   const availableBarns = (barnsResource.data ?? []).filter(
     (barn) => barn.status === "ACTIVE" && barn.hasActiveHeadTrainer && barn.availableStallCount > 0,
   );
@@ -117,6 +132,16 @@ export default function RegisterHorse() {
     if (val.length !== 15) return `${t("Mã microchip phải gồm đúng 15 chữ số")} (${val.length}/15).`;
     return "";
   }, [microchipId, t]);
+
+  const duplicateChipHorse = useMemo(() => {
+    const chip = microchipId.trim();
+    if (!chip || !horsesResource.data) return null;
+    return (
+      horsesResource.data.find(
+        (h) => h.microchipId && h.microchipId.toLowerCase() === chip.toLowerCase(),
+      ) ?? null
+    );
+  }, [microchipId, horsesResource.data]);
 
   const dobError = useMemo(() => {
     const val = dateOfBirth.trim();
@@ -353,8 +378,38 @@ export default function RegisterHorse() {
                   placeholder="15 digits (required)"
                   keyboardType="number-pad"
                 />
-                {microchipError ? (
-                  <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                {duplicateChipHorse ? (
+                  <View style={[uiStyles.alert, { marginTop: 6, gap: 4 }]}>
+                    <Text style={{ color: colors.destructive, fontSize: 13, fontWeight: "600" }}>
+                      {t("Microchip này đã được đăng ký cho")} {duplicateChipHorse.name} (
+                      {t(duplicateChipHorse.lifecycleStatus)}).
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => router.push(`/manager/horse/${duplicateChipHorse.id}` as Href)}
+                      style={{ alignSelf: "flex-start", marginTop: 2 }}
+                    >
+                      <Text
+                        style={{
+                          color: colors.primary,
+                          fontSize: 13,
+                          fontWeight: "700",
+                          textDecorationLine: "underline",
+                        }}
+                      >
+                        {t("Xem hồ sơ")} →
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : microchipError ? (
+                  <Text
+                    style={{
+                      color: colors.destructive,
+                      fontSize: 12,
+                      marginTop: 4,
+                      fontWeight: "600",
+                    }}
+                  >
                     {microchipError}
                   </Text>
                 ) : null}

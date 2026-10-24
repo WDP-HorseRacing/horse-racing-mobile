@@ -37,7 +37,7 @@ export function clubDate(date = new Date()): string {
   return `${value.year}-${value.month}-${value.day}`;
 }
 
-function subtractYears(date: string, years: number): string {
+export function subtractYears(date: string, years: number): string {
   const [year, month, day] = date.split("-").map(Number);
   const targetYear = year - years;
   const lastDay = new Date(Date.UTC(targetYear, month, 0)).getUTCDate();

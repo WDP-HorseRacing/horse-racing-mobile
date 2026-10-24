@@ -1,4 +1,4 @@
-import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,6 +33,7 @@ const PLACEMENT_FILTERS = [
   "All",
   "PENDING_BARN",
   "PENDING_STALL",
+  "PENDING_GROOM",
   "PLACED",
   "NOT_APPLICABLE",
 ] as const;
@@ -103,14 +104,13 @@ export default function Horses() {
   const barnsResource = useApiResource(loadBarns, Boolean(token) && !isOwner);
   const horses = useMemo(() => {
     let list = filterHorsesBySearch(resource.data ?? [], search);
-    if (health === "ELIGIBLE") {
-      list = list.filter((h) => h.canRegisterRace !== false);
+    if (health && health !== "LOCKED") {
+      list = list.filter((h) => h.healthStatus === health);
     } else if (health === "LOCKED") {
       list = list.filter(
         (h) =>
           !h.isDeleted &&
           h.lifecycleStatus === "ACTIVE" &&
-          h.healthStatus === "ELIGIBLE" &&
           !h.canRegisterRace,
       );
     }
@@ -284,6 +284,16 @@ export default function Horses() {
                       style={styles.addButton}
                     >
                       <Text style={styles.addText}>+ {t("Register")}</Text>
+                    </Pressable>
+                  ) : null}
+                  {isOwner ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => router.push("/owner/past-horses" as Href)}
+                      style={[styles.sortButton, { borderColor: colors.primary }]}
+                    >
+                      <Ionicons name="time-outline" size={16} color={colors.primary} />
+                      <Text style={[styles.sortText, { color: colors.primary }]}>{t("Ngựa đã bán")}</Text>
                     </Pressable>
                   ) : null}
                 </View>

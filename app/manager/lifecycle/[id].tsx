@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { safeBack } from "@/utils/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
@@ -16,6 +16,8 @@ import {
   type HorseLifecycleStatusDto,
   type HorseRestorePreviewDto,
 } from "@/services/horse.service";
+import { usersService } from "@/services/users.service";
+import type { StaffDto } from "@/adapters/staff.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
 
 type Action = HorseLifecycleStatusDto | "DELETE" | "RESTORE";
@@ -36,15 +38,44 @@ export default function LifecycleManagement() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+  const [ownerSearch, setOwnerSearch] = useState("");
   const loadHorse = useCallback(() => horseService.get(token!, id), [id, token]);
   const horseResource = useApiResource(loadHorse, Boolean(token && id));
   const loadPermissions = useCallback(() => horseService.getPermissions(token!, id), [id, token]);
   const permissionsResource = useApiResource(loadPermissions, Boolean(token && id));
+  const loadOwners = useCallback(() => usersService.list(token!), [token]);
+  const ownersResource = useApiResource(loadOwners, Boolean(token));
+
+  const activeOwners = useMemo(
+    () =>
+      (ownersResource.data ?? []).filter(
+        (user: StaffDto) => user.role === "HORSE_OWNER" && user.status === "ACTIVE",
+      ),
+    [ownersResource.data],
+  );
+
+  const isReactivatingTransferred =
+    horseResource.data?.lifecycleStatus === "TRANSFERRED" && action === "ACTIVE";
+
+  const filteredOwners = useMemo(() => {
+    const q = ownerSearch.trim().toLowerCase();
+    return q
+      ? activeOwners.filter(
+          (o: StaffDto) =>
+            o.fullName.toLowerCase().includes(q) ||
+            o.email.toLowerCase().includes(q) ||
+            o.id.toLowerCase().includes(q),
+        )
+      : activeOwners;
+  }, [activeOwners, ownerSearch]);
 
   const chooseAction = (value: string) => {
     setAction(value as Action);
     setPreview(null);
     setReason("");
+    setOwnerId("");
+    setOwnerSearch("");
     setError("");
   };
 
@@ -80,6 +111,10 @@ export default function LifecycleManagement() {
         : preview?.kind === "restore";
   const save = async () => {
     if (!token || !action || !previewAllowed || !reason.trim() || saving) return;
+    if (isReactivatingTransferred && !ownerId) {
+      setError("Vui lòng chọn chủ sở hữu mới khi kích hoạt lại ngựa đã chuyển nhượng.");
+      return;
+    }
     if (reason.trim().length > 500) {
       setError("Reason must be 500 characters or fewer.");
       return;
@@ -123,6 +158,7 @@ export default function LifecycleManagement() {
         await horseService.changeLifecycle(token, id, {
           lifecycleStatus: action,
           reason: reason.trim(),
+          ...(isReactivatingTransferred ? { ownerId } : {}),
         });
         Alert.alert("Lifecycle updated", "Horse profile was refreshed.");
         safeBack(`/manager/horse/${id}` as Href);
@@ -184,6 +220,47 @@ export default function LifecycleManagement() {
               <Text style={[uiStyles.muted, { color: colors.mutedForeground, fontSize: 13 }]}>
                 Ngày mất sẽ được hệ thống tự động ghi nhận là ngày hôm nay theo lịch câu lạc bộ.
               </Text>
+            ) : null}
+            {isReactivatingTransferred ? (
+              <Field label="Chủ sở hữu mới *">
+                <Text style={[uiStyles.muted, { fontSize: 13, marginBottom: 4 }]}>
+                  Bắt buộc chọn tài khoản chủ sở hữu đang hoạt động khi kích hoạt lại ngựa đã chuyển nhượng.
+                </Text>
+                {ownersResource.isLoading ? (
+                  <Text style={uiStyles.muted}>Đang tải danh sách chủ sở hữu…</Text>
+                ) : ownersResource.error ? (
+                  <Text style={{ color: colors.destructive }}>
+                    {extractErrorMessage(ownersResource.error)}
+                  </Text>
+                ) : (
+                  <View style={{ gap: space.sm }}>
+                    <NativeInput
+                      value={ownerSearch}
+                      onChangeText={setOwnerSearch}
+                      placeholder="Tìm theo tên hoặc email chủ sở hữu…"
+                    />
+                    <View style={{ gap: space.xs }}>
+                      {filteredOwners.slice(0, 6).map((owner: StaffDto) => {
+                        const selected = ownerId === owner.id;
+                        return (
+                          <Chips
+                            key={owner.id}
+                            options={[`${owner.fullName} (${owner.email})`]}
+                            value={selected ? `${owner.fullName} (${owner.email})` : ""}
+                            onChange={() => {
+                              setOwnerId(owner.id);
+                              setOwnerSearch(owner.fullName);
+                            }}
+                          />
+                        );
+                      })}
+                      {filteredOwners.length === 0 ? (
+                        <Text style={uiStyles.muted}>Không tìm thấy chủ sở hữu phù hợp.</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                )}
+              </Field>
             ) : null}
             <Field
               label={action === "DECEASED" ? "Cause of death · required" : "Reason · required"}

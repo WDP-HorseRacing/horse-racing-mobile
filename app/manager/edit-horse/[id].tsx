@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useLocalSearchParams, type Href } from "expo-router";
+import { router, useLocalSearchParams, type Href } from "expo-router";
 import { safeBack } from "@/utils/navigation";
-import { Alert, Image, View } from "react-native";
+import { Alert, Image, Pressable, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { Text } from "@/components/common/LocalizedText";
@@ -25,7 +25,7 @@ import { extractErrorMessage } from "@/utils/errorHandler";
 import type { HorseDetailDto, HorseGenderDto, HorseListItemDto } from "@/adapters/horse.adapter";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
-import { clubDate, isValidIsoDate, validateHorseIdentity } from "@/utils/horse-validation";
+import { clubDate, isValidIsoDate, subtractYears, validateHorseIdentity } from "@/utils/horse-validation";
 
 export default function EditHorse() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -85,7 +85,7 @@ export default function EditHorse() {
       />
       {resource.data && permissionsResource.data?.canEditProfile && !resource.data.isDeleted ? (
         <EditHorseForm
-          key={horseId}
+          key={`${horseId}-${resource.data.version}`}
           horse={resource.data}
           horseId={horseId}
           token={token!}
@@ -97,6 +97,7 @@ export default function EditHorse() {
           horsesLoading={horsesResource.isLoading}
           horsesError={horsesResource.error}
           retryHorses={() => void horsesResource.retry()}
+          reloadHorse={() => resource.refresh()}
         />
       ) : null}
       {resource.data && permissionsResource.data && !permissionsResource.data.canEditProfile ? (
@@ -125,6 +126,7 @@ function EditHorseForm({
   horsesLoading,
   horsesError,
   retryHorses,
+  reloadHorse,
 }: {
   horse: HorseDetailDto;
   horseId: string;
@@ -137,6 +139,7 @@ function EditHorseForm({
   horsesLoading: boolean;
   horsesError: unknown;
   retryHorses: () => void;
+  reloadHorse: () => Promise<void>;
 }) {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -170,6 +173,19 @@ function EditHorseForm({
     return "";
   }, [microchipId, t]);
 
+  const duplicateChipHorse = useMemo(() => {
+    const chip = microchipId.trim();
+    if (!chip || !horses) return null;
+    return (
+      horses.find(
+        (h) =>
+          h.id !== horseId &&
+          h.microchipId &&
+          h.microchipId.toLowerCase() === chip.toLowerCase(),
+      ) ?? null
+    );
+  }, [microchipId, horses, horseId]);
+
   const dobError = useMemo(() => {
     const val = dateOfBirth.trim();
     if (!val) return "";
@@ -193,28 +209,35 @@ function EditHorseForm({
   }, [name, t]);
   const loadPhoto = useCallback(() => horseService.getPhotoUrl(token, horseId), [horseId, token]);
   const photoResource = useApiResource(loadPhoto, Boolean(horse.mediaId));
-  const candidateSires = useMemo(
-    () =>
-      horses.filter(
-        (candidate) =>
-          candidate.id !== horseId &&
-          ["MALE", "GELDING"].includes(candidate.gender ?? "") &&
-          !candidate.isDeleted &&
-          matches(candidate, sireSearch),
-      ),
-    [horseId, horses, sireSearch],
-  );
-  const candidateDams = useMemo(
-    () =>
-      horses.filter(
-        (candidate) =>
-          candidate.id !== horseId &&
-          candidate.gender === "FEMALE" &&
-          !candidate.isDeleted &&
-          matches(candidate, damSearch),
-      ),
-    [damSearch, horseId, horses],
-  );
+  const candidateSires = useMemo(() => {
+    let list = horses.filter(
+      (candidate) =>
+        candidate.id !== horseId &&
+        ["MALE", "GELDING"].includes(candidate.gender ?? "") &&
+        !candidate.isDeleted &&
+        matches(candidate, sireSearch),
+    );
+    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
+      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+      list = list.filter((c) => !c.dateOfBirth || c.dateOfBirth <= maxDob);
+    }
+    return list;
+  }, [horseId, horses, sireSearch, dateOfBirth]);
+
+  const candidateDams = useMemo(() => {
+    let list = horses.filter(
+      (candidate) =>
+        candidate.id !== horseId &&
+        candidate.gender === "FEMALE" &&
+        !candidate.isDeleted &&
+        matches(candidate, damSearch),
+    );
+    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
+      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+      list = list.filter((c) => !c.dateOfBirth || c.dateOfBirth <= maxDob);
+    }
+    return list;
+  }, [damSearch, horseId, horses, dateOfBirth]);
 
   const save = async () => {
     if (savingRef.current) return;
@@ -263,7 +286,30 @@ function EditHorseForm({
     } catch (error) {
       const message = extractErrorMessage(error);
       setFormError(message);
-      Alert.alert("Could not save profile", message);
+      const isConflict =
+        (error as { status?: number })?.status === 409 ||
+        message.toLowerCase().includes("version") ||
+        message.toLowerCase().includes("xung đột") ||
+        message.toLowerCase().includes("thay đổi");
+      if (isConflict) {
+        Alert.alert(
+          t("Hồ sơ đã thay đổi"),
+          t(
+            "Dữ liệu hồ sơ ngựa đã có thay đổi mới từ phiên làm việc khác. Bạn có muốn tải lại để nhận phiên bản mới nhất?",
+          ),
+          [
+            { text: t("Hủy"), style: "cancel" },
+            {
+              text: t("Tải lại hồ sơ"),
+              onPress: () => {
+                void reloadHorse();
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert("Could not save profile", message);
+      }
     } finally {
       savingRef.current = false;
       setUploadingPhoto(false);
@@ -394,8 +440,38 @@ function EditHorseForm({
               onChangeText={setMicrochipId}
               keyboardType="number-pad"
             />
-            {microchipError ? (
-              <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+            {duplicateChipHorse ? (
+              <View style={[uiStyles.alert, { marginTop: 6, gap: 4 }]}>
+                <Text style={{ color: colors.destructive, fontSize: 13, fontWeight: "600" }}>
+                  {t("Microchip này đã được đăng ký cho")} {duplicateChipHorse.name} (
+                  {t(duplicateChipHorse.lifecycleStatus)}).
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push(`/manager/horse/${duplicateChipHorse.id}` as Href)}
+                  style={{ alignSelf: "flex-start", marginTop: 2 }}
+                >
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 13,
+                      fontWeight: "700",
+                      textDecorationLine: "underline",
+                    }}
+                  >
+                    {t("Xem hồ sơ")} →
+                  </Text>
+                </Pressable>
+              </View>
+            ) : microchipError ? (
+              <Text
+                style={{
+                  color: colors.destructive,
+                  fontSize: 12,
+                  marginTop: 4,
+                  fontWeight: "600",
+                }}
+              >
                 {microchipError}
               </Text>
             ) : null}

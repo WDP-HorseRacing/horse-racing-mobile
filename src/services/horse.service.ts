@@ -26,7 +26,11 @@ export type HorseListFilters = {
 export type HorseHealthStatusDto = "ELIGIBLE" | "UNDER_OBSERVATION" | "INJURED" | "QUARANTINED";
 export type HorseLifecycleStatusDto = "ACTIVE" | "RETIRED" | "TRANSFERRED" | "DECEASED";
 export type HorsePlacementStatusDto =
-  "PENDING_BARN" | "PENDING_STALL" | "PLACED" | "NOT_APPLICABLE";
+  | "PENDING_BARN"
+  | "PENDING_STALL"
+  | "PENDING_GROOM"
+  | "PLACED"
+  | "NOT_APPLICABLE";
 export type HorseRaceAptitudeDto = "SPRINTER" | "MILER" | "STAYER";
 
 export type HorsePermissionsDto = {
@@ -116,6 +120,25 @@ export type HorseRestorePreviewDto = {
   barnCleared: string | null;
   ownerCleared: string | null;
   summary: string;
+};
+
+export type OwnershipPeriodDto = {
+  startedAt: string;
+  endedAt: string;
+};
+
+export type PastHorseListItemDto = {
+  horseId: string;
+  name: string;
+  photoUrl: string | null;
+  periods: OwnershipPeriodDto[];
+};
+
+export type PastHorseDetailDto = PastHorseListItemDto & {
+  gender: HorseGenderDto;
+  dateOfBirth: string | null;
+  color: string | null;
+  ancestors: HorsePedigreeDto["ancestors"];
 };
 
 export const horseService = {
@@ -293,6 +316,7 @@ export const horseService = {
     input: {
       lifecycleStatus: HorseLifecycleStatusDto;
       reason: string;
+      ownerId?: string;
     },
   ) {
     return apiRequest<HorseProfileResponseDto>(
@@ -333,5 +357,13 @@ export const horseService = {
       token,
       body: { reason },
     });
+  },
+
+  listPastHorses(token: string) {
+    return apiRequest<PastHorseListItemDto[]>("/past-horses", { token });
+  },
+
+  getPastHorse(token: string, horseId: string) {
+    return apiRequest<PastHorseDetailDto>(`/past-horses/${encodeURIComponent(horseId)}`, { token });
   },
 };

@@ -84,6 +84,13 @@ export const stableService = {
     });
   },
 
+  deleteBarn(token: string, barnId: string) {
+    return apiRequest<void>(`/barns/${encodeURIComponent(barnId)}`, {
+      method: "DELETE",
+      token,
+    });
+  },
+
   listStalls(token: string) {
     return apiRequest<StallDto[]>("/stalls", { token });
   },
