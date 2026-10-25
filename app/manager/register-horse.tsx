@@ -6,6 +6,7 @@ import { Text } from "@/components/common/LocalizedText";
 import { useAuth } from "@/context/AuthContext";
 import {
   Chips,
+  DatePickerField,
   Field,
   NativeInput,
   Panel,
@@ -23,7 +24,14 @@ import { mediaService, type LocalMediaAsset } from "@/services/media.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import type { StaffDto } from "@/adapters/staff.adapter";
 import type { CreateHorseInput, HorseGenderDto } from "@/adapters/horse.adapter";
-import { clubDate, isValidIsoDate, subtractYears, validateHorseIdentity } from "@/utils/horse-validation";
+import {
+  clubDate,
+  isValidIsoDate,
+  normalizeVietnamese,
+  parseToIsoDate,
+  subtractYears,
+  validateHorseIdentity,
+} from "@/utils/horse-validation";
 import { useI18n } from "@/context/I18nContext";
 
 import * as DocumentPicker from "expo-document-picker";
@@ -73,8 +81,9 @@ export default function RegisterHorse() {
     let list = (horsesResource.data ?? []).filter(
       (horse) => ["MALE", "GELDING"].includes(horse.gender ?? "") && !horse.isDeleted,
     );
-    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
-      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+    const isoDob = parseToIsoDate(dateOfBirth);
+    if (isoDob && isValidIsoDate(isoDob)) {
+      const maxDob = subtractYears(isoDob, 2);
       list = list.filter((horse) => !horse.dateOfBirth || horse.dateOfBirth <= maxDob);
     }
     return list;
@@ -84,8 +93,9 @@ export default function RegisterHorse() {
     let list = (horsesResource.data ?? []).filter(
       (horse) => horse.gender === "FEMALE" && !horse.isDeleted,
     );
-    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
-      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+    const isoDob = parseToIsoDate(dateOfBirth);
+    if (isoDob && isValidIsoDate(isoDob)) {
+      const maxDob = subtractYears(isoDob, 2);
       list = list.filter((horse) => !horse.dateOfBirth || horse.dateOfBirth <= maxDob);
     }
     return list;
@@ -97,12 +107,16 @@ export default function RegisterHorse() {
     items: T[],
     query: string,
   ) => {
-    const normalized = query.trim().toLowerCase();
-    return normalized
-      ? items.filter((item) =>
-          `${item.name ?? item.fullName ?? ""} ${item.id}`.toLowerCase().includes(normalized),
-        )
-      : items;
+    const trimmed = query.trim();
+    if (!trimmed) return items;
+    const rawQuery = trimmed.toLowerCase();
+    const normQuery = normalizeVietnamese(trimmed);
+    return items.filter((item) => {
+      const text = `${item.name ?? item.fullName ?? ""} ${item.id}`;
+      const rawText = text.toLowerCase();
+      if (rawText.includes(rawQuery)) return true;
+      return normalizeVietnamese(text).includes(normQuery);
+    });
   };
 
   const resetForm = () => {
@@ -146,9 +160,10 @@ export default function RegisterHorse() {
   const dobError = useMemo(() => {
     const val = dateOfBirth.trim();
     if (!val) return "";
-    if (!isValidIsoDate(val)) return t("Ngày sinh phải theo định dạng YYYY-MM-DD hợp lệ.");
+    const iso = parseToIsoDate(val);
+    if (!iso || !isValidIsoDate(iso)) return t("Date of birth must be a valid date in DD-MM-YYYY format.");
     const today = clubDate();
-    const [year, month, day] = val.split("-").map(Number);
+    const [year, month, day] = iso.split("-").map(Number);
     const birth = new Date(Date.UTC(year, month - 1, day));
     const [nowYear, nowMonth, nowDay] = today.split("-").map(Number);
     const now = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay));
@@ -179,12 +194,13 @@ export default function RegisterHorse() {
       setFormError("Select an owner for the horse.");
       return;
     }
+    const isoDob = parseToIsoDate(dateOfBirth);
     const validationError = validateHorseIdentity({
       name,
       breed,
       color,
       microchipId,
-      dateOfBirth,
+      dateOfBirth: isoDob,
       gender,
       sireId,
       damId,
@@ -212,7 +228,7 @@ export default function RegisterHorse() {
         ownerId,
         ...(breed.trim() ? { breed: breed.trim() } : {}),
         ...(color.trim() ? { color: color.trim() } : {}),
-        ...(dateOfBirth.trim() ? { dateOfBirth: dateOfBirth.trim() } : {}),
+        ...(isoDob ? { dateOfBirth: isoDob } : {}),
         ...(sireId ? { sireId } : {}),
         ...(damId ? { damId } : {}),
         ...(barnId ? { barnId } : {}),
@@ -424,11 +440,11 @@ export default function RegisterHorse() {
                   placeholder="Coat color (optional)"
                 />
               </Field>
-              <Field label="Date of birth (YYYY-MM-DD)">
-                <NativeInput
+              <Field label="Date of birth (DD-MM-YYYY)">
+                <DatePickerField
                   value={dateOfBirth}
                   onChangeText={setDateOfBirth}
-                  placeholder="2021-05-20"
+                  placeholder="DD-MM-YYYY (e.g. 20-05-2021)"
                 />
                 {dobError ? (
                   <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>

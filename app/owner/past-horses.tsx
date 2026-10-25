@@ -14,6 +14,7 @@ import {
   type PastHorseListItemDto,
 } from "@/services/horse.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
+import { formatToDdMmYyyy } from "@/utils/horse-validation";
 import { radius, space } from "@/config/theme";
 
 export default function PastHorsesScreen() {
@@ -150,7 +151,7 @@ export default function PastHorsesScreen() {
                         <Text style={ui.muted}>Ngày sinh</Text>
                         <Text style={{ fontWeight: "600" }}>
                           {detailData.dateOfBirth
-                            ? new Date(detailData.dateOfBirth).toLocaleDateString()
+                            ? formatToDdMmYyyy(detailData.dateOfBirth)
                             : "—"}
                         </Text>
                       </View>

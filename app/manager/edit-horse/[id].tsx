@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { AsyncStateView, Screen } from "@/components/common";
 import {
   Field,
+  DatePickerField,
   NativeInput,
   Panel,
   PrimaryButton,
@@ -25,7 +26,15 @@ import { extractErrorMessage } from "@/utils/errorHandler";
 import type { HorseDetailDto, HorseGenderDto, HorseListItemDto } from "@/adapters/horse.adapter";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
-import { clubDate, isValidIsoDate, subtractYears, validateHorseIdentity } from "@/utils/horse-validation";
+import {
+  clubDate,
+  formatToDdMmYyyy,
+  isValidIsoDate,
+  normalizeVietnamese,
+  parseToIsoDate,
+  subtractYears,
+  validateHorseIdentity,
+} from "@/utils/horse-validation";
 
 export default function EditHorse() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -151,7 +160,7 @@ function EditHorseForm({
   const [breed, setBreed] = useState(horse.breed ?? "");
   const [color, setColor] = useState(horse.color ?? "");
   const [microchipId, setMicrochipId] = useState(horse.microchipId ?? "");
-  const [dateOfBirth, setDateOfBirth] = useState(horse.dateOfBirth ?? "");
+  const [dateOfBirth, setDateOfBirth] = useState(formatToDdMmYyyy(horse.dateOfBirth));
   const [photo, setPhoto] = useState<LocalMediaAsset | null>(null);
   const [uploadedPhotoId, setUploadedPhotoId] = useState<string | null>(null);
   const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
@@ -189,9 +198,10 @@ function EditHorseForm({
   const dobError = useMemo(() => {
     const val = dateOfBirth.trim();
     if (!val) return "";
-    if (!isValidIsoDate(val)) return t("Ngày sinh phải theo định dạng YYYY-MM-DD hợp lệ.");
+    const iso = parseToIsoDate(val);
+    if (!iso || !isValidIsoDate(iso)) return t("Date of birth must be a valid date in DD-MM-YYYY format.");
     const today = clubDate();
-    const [year, month, day] = val.split("-").map(Number);
+    const [year, month, day] = iso.split("-").map(Number);
     const birth = new Date(Date.UTC(year, month - 1, day));
     const [nowYear, nowMonth, nowDay] = today.split("-").map(Number);
     const now = new Date(Date.UTC(nowYear, nowMonth - 1, nowDay));
@@ -217,8 +227,9 @@ function EditHorseForm({
         !candidate.isDeleted &&
         matches(candidate, sireSearch),
     );
-    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
-      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+    const isoDob = parseToIsoDate(dateOfBirth);
+    if (isoDob && isValidIsoDate(isoDob)) {
+      const maxDob = subtractYears(isoDob, 2);
       list = list.filter((c) => !c.dateOfBirth || c.dateOfBirth <= maxDob);
     }
     return list;
@@ -232,21 +243,22 @@ function EditHorseForm({
         !candidate.isDeleted &&
         matches(candidate, damSearch),
     );
-    if (dateOfBirth.trim() && isValidIsoDate(dateOfBirth.trim())) {
-      const maxDob = subtractYears(dateOfBirth.trim(), 2);
+    const isoDob = parseToIsoDate(dateOfBirth);
+    if (isoDob && isValidIsoDate(isoDob)) {
+      const maxDob = subtractYears(isoDob, 2);
       list = list.filter((c) => !c.dateOfBirth || c.dateOfBirth <= maxDob);
     }
     return list;
   }, [damSearch, horseId, horses, dateOfBirth]);
 
   const save = async () => {
-    if (savingRef.current) return;
+    const isoDob = parseToIsoDate(dateOfBirth);
     const validationError = validateHorseIdentity({
       name,
       breed,
       color,
       microchipId,
-      dateOfBirth,
+      dateOfBirth: isoDob,
       gender,
       horseId,
       sireId,
@@ -275,7 +287,7 @@ function EditHorseForm({
         breed: breed.trim() || null,
         color: color.trim() || null,
         ...(microchipId.trim() ? { microchipId: microchipId.trim() } : {}),
-        dateOfBirth: dateOfBirth.trim() || null,
+        dateOfBirth: isoDob || null,
         sireId: sireId || null,
         damId: damId || null,
         ...(!horse.ownerId && ownerId ? { ownerId } : {}),
@@ -476,8 +488,12 @@ function EditHorseForm({
               </Text>
             ) : null}
           </Field>
-          <Field label="Date of birth (YYYY-MM-DD)">
-            <NativeInput value={dateOfBirth} onChangeText={setDateOfBirth} />
+          <Field label="Date of birth (DD-MM-YYYY)">
+            <DatePickerField
+              value={dateOfBirth}
+              onChangeText={setDateOfBirth}
+              placeholder="DD-MM-YYYY (e.g. 20-05-2021)"
+            />
             {dobError ? (
               <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
                 {dobError}
@@ -656,9 +672,13 @@ function isHorseGender(value: string | null): value is HorseGenderDto {
 }
 
 function matches(horse: HorseListItemDto, query: string) {
-  return (
-    !query.trim() || `${horse.name} ${horse.id}`.toLowerCase().includes(query.trim().toLowerCase())
-  );
+  const trimmed = query.trim();
+  if (!trimmed) return true;
+  const rawQuery = trimmed.toLowerCase();
+  const normQuery = normalizeVietnamese(trimmed);
+  const text = `${horse.name} ${horse.id}`;
+  if (text.toLowerCase().includes(rawQuery)) return true;
+  return normalizeVietnamese(text).includes(normQuery);
 }
 
 function horseLabel(horse: HorseListItemDto) {

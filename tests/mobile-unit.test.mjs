@@ -68,9 +68,16 @@ const { getLoginFeedback } = loadTypeScript(join(root, "src/features/auth/login-
 const { medicalService } = loadTypeScript(join(root, "src/services/medical.service.ts"));
 const { stableCareService } = loadTypeScript(join(root, "src/services/stable-care.service.ts"));
 const { reportsService } = loadTypeScript(join(root, "src/services/reports.service.ts"));
-const { clubDate, filterHorsesBySearch, isValidIsoDate, validateHorseIdentity } = loadTypeScript(
-  join(root, "src/utils/horse-validation.ts"),
-);
+const {
+  clubDate,
+  filterHorsesBySearch,
+  formatToDdMmYyyy,
+  isValidDdMmYyyyDate,
+  isValidIsoDate,
+  normalizeVietnamese,
+  parseToIsoDate,
+  validateHorseIdentity,
+} = loadTypeScript(join(root, "src/utils/horse-validation.ts"));
 const {
   clubDateTimeParts,
   isAllowedVisitDateTime,
@@ -352,7 +359,7 @@ test("horse health mapper keeps the backend health categories distinct", () => {
   assert.equal(summary.barnName, "Not assigned");
 });
 
-test("horse search matches name, Horse ID, and microchip", () => {
+test("horse search matches name, Horse ID, and microchip including Vietnamese diacritics", () => {
   const horses = [
     {
       id: "4c9e9a4a-11d1-4b01-a7d0-4db08bcab123",
@@ -360,12 +367,43 @@ test("horse search matches name, Horse ID, and microchip", () => {
       microchipId: "123456789012345",
     },
     { id: "other-id", name: "Night Quartz", microchipId: null },
+    { id: "vn-1", name: "Bạch Mã Hoàng Tử", microchipId: "999888777666" },
+    { id: "vn-2", name: "Đại Bàng Lửa", microchipId: null },
   ];
 
   assert.deepEqual(filterHorsesBySearch(horses, "silver"), [horses[0]]);
   assert.deepEqual(filterHorsesBySearch(horses, "4c9e9a4a"), [horses[0]]);
   assert.deepEqual(filterHorsesBySearch(horses, "123456789"), [horses[0]]);
   assert.deepEqual(filterHorsesBySearch(horses, ""), horses);
+
+  // Vietnamese accent-insensitive matching
+  assert.deepEqual(filterHorsesBySearch(horses, "bach"), [horses[2]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "bạch"), [horses[2]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "Bạch Mã"), [horses[2]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "hoang tu"), [horses[2]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "dai bang"), [horses[3]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "Đại Bàng"), [horses[3]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "đại"), [horses[3]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "lua"), [horses[3]]);
+  assert.deepEqual(filterHorsesBySearch(horses, "vn-1"), [horses[2]]);
+});
+
+test("date formatting and parsing converts between ISO YYYY-MM-DD and DD-MM-YYYY", () => {
+  assert.equal(formatToDdMmYyyy("2024-06-01"), "01-06-2024");
+  assert.equal(formatToDdMmYyyy(null), "");
+  assert.equal(formatToDdMmYyyy(undefined), "");
+  assert.equal(formatToDdMmYyyy("01-06-2024"), "01-06-2024");
+
+  assert.equal(parseToIsoDate("01-06-2024"), "2024-06-01");
+  assert.equal(parseToIsoDate("01/06/2024"), "2024-06-01");
+  assert.equal(parseToIsoDate("2024-06-01"), "2024-06-01");
+  assert.equal(parseToIsoDate(""), "");
+  assert.equal(parseToIsoDate(null), "");
+
+  assert.equal(isValidDdMmYyyyDate("01-06-2024"), true);
+  assert.equal(isValidDdMmYyyyDate("29-02-2024"), true);
+  assert.equal(isValidDdMmYyyyDate("29-02-2025"), false);
+  assert.equal(isValidDdMmYyyyDate("31-04-2024"), false);
 });
 
 test("club date follows the Backend Asia/Ho_Chi_Minh date boundary", () => {
@@ -393,8 +431,13 @@ test("horse form validation rejects impossible dates and invalid parent relation
   };
 
   assert.equal(validateHorseIdentity(identity, "2026-10-16"), null);
+  assert.equal(validateHorseIdentity({ ...identity, dateOfBirth: "01-06-2024" }, "2026-10-16"), null);
   assert.equal(
     validateHorseIdentity({ ...identity, dateOfBirth: "2024-02-31" }, "2026-10-16"),
+    "Date of birth must be a valid date in YYYY-MM-DD format.",
+  );
+  assert.equal(
+    validateHorseIdentity({ ...identity, dateOfBirth: "31-02-2024" }, "2026-10-16"),
     "Date of birth must be a valid date in YYYY-MM-DD format.",
   );
   assert.equal(

@@ -46,6 +46,54 @@ export function subtractYears(date: string, years: number): string {
     .slice(0, 10);
 }
 
+export function normalizeVietnamese(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .trim();
+}
+
+/** Format YYYY-MM-DD to DD-MM-YYYY */
+export function formatToDdMmYyyy(isoDate: string | null | undefined): string {
+  if (!isoDate) return "";
+  const trimmed = isoDate.trim();
+  if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(trimmed)) {
+    return trimmed.replace(/\//g, "-");
+  }
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, yyyy, mm, dd] = match;
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  return trimmed;
+}
+
+/** Convert DD-MM-YYYY or DD/MM/YYYY or YYYY-MM-DD to ISO YYYY-MM-DD */
+export function parseToIsoDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const trimmed = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  const match = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (match) {
+    const [, dd, mm, yyyy] = match;
+    const padDd = dd.padStart(2, "0");
+    const padMm = mm.padStart(2, "0");
+    return `${yyyy}-${padMm}-${padDd}`;
+  }
+  return "";
+}
+
+export function isValidDdMmYyyyDate(value: string): boolean {
+  const iso = parseToIsoDate(value);
+  if (!iso) return false;
+  return isValidIsoDate(iso);
+}
+
 export function validateHorseIdentity(input: HorseIdentityInput, today = clubDate()) {
   if (!input.name.trim()) return "Enter the horse name.";
   if (input.name.trim().length > 160) return "Horse name must be 160 characters or fewer.";
@@ -57,11 +105,14 @@ export function validateHorseIdentity(input: HorseIdentityInput, today = clubDat
   if (input.color.trim().length > 40) return "Color must be 40 characters or fewer.";
   if (input.color.trim() && !/^[\p{L}]+(?:[ '-][\p{L}]+)*$/u.test(input.color.trim()))
     return "Color may contain letters, spaces, apostrophes and hyphens only.";
-  if (input.dateOfBirth.trim() && !isValidIsoDate(input.dateOfBirth.trim()))
+
+  const rawDob = input.dateOfBirth.trim();
+  const isoDob = parseToIsoDate(rawDob) || rawDob;
+  if (rawDob && !isValidIsoDate(isoDob))
     return "Date of birth must be a valid date in YYYY-MM-DD format.";
-  if (input.dateOfBirth.trim() && input.dateOfBirth.trim() > subtractYears(today, 1))
+  if (rawDob && isoDob > subtractYears(today, 1))
     return "Horse must be at least 1 year old.";
-  if (input.dateOfBirth.trim() && input.dateOfBirth.trim() < subtractYears(today, 40))
+  if (rawDob && isoDob < subtractYears(today, 40))
     return "Horse cannot be older than 40 years.";
 
   const sire = input.horses.find((horse) => horse.id === input.sireId);
@@ -71,8 +122,8 @@ export function validateHorseIdentity(input: HorseIdentityInput, today = clubDat
   if (input.damId && (!dam || dam.gender !== "FEMALE" || dam.isDeleted))
     return "Choose a valid dam from the horse list.";
   if (input.sireId && input.sireId === input.damId) return "Sire and dam must be different horses.";
-  if (input.dateOfBirth.trim()) {
-    const latestParentBirthDate = subtractYears(input.dateOfBirth.trim(), 2);
+  if (rawDob) {
+    const latestParentBirthDate = subtractYears(isoDob, 2);
     if (sire?.dateOfBirth && sire.dateOfBirth > latestParentBirthDate)
       return "Sire must be at least 2 years older than this horse.";
     if (dam?.dateOfBirth && dam.dateOfBirth > latestParentBirthDate)
@@ -98,9 +149,9 @@ export function validateHorseIdentity(input: HorseIdentityInput, today = clubDat
     .filter((value): value is string => Boolean(value))
     .sort()[0];
   if (
-    input.dateOfBirth.trim() &&
+    rawDob &&
     earliestChildBirthDate &&
-    input.dateOfBirth.trim() > subtractYears(earliestChildBirthDate, 2)
+    isoDob > subtractYears(earliestChildBirthDate, 2)
   ) {
     return "This horse must be at least 2 years older than its oldest foal.";
   }
@@ -110,11 +161,19 @@ export function validateHorseIdentity(input: HorseIdentityInput, today = clubDat
 export function filterHorsesBySearch<
   T extends { name: string; id: string; microchipId?: string | null },
 >(horses: T[], query: string): T[] {
-  const needle = query.trim().toLocaleLowerCase();
-  if (!needle) return horses;
-  return horses.filter((horse) =>
-    [horse.name, horse.id, horse.microchipId ?? ""].some((value) =>
-      value.toLocaleLowerCase().includes(needle),
-    ),
-  );
+  const trimmed = query.trim();
+  if (!trimmed) return horses;
+  const rawNeedle = trimmed.toLowerCase();
+  const normalizedNeedle = normalizeVietnamese(trimmed);
+
+  return horses.filter((horse) => {
+    const fields = [horse.name, horse.id, horse.microchipId ?? ""];
+    return fields.some((value) => {
+      if (!value) return false;
+      const rawVal = value.toLowerCase();
+      if (rawVal.includes(rawNeedle)) return true;
+      const normalizedVal = normalizeVietnamese(value);
+      return normalizedVal.includes(normalizedNeedle);
+    });
+  });
 }

@@ -9,4 +9,5 @@ export * from "./NativeInput";
 export * from "./ActionRow";
 export * from "./MiniChart";
 export * from "./BottomSheetModal";
+export * from "./DatePickerField";
 export * from "./styles";

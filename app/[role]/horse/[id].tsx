@@ -43,6 +43,7 @@ import { racingService } from "@/services/racing.service";
 import { auditService } from "@/services/audit.service";
 import { stableCareService } from "@/services/stable-care.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
+import { formatToDdMmYyyy } from "@/utils/horse-validation";
 
 const tabsByRole: Record<RoleId, string[]> = {
   trainer: ["Overview", "Training", "Health", "Performance", "Racing"],
@@ -446,7 +447,12 @@ export default function HorseProfile() {
                       : t("Not recorded"),
                   ],
                   ["Microchip", horseResource.data.microchipId ?? t("Not recorded")],
-                  ["Date of birth", horseResource.data.dateOfBirth ?? t("Not recorded")],
+                  [
+                    "Date of birth",
+                    horseResource.data.dateOfBirth
+                      ? formatToDdMmYyyy(horseResource.data.dateOfBirth)
+                      : t("Not recorded"),
+                  ],
                   ["Owner", horseResource.data.owner?.fullName ?? t("Unassigned")],
                   ["Barn", horseResource.data.location?.barn?.name ?? t("Not assigned")],
                   ["Stall", horseResource.data.location?.stall?.code ?? t("Not assigned")],

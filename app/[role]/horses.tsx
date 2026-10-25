@@ -73,7 +73,7 @@ export default function Horses() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const serverSearch = /^[\da-f-]{3,36}$/i.test(search) ? "" : search;
+  const serverSearch = search;
   const appliedFilters = useMemo<HorseListFilters>(
     () => ({
       ...filters,
