@@ -452,24 +452,42 @@ export default function MedicalCaseDetail() {
             />
           ) : null}
 
+          {/* Quick Action: Follow-up Examination for Vet */}
+          {isVet && isOpen ? (
+            <View style={{ marginBottom: space.xs }}>
+              <PrimaryButton
+                label="Ghi buổi tái khám"
+                icon="medkit-outline"
+                onPress={() =>
+                  router.push(
+                    `/vet/medical/visit?caseId=${medicalCase.id}&horseId=${medicalCase.horseId}` as Href,
+                  )
+                }
+              />
+            </View>
+          ) : null}
+
           {/* Visits Timeline */}
           <View style={uiStyles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <SectionTitle>Lịch sử các lần khám & tái khám ({visits.length})</SectionTitle>
-              {isVet && isOpen ? (
-                <Pressable
-                  onPress={() =>
-                    router.push(
-                      `/vet/medical/visit?caseId=${medicalCase.id}&horseId=${medicalCase.horseId}` as Href,
-                    )
-                  }
-                  style={styles.addVisitQuickButton}
-                >
-                  <Ionicons name="add" size={16} color="#ffffff" />
-                  <Text style={styles.addVisitQuickText}>Thêm lần khám</Text>
-                </Pressable>
-              ) : null}
-            </View>
+            <SectionTitle
+              action={
+                isVet && isOpen ? (
+                  <Pressable
+                    onPress={() =>
+                      router.push(
+                        `/vet/medical/visit?caseId=${medicalCase.id}&horseId=${medicalCase.horseId}` as Href,
+                      )
+                    }
+                    style={styles.addVisitQuickButton}
+                  >
+                    <Ionicons name="add" size={15} color="#ffffff" />
+                    <Text style={styles.addVisitQuickText}>Tái khám</Text>
+                  </Pressable>
+                ) : null
+              }
+            >
+              Lịch sử các lần khám ({visits.length})
+            </SectionTitle>
 
             {visits.map((visit, index) => {
               const isNormal = visit.conclusion === "NORMAL";
@@ -1048,6 +1066,7 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       paddingHorizontal: 10,
       paddingVertical: 5,
       borderRadius: radius.pill,
+      flexShrink: 0,
     },
     addVisitQuickText: {
       fontSize: 11,
