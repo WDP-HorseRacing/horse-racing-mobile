@@ -4,7 +4,7 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import { Chips, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import { Chips, DatePickerField, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
@@ -663,13 +663,11 @@ export default function MedicalVisitForm() {
                 <Text
                   style={[
                     uiStyles.value,
-                    { fontSize: 14 },
-                    confirmAbnormal && { color: colors.primary },
+                    { fontSize: 14, fontWeight: "600" },
+                    confirmAbnormal && { color: colors.primary, fontWeight: "700" },
                   ]}
                 >
-                  {confirmAbnormal
-                    ? t("Confirm abnormal readings")
-                    : t("Do not confirm abnormal readings")}
+                  {t("Xác nhận chỉ số bất thường")}
                 </Text>
                 <Text style={uiStyles.muted}>
                   {t("Confirm if values exceed standard reference limits")}
@@ -906,10 +904,12 @@ export default function MedicalVisitForm() {
                 <View style={uiStyles.row}>
                   <View style={{ flex: 1 }}>
                     <Field label="Next visit date">
-                      <NativeInput
+                      <DatePickerField
                         value={nextVisitDate}
                         onChangeText={setNextVisitDate}
                         placeholder="YYYY-MM-DD"
+                        outputFormat="YYYY-MM-DD"
+                        title="Chọn ngày tái khám"
                       />
                     </Field>
                   </View>

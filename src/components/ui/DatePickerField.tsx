@@ -15,29 +15,43 @@ import { useTheme } from "@/hooks/useTheme";
 import { formatToDdMmYyyy, parseToIsoDate } from "@/utils/horse-validation";
 
 export type DatePickerFieldProps = {
-  value: string; // DD-MM-YYYY (or YYYY-MM-DD)
+  value: string; // DD-MM-YYYY or YYYY-MM-DD
   onChangeText: (value: string) => void;
   placeholder?: string;
   title?: string;
   minYear?: number;
   maxYear?: number;
   editable?: boolean;
+  outputFormat?: "DD-MM-YYYY" | "YYYY-MM-DD";
 };
 
 const DAY_NAMES = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const MONTH_NAMES = [
+  "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4",
+  "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8",
+  "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12",
+];
 
 export function DatePickerField({
   value,
   onChangeText,
-  placeholder = "DD-MM-YYYY (e.g. 20-05-2021)",
+  placeholder,
   title,
-  minYear = 1985,
-  maxYear = new Date().getFullYear(),
+  minYear = 1970,
+  maxYear = new Date().getFullYear() + 15,
   editable = true,
+  outputFormat: outputFormatProp,
 }: DatePickerFieldProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
   const styles = useMemo(() => getStyles(colors), [colors]);
+
+  const outputFormat = useMemo(() => {
+    if (outputFormatProp) return outputFormatProp;
+    if (placeholder?.includes("YYYY-MM-DD")) return "YYYY-MM-DD";
+    if (value && value.includes("-") && value.split("-")[0]?.length === 4) return "YYYY-MM-DD";
+    return "DD-MM-YYYY";
+  }, [outputFormatProp, placeholder, value]);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -50,8 +64,7 @@ export function DatePickerField({
       return { year: y, month: m - 1, day: d };
     }
     const now = new Date();
-    // Default to a 3-year-old horse if no date given (common for racehorses)
-    return { year: now.getFullYear() - 3, month: now.getMonth(), day: now.getDate() };
+    return { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
   }, [value]);
 
   const [viewYear, setViewYear] = useState(initialDate.year);
@@ -67,9 +80,9 @@ export function DatePickerField({
       setSelectedDay(d);
     } else {
       const now = new Date();
-      setViewYear(now.getFullYear() - 3);
+      setViewYear(now.getFullYear());
       setViewMonth(now.getMonth());
-      setSelectedDay(null);
+      setSelectedDay(now.getDate());
     }
     setShowYearPicker(false);
     setModalVisible(true);
@@ -110,30 +123,32 @@ export function DatePickerField({
     setSelectedDay(day);
     const dd = String(day).padStart(2, "0");
     const mm = String(viewMonth + 1).padStart(2, "0");
-    const formatted = `${dd}-${mm}-${viewYear}`;
+    const formatted =
+      outputFormat === "YYYY-MM-DD" ? `${viewYear}-${mm}-${dd}` : `${dd}-${mm}-${viewYear}`;
     onChangeText(formatted);
     closeModal();
   };
 
-  const handleQuickYearSelect = (year: number) => {
-    setViewYear(year);
-    setShowYearPicker(false);
+  const handleSelectToday = () => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, "0");
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const yyyy = now.getFullYear();
+    const formatted = outputFormat === "YYYY-MM-DD" ? `${yyyy}-${mm}-${dd}` : `${dd}-${mm}-${yyyy}`;
+    onChangeText(formatted);
+    closeModal();
   };
 
   // Calendar matrix calculation
   const calendarDays = useMemo(() => {
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    // Day of week for first day (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
     const firstDayOfWeekRaw = new Date(viewYear, viewMonth, 1).getDay();
-    // Convert so Monday = 0, ..., Sunday = 6
     const startOffset = (firstDayOfWeekRaw + 6) % 7;
 
     const days: ({ day: number; currentMonth: boolean } | null)[] = [];
-    // Previous month filler
     for (let i = 0; i < startOffset; i++) {
       days.push(null);
     }
-    // Current month days
     for (let d = 1; d <= daysInMonth; d++) {
       days.push({ day: d, currentMonth: true });
     }
@@ -150,7 +165,14 @@ export function DatePickerField({
   }, [minYear, maxYear]);
 
   // Formatted display value in input
-  const displayValue = formatToDdMmYyyy(value);
+  const displayValue = useMemo(() => {
+    if (!value) return "";
+    if (outputFormat === "YYYY-MM-DD") {
+      const iso = parseToIsoDate(value);
+      return iso ?? value;
+    }
+    return formatToDdMmYyyy(value);
+  }, [value, outputFormat]);
 
   return (
     <View style={styles.container}>
@@ -158,7 +180,7 @@ export function DatePickerField({
         <TextInput
           value={displayValue}
           onChangeText={(text) => onChangeText(text)}
-          placeholder={t(placeholder)}
+          placeholder={placeholder ? t(placeholder) : outputFormat === "YYYY-MM-DD" ? "YYYY-MM-DD" : "DD-MM-YYYY"}
           placeholderTextColor={colors.mutedForeground}
           style={styles.textInput}
           editable={editable}
@@ -188,7 +210,7 @@ export function DatePickerField({
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="calendar" size={18} color={colors.primary} />
                 <Text style={styles.modalTitle}>
-                  {title ? t(title) : t("Select date of birth")}
+                  {title ? t(title) : t("Chọn ngày")}
                 </Text>
               </View>
               <Pressable hitSlop={8} onPress={closeModal}>
@@ -225,7 +247,7 @@ export function DatePickerField({
                 ]}
               >
                 <Text style={styles.monthYearText}>
-                  {t("Month")} {String(viewMonth + 1).padStart(2, "0")} / {viewYear}
+                  {t("Tháng")} {viewMonth + 1} / {viewYear}
                 </Text>
                 <Ionicons
                   name={showYearPicker ? "chevron-up" : "chevron-down"}
@@ -254,14 +276,45 @@ export function DatePickerField({
               </View>
             </View>
 
-            {/* Quick Year Picker Grid */}
+            {/* Quick Month & Year Picker Grid */}
             {showYearPicker ? (
               <View style={styles.yearPickerContainer}>
                 <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground }]}>
-                  {t("Quick year select:")}
+                  {t("Chọn tháng nhanh:")}
+                </Text>
+                <View style={styles.monthGrid}>
+                  {MONTH_NAMES.map((mName, mIdx) => {
+                    const isSelected = mIdx === viewMonth;
+                    return (
+                      <Pressable
+                        key={mName}
+                        onPress={() => setViewMonth(mIdx)}
+                        style={[
+                          styles.monthChip,
+                          isSelected && {
+                            backgroundColor: colors.primary,
+                            borderColor: colors.primary,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.monthChipText,
+                            isSelected && { color: "#ffffff", fontWeight: "700" },
+                          ]}
+                        >
+                          {mName}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground, marginTop: 4 }]}>
+                  {t("Chọn năm nhanh:")}
                 </Text>
                 <ScrollView
-                  style={{ maxHeight: 220 }}
+                  style={{ maxHeight: 120 }}
                   contentContainerStyle={styles.yearGrid}
                   showsVerticalScrollIndicator
                 >
@@ -270,7 +323,7 @@ export function DatePickerField({
                     return (
                       <Pressable
                         key={year}
-                        onPress={() => handleQuickYearSelect(year)}
+                        onPress={() => setViewYear(year)}
                         style={[
                           styles.yearChip,
                           isSelectedYear && {
@@ -291,6 +344,15 @@ export function DatePickerField({
                     );
                   })}
                 </ScrollView>
+
+                <Pressable
+                  onPress={() => setShowYearPicker(false)}
+                  style={[styles.donePickBtn, { backgroundColor: colors.fitSoft, borderColor: colors.primary }]}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
+                    {t("Tiếp tục chọn ngày")} →
+                  </Text>
+                </Pressable>
               </View>
             ) : (
               <>
@@ -344,14 +406,11 @@ export function DatePickerField({
             {/* Quick Helper Actions */}
             <View style={styles.footerRow}>
               <Pressable
-                onPress={() => {
-                  const now = new Date();
-                  handleSelectDay(now.getDate());
-                }}
+                onPress={handleSelectToday}
                 style={styles.quickActionBtn}
               >
                 <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>
-                  {t("Today")}
+                  {t("Hôm nay")}
                 </Text>
               </Pressable>
 
@@ -497,33 +556,65 @@ const getStyles = (colors: any) =>
     },
     yearPickerContainer: {
       paddingVertical: 6,
-      gap: 8,
+      gap: 6,
     },
     sectionSubtitle: {
       fontSize: 12,
-      fontWeight: "600",
+      fontWeight: "700",
     },
-    yearGrid: {
+    monthGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 8,
-      justifyContent: "center",
-      paddingVertical: 4,
+      gap: 6,
+      justifyContent: "space-between",
+      paddingVertical: 2,
     },
-    yearChip: {
-      paddingVertical: 6,
-      paddingHorizontal: 12,
+    monthChip: {
+      paddingVertical: 5,
+      paddingHorizontal: 8,
       borderRadius: radius.pill,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
-      minWidth: 64,
+      minWidth: "22%",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    monthChipText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    yearGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      justifyContent: "center",
+      paddingVertical: 4,
+    },
+    yearChip: {
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      minWidth: 58,
       alignItems: "center",
     },
     yearChipText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: "600",
       color: colors.foreground,
+    },
+    donePickBtn: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 4,
     },
     footerRow: {
       flexDirection: "row",

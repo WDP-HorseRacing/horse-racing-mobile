@@ -6,6 +6,7 @@ import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
   BottomSheetModal,
+  DatePickerField,
   Field,
   NativeInput,
   PrimaryButton,
@@ -532,10 +533,12 @@ export default function CareSchedules() {
             <View style={{ flexDirection: "row", gap: space.sm }}>
               <View style={{ flex: 1.4 }}>
                 <Field label="Ngày đến hạn (YYYY-MM-DD) *">
-                  <NativeInput
+                  <DatePickerField
                     value={dueDate}
                     onChangeText={setDueDate}
                     placeholder="YYYY-MM-DD"
+                    outputFormat="YYYY-MM-DD"
+                    title="Chọn ngày đến hạn"
                   />
                 </Field>
               </View>
@@ -785,10 +788,12 @@ export default function CareSchedules() {
             cancelLabel="Hủy"
           >
             <Field label="Ngày mới (bỏ trống nếu giữ nguyên)">
-              <NativeInput
+              <DatePickerField
                 value={editDate}
                 onChangeText={setEditDate}
                 placeholder="YYYY-MM-DD"
+                outputFormat="YYYY-MM-DD"
+                title="Chọn ngày dời lịch"
               />
             </Field>
             <Field label="Giờ mới">

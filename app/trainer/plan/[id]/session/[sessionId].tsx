@@ -5,6 +5,7 @@ import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, KeyValue, Screen, SectionTitle } from "@/components/common";
 import {
   BottomSheetModal,
+  DatePickerField,
   Field,
   NativeInput,
   Panel,
@@ -478,7 +479,13 @@ export default function TrainingSessionDetail() {
               >
                 <Text style={ui.value}>Move or update this scheduled session</Text>
                 <Field label="New date (club calendar, YYYY-MM-DD)">
-                  <NativeInput value={editDate} onChangeText={setEditDate} />
+                  <DatePickerField
+                    value={editDate}
+                    onChangeText={setEditDate}
+                    placeholder="YYYY-MM-DD"
+                    outputFormat="YYYY-MM-DD"
+                    title="Chọn ngày buổi tập"
+                  />
                 </Field>
                 <Field label="New start time (HH:mm)">
                   <NativeInput value={editTime} onChangeText={setEditTime} />

@@ -573,17 +573,10 @@ function EditHorseForm({
               <AsyncStateView isLoading={ownersLoading} error={ownersError} onRetry={retryOwners} />
             ) : owners.length ? (
               <Chips
-                options={owners.map((owner) => `${owner.fullName} · ${owner.id.slice(0, 6)}`)}
-                value={
-                  owners.find((owner) => owner.id === ownerId)
-                    ? `${owners.find((owner) => owner.id === ownerId)!.fullName} · ${ownerId.slice(0, 6)}`
-                    : ""
-                }
+                options={owners.map((owner) => owner.fullName)}
+                value={owners.find((owner) => owner.id === ownerId)?.fullName ?? ""}
                 onChange={(value) =>
-                  setOwnerId(
-                    owners.find((owner) => `${owner.fullName} · ${owner.id.slice(0, 6)}` === value)
-                      ?.id ?? "",
-                  )
+                  setOwnerId(owners.find((owner) => owner.fullName === value)?.id ?? "")
                 }
               />
             ) : (

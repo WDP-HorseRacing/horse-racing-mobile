@@ -20,6 +20,7 @@ import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
   BottomSheetModal,
   Chips,
+  DatePickerField,
   Field,
   NativeInput,
   Panel,
@@ -477,7 +478,13 @@ export default function TrainingClassDetail() {
                   <NativeInput value={editName} onChangeText={setEditName} />
                 </Field>
                 <Field label="Start date (YYYY-MM-DD)">
-                  <NativeInput value={editStartDate} onChangeText={setEditStartDate} />
+                  <DatePickerField
+                    value={editStartDate}
+                    onChangeText={setEditStartDate}
+                    placeholder="YYYY-MM-DD"
+                    outputFormat="YYYY-MM-DD"
+                    title="Chọn ngày bắt đầu lớp"
+                  />
                 </Field>
                 <Field label="Maximum horses">
                   <NativeInput
@@ -812,7 +819,13 @@ export default function TrainingClassDetail() {
               >
                 <Text style={ui.value}>Add a session from this class phase</Text>
                 <Field label="Session date (club calendar, YYYY-MM-DD)">
-                  <NativeInput value={currentDate} onChangeText={setSessionDate} />
+                  <DatePickerField
+                    value={currentDate}
+                    onChangeText={setSessionDate}
+                    placeholder="YYYY-MM-DD"
+                    outputFormat="YYYY-MM-DD"
+                    title="Chọn ngày buổi tập"
+                  />
                 </Field>
                 <Field label="Start time (club time, HH:mm)">
                   <NativeInput

@@ -304,10 +304,12 @@ export default function ExaminationRequests() {
             >
               <Ionicons
                 name={tab.icon}
-                size={16}
-                color={isActive ? colors.primary : colors.mutedForeground}
+                size={15}
+                color={isActive ? "#ffffff" : colors.mutedForeground}
               />
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]} numberOfLines={1}>
+                {tab.label}
+              </Text>
               {typeof count === "number" && count > 0 ? (
                 <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
                   <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
@@ -917,11 +919,11 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     tabContainer: {
       flexDirection: "row",
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      padding: 4,
+      borderRadius: radius.pill,
+      padding: 3,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: 4,
+      gap: 3,
       marginBottom: space.sm,
     },
     tabButton: {
@@ -929,15 +931,21 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 5,
-      paddingVertical: 9,
-      borderRadius: radius.sm,
+      gap: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      borderRadius: radius.pill,
     },
     tabButtonActive: {
       backgroundColor: colors.primary,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
     },
     tabText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: "600",
       color: colors.mutedForeground,
     },
@@ -946,10 +954,13 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       fontWeight: "700",
     },
     tabBadge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: 5,
       paddingVertical: 1,
       borderRadius: radius.pill,
       backgroundColor: colors.muted,
+      minWidth: 18,
+      alignItems: "center",
+      justifyContent: "center",
     },
     tabBadgeActive: {
       backgroundColor: "rgba(255,255,255,0.25)",

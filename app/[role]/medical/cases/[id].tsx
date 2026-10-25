@@ -7,6 +7,7 @@ import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
   BottomSheetModal,
   Chips,
+  DatePickerField,
   Field,
   NativeInput,
   PrimaryButton,
@@ -812,10 +813,12 @@ export default function MedicalCaseDetail() {
                     {lockDecision === "KEEP" ? (
                       <View style={{ gap: space.xs, marginTop: space.xs }}>
                         <Field label="Ngày dự kiến gỡ khóa (YYYY-MM-DD)">
-                          <NativeInput
+                          <DatePickerField
                             value={lockEndDate}
                             onChangeText={setLockEndDate}
                             placeholder="YYYY-MM-DD"
+                            outputFormat="YYYY-MM-DD"
+                            title="Chọn ngày dự kiến gỡ khóa"
                           />
                         </Field>
                         <Field label="Giờ dự kiến gỡ khóa (HH:mm)">

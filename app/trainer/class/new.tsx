@@ -5,6 +5,7 @@ import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
 import {
   Chips,
+  DatePickerField,
   Field,
   NativeInput,
   Panel,
@@ -115,7 +116,13 @@ export default function CreateTrainingClass() {
           />
         </Field>
         <Field label="Start date (club calendar, YYYY-MM-DD)">
-          <NativeInput value={startDate} onChangeText={setStartDate} placeholder="YYYY-MM-DD" />
+          <DatePickerField
+            value={startDate}
+            onChangeText={setStartDate}
+            placeholder="YYYY-MM-DD"
+            outputFormat="YYYY-MM-DD"
+            title="Chọn ngày bắt đầu lớp"
+          />
         </Field>
         <Field label="Maximum horses">
           <NativeInput value={maxHorses} onChangeText={setMaxHorses} keyboardType="number-pad" />

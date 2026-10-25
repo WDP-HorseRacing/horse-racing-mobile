@@ -520,7 +520,7 @@ export default function RegisterHorse() {
                   onRetry={() => void ownersResource.retry()}
                   options={filterByQuery(owners, ownerSearch).map((owner) => ({
                     id: owner.id,
-                    label: `${owner.fullName} · ${owner.id.slice(0, 6)}`,
+                    label: owner.fullName,
                   }))}
                   value={ownerId}
                   onChange={(value) => {

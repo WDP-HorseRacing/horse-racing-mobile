@@ -15,6 +15,7 @@ import { medicalService } from "@/services/medical.service";
 import { horseService } from "@/services/horse.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatDateTime, formatVnd } from "@/utils/formatters";
+import { safeBack } from "@/utils/navigation";
 import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
 import type {
   InjuryDraftMarker,
@@ -130,7 +131,23 @@ export default function MedicalVisitDetail() {
       setAdjustCost("");
       setAdjustReason("");
       await resource.refresh();
-      Alert.alert("Đã cập nhật chi phí", "Chi phí buổi khám đã được điều chỉnh.");
+      Alert.alert(
+        "Đã cập nhật chi phí",
+        "Chi phí buổi khám đã được điều chỉnh thành công.",
+        [
+          {
+            text: "Quay về",
+            onPress: () => {
+              if (record.caseId) {
+                router.replace(`/${role}/medical/cases/${record.caseId}` as Href);
+              } else {
+                safeBack(`/${role}/medical/requests`);
+              }
+            },
+          },
+          { text: "Ở lại", style: "cancel" },
+        ],
+      );
     } catch (error) {
       Alert.alert("Không thể điều chỉnh chi phí", extractErrorMessage(error));
     } finally {
@@ -148,6 +165,7 @@ export default function MedicalVisitDetail() {
           : "Chi tiết buổi khám"
       }
       back
+      fallbackHref={record?.caseId ? `/${role}/medical/cases/${record.caseId}` : `/${role}/medical/requests`}
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -402,6 +420,27 @@ export default function MedicalVisitDetail() {
           {record.voidedAt ? (
             <PrimaryButton label="Ghi buổi khám thay thế" onPress={openReplacementVisit} />
           ) : null}
+
+          <View style={[uiStyles.section, { marginTop: space.sm, gap: space.sm, paddingBottom: space.lg }]}>
+            {record.caseId ? (
+              <SecondaryButton
+                label="Xem hồ sơ bệnh án"
+                icon="folder-open-outline"
+                onPress={() => router.push(`/${role}/medical/cases/${record.caseId}` as Href)}
+              />
+            ) : null}
+            <SecondaryButton
+              label={record.caseId ? "Quay lại hồ sơ bệnh án" : "Quay lại danh sách khám"}
+              icon="arrow-back"
+              onPress={() => {
+                if (record.caseId) {
+                  safeBack(`/${role}/medical/cases/${record.caseId}`);
+                } else {
+                  safeBack(`/${role}/medical/requests`);
+                }
+              }}
+            />
+          </View>
         </>
       ) : null}
     </Screen>

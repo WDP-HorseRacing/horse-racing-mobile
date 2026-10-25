@@ -4,7 +4,7 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
-import { Field, NativeInput, PrimaryButton, SecondaryButton } from "@/components/ui";
+import { DatePickerField, Field, NativeInput, PrimaryButton, SecondaryButton } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
@@ -160,7 +160,9 @@ export default function PeriodicCheckups() {
               }}
               style={[styles.tabButton, isActive && styles.tabButtonActive]}
             >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]} numberOfLines={1}>
+                {tab.label}
+              </Text>
               {tab.key === "OVERDUE" && overdueCount > 0 ? (
                 <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
                   <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
@@ -303,10 +305,12 @@ export default function PeriodicCheckups() {
                     {item.appointment ? "Dời lịch hẹn khám định kỳ" : "Đặt lịch hẹn khám định kỳ"}
                   </Text>
                   <Field label="Ngày hẹn (YYYY-MM-DD)">
-                    <NativeInput
+                    <DatePickerField
                       value={scheduledDate}
                       onChangeText={setScheduledDate}
                       placeholder="YYYY-MM-DD"
+                      outputFormat="YYYY-MM-DD"
+                      title="Chọn ngày hẹn khám"
                     />
                   </Field>
                   <Field label="Giờ hẹn (HH:mm)">
@@ -384,11 +388,11 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     tabContainer: {
       flexDirection: "row",
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      padding: 4,
+      borderRadius: radius.pill,
+      padding: 3,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: 4,
+      gap: 3,
       marginBottom: space.sm,
     },
     tabButton: {
@@ -396,15 +400,21 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 5,
-      paddingVertical: 9,
-      borderRadius: radius.sm,
+      gap: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+      borderRadius: radius.pill,
     },
     tabButtonActive: {
       backgroundColor: colors.primary,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
     },
     tabText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: "600",
       color: colors.mutedForeground,
     },
@@ -413,10 +423,13 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       fontWeight: "700",
     },
     tabBadge: {
-      paddingHorizontal: 6,
+      paddingHorizontal: 5,
       paddingVertical: 1,
       borderRadius: radius.pill,
       backgroundColor: colors.muted,
+      minWidth: 18,
+      alignItems: "center",
+      justifyContent: "center",
     },
     tabBadgeActive: {
       backgroundColor: "rgba(255,255,255,0.25)",

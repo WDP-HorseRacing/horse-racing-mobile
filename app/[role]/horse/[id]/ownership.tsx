@@ -203,18 +203,10 @@ export default function HorseOwnership() {
                 />
               ) : owners.length ? (
                 <Chips
-                  options={owners.map((owner) => `${owner.fullName} · ${owner.id.slice(0, 6)}`)}
-                  value={
-                    owners.find((owner) => owner.id === newOwnerId)
-                      ? `${owners.find((owner) => owner.id === newOwnerId)!.fullName} · ${newOwnerId.slice(0, 6)}`
-                      : ""
-                  }
+                  options={owners.map((owner) => owner.fullName)}
+                  value={owners.find((owner) => owner.id === newOwnerId)?.fullName ?? ""}
                   onChange={(label) =>
-                    setNewOwnerId(
-                      owners.find(
-                        (owner) => `${owner.fullName} · ${owner.id.slice(0, 6)}` === label,
-                      )?.id ?? "",
-                    )
+                    setNewOwnerId(owners.find((owner) => owner.fullName === label)?.id ?? "")
                   }
                 />
               ) : (
