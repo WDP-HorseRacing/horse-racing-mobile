@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -1452,6 +1454,77 @@ function SupplyDetailsModal({
   const resource = useApiResource(load, Boolean(token));
   const showPrice = role === "manager";
 
+  const panY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    panY.setValue(0);
+  }, [panY]);
+
+  const handlePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 0,
+        onPanResponderMove: (_, gesture) => {
+          if (gesture.dy > 0) {
+            panY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > 60 || gesture.vy > 0.5) {
+            Animated.timing(panY, {
+              toValue: 600,
+              duration: 180,
+              useNativeDriver: true,
+            }).start(() => {
+              panY.setValue(0);
+              onClose();
+            });
+          } else {
+            Animated.spring(panY, {
+              toValue: 0,
+              bounciness: 4,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+      }),
+    [onClose, panY],
+  );
+
+  const headerPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          gesture.dy > 5 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderMove: (_, gesture) => {
+          if (gesture.dy > 0) {
+            panY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > 60 || gesture.vy > 0.5) {
+            Animated.timing(panY, {
+              toValue: 600,
+              duration: 180,
+              useNativeDriver: true,
+            }).start(() => {
+              panY.setValue(0);
+              onClose();
+            });
+          } else {
+            Animated.spring(panY, {
+              toValue: 0,
+              bounciness: 4,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+      }),
+    [onClose, panY],
+  );
+
   return (
     <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.modalRoot}>
@@ -1461,11 +1534,16 @@ function SupplyDetailsModal({
           onPress={onClose}
           style={StyleSheet.absoluteFill}
         />
-        <View style={styles.sheet}>
-          <View style={styles.sheetHandle} />
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: panY }] }]}>
+          <View
+            style={{ width: "100%", alignItems: "center", paddingTop: 4, paddingBottom: 8 }}
+            {...handlePanResponder.panHandlers}
+          >
+            <View style={styles.sheetHandle} />
+          </View>
 
           {/* Sheet Header */}
-          <View style={styles.sheetHeader}>
+          <View style={styles.sheetHeader} {...headerPanResponder.panHandlers}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.sheetTitle}>{item.name}</Text>
               <Text style={styles.sheetSubtitle}>
@@ -1699,14 +1777,23 @@ function SupplyDetailsModal({
 
                       {canCancelUsage ? (
                         <View style={{ marginTop: space.xs, alignSelf: "flex-end" }}>
-                          <SecondaryButton
-                            label={t("Hủy lần xuất này")}
-                            icon="close-circle-outline"
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={t("Hủy lần xuất này")}
+                            style={({ pressed }) => [
+                              styles.cancelIssueBtn,
+                              pressed && styles.cancelIssueBtnPressed,
+                            ]}
                             onPress={() => {
                               setCancellingUsageId(movement.usageId);
                               setCancelReason("");
                             }}
-                          />
+                          >
+                            <Ionicons name="arrow-undo-outline" size={14} color={colors.destructive} />
+                            <Text style={styles.cancelIssueBtnText}>
+                              {t("Hủy lần xuất này")}
+                            </Text>
+                          </Pressable>
                         </View>
                       ) : null}
                     </View>
@@ -1794,7 +1881,7 @@ function SupplyDetailsModal({
               </View>
             </Modal>
           ) : null}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -2477,5 +2564,26 @@ const getStyles = (colors: any) =>
       fontSize: 12,
       color: colors.destructive,
       marginTop: 4,
+    },
+    cancelIssueBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.injuredSoft,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: "rgba(239, 68, 68, 0.25)",
+    },
+    cancelIssueBtnPressed: {
+      opacity: 0.75,
+      transform: [{ scale: 0.98 }],
+    },
+    cancelIssueBtnText: {
+      color: colors.destructive,
+      fontSize: 12,
+      fontWeight: "700",
+      letterSpacing: -0.1,
     },
   });

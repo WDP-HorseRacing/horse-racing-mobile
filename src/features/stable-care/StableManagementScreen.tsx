@@ -789,7 +789,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                   barnViewMode === "stalls" && styles.viewModeSegmentTextActive,
                 ]}
               >
-                {t("Stall layout")}
+                {t("Sơ đồ ô chuồng")}
               </Text>
             </Pressable>
             <Pressable

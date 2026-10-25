@@ -10,4 +10,5 @@ export * from "./ActionRow";
 export * from "./MiniChart";
 export * from "./BottomSheetModal";
 export * from "./DatePickerField";
+export * from "./ReportWidgets";
 export * from "./styles";
