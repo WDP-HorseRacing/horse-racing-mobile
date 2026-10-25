@@ -41,6 +41,7 @@ import { suppliesService } from "@/services/supplies.service";
 import type { RoleId } from "@/types/raceos";
 import { formatDateTime, formatQuantity } from "@/utils/formatters";
 import { showApiError } from "@/utils/errorHandler";
+import { normalizeVietnamese } from "@/utils/horse-validation";
 
 type ScreenMode =
   | "item-create"
@@ -56,6 +57,29 @@ type ScreenMode =
 
 const CATEGORIES: SupplyCategory[] = ["FEED", "SUPPLEMENT", "MEDICINE", "EQUIPMENT"];
 const EMPLOYEE_ROLES = ["manager", "trainer", "vet", "groom"] as const;
+
+function matchesCategory(
+  item: SupplyItemDto,
+  catFilter: string,
+  t?: (key: string) => string,
+): boolean {
+  if (!catFilter || catFilter === "All" || catFilter === "Tất cả") return true;
+  if (catFilter === "Low stock" || catFilter === "Sắp hết") return item.lowStock;
+
+  const filterLower = catFilter.trim().toLowerCase();
+  const itemCatLower = item.category.trim().toLowerCase();
+  if (itemCatLower === filterLower) return true;
+
+  const label = supplyCategoryLabel(item.category);
+  if (label.toLowerCase() === filterLower) return true;
+
+  if (t) {
+    if (t(label).toLowerCase() === filterLower) return true;
+    if (t(item.category).toLowerCase() === filterLower) return true;
+  }
+
+  return false;
+}
 
 type InventoryPayload = { items: SupplyItemDto[]; requests: SupplyRequestDto[] };
 const EMPTY_ITEMS: SupplyItemDto[] = [];
@@ -117,14 +141,17 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
   const requests = resource.data?.requests ?? EMPTY_REQUESTS;
 
   const visibleItems = useMemo(() => {
-    const text = search.trim().toLocaleLowerCase();
+    const text = search.trim().toLowerCase();
+    const normText = normalizeVietnamese(text);
     return items.filter((item) => {
-      const categoryMatches =
-        category === "All" ||
-        (category === "Low stock" ? item.lowStock : item.category === category);
-      return categoryMatches && (!text || item.name.toLocaleLowerCase().includes(text));
+      const categoryMatches = matchesCategory(item, category, t);
+      const nameMatches =
+        !text ||
+        item.name.toLowerCase().includes(text) ||
+        (normText ? normalizeVietnamese(item.name).includes(normText) : false);
+      return categoryMatches && nameMatches;
     });
-  }, [category, items, search]);
+  }, [category, items, search, t]);
 
   const visibleRequests = useMemo(() => {
     if (requestFilter === "All") return requests;
@@ -518,21 +545,36 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                   </View>
 
                   {/* Title & Threshold */}
-                  <View style={styles.supplyCardMain}>
+                  <Pressable
+                    onPress={() => setDetailsItem(item)}
+                    style={styles.supplyCardMain}
+                  >
                     <Text style={styles.supplyName}>{item.name}</Text>
-                    <Text style={styles.supplyThreshold}>
-                      {t("reorder threshold")} {formatQuantity(item.reorderThreshold, item.unit)}
-                    </Text>
-                  </View>
+                    <View style={styles.thresholdRow}>
+                      <Ionicons name="repeat-outline" size={13} color={colors.mutedForeground} />
+                      <Text style={styles.supplyThreshold}>
+                        {t("reorder threshold")}: {formatQuantity(item.reorderThreshold, item.unit)}
+                      </Text>
+                    </View>
+                  </Pressable>
 
                   {/* Stock Level Metric & Gauge */}
-                  <View style={styles.stockLevelContainer}>
+                  <Pressable
+                    onPress={() => setDetailsItem(item)}
+                    style={styles.stockLevelContainer}
+                  >
                     <View style={styles.stockLevelRow}>
-                      <Text
-                        style={[styles.stockLevelQty, item.lowStock && { color: colors.monitor }]}
-                      >
-                        {formatQuantity(item.quantityOnHand, item.unit)}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+                        <Text
+                          style={[
+                            styles.stockLevelQty,
+                            item.lowStock && { color: colors.monitor },
+                          ]}
+                        >
+                          {item.quantityOnHand}
+                        </Text>
+                        <Text style={styles.stockLevelUnit}>{item.unit}</Text>
+                      </View>
                       <Text style={styles.stockLevelRatio}>
                         {item.quantityOnHand > 0 ? `${stockRatio}%` : "0%"}
                       </Text>
@@ -541,78 +583,124 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                       value={stockRatio}
                       tone={item.lowStock ? colors.monitor : colors.primary}
                     />
-                  </View>
+                  </Pressable>
 
-                  {/* Interactive Action Area for Groom & Employees */}
+                  {/* Action Area: 2-Tier Modern Layout */}
                   <View style={styles.cardActionsContainer}>
-                    {canUse ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={t("Record use")}
-                        onPress={() => openMovement(item, "use")}
-                        style={styles.useActionBtn}
-                      >
-                        <Ionicons name="remove-circle-outline" size={17} color={colors.primary} />
-                        <Text style={styles.useActionBtnText}>{t("Record use")}</Text>
-                      </Pressable>
-                    ) : null}
-
-                    <View style={styles.cardSecondaryActionsRow}>
-                      {canRequest ? (
+                    {/* TIER 1: Stock Movements */}
+                    <View style={styles.cardMovementRow}>
+                      {isManager ? (
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={t("Propose restock")}
-                          onPress={() => openRequest(item)}
-                          style={styles.secondaryActionBtn}
+                          accessibilityLabel={t("Receive")}
+                          onPress={() => openMovement(item, "receive")}
+                          style={styles.receiveActionBtn}
                         >
-                          <Ionicons name="add-circle-outline" size={15} color={colors.foreground} />
-                          <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
-                            {t("Propose restock")}
+                          <Ionicons name="download-outline" size={16} color={colors.primary} />
+                          <Text style={styles.receiveActionBtnText} numberOfLines={1}>
+                            {t("Receive")}
                           </Text>
                         </Pressable>
                       ) : null}
 
+                      {canUse ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t("Use")}
+                          onPress={() => openMovement(item, "use")}
+                          style={[
+                            styles.useActionBtn,
+                            !isManager && {
+                              flex: canRequest ? 1 : undefined,
+                              width: canRequest ? undefined : "100%",
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="remove-circle-outline"
+                            size={16}
+                            color={colors.foreground}
+                          />
+                          <Text style={styles.useActionBtnText} numberOfLines={1}>
+                            {t("Use")}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+
+                      {!isManager && canRequest ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t("Propose restock")}
+                          onPress={() => openRequest(item)}
+                          style={styles.requestActionBtn}
+                        >
+                          <Ionicons
+                            name="add-circle-outline"
+                            size={16}
+                            color={colors.primary}
+                          />
+                          <Text style={styles.requestActionBtnText} numberOfLines={1}>
+                            {t("Propose restock")}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+
+                    {/* TIER 2: Management & Details */}
+                    <View style={styles.cardManagementRow}>
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={t("Stock details")}
                         onPress={() => setDetailsItem(item)}
-                        style={styles.secondaryActionBtn}
+                        style={styles.detailsActionBtn}
                       >
                         <Ionicons
                           name="document-text-outline"
                           size={15}
                           color={colors.foreground}
                         />
-                        <Text style={styles.secondaryActionBtnText} numberOfLines={1}>
+                        <Text style={styles.detailsActionBtnText} numberOfLines={1}>
                           {t("Stock details")}
                         </Text>
                       </Pressable>
+
+                      {isManager ? (
+                        <>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={t("Edit")}
+                            onPress={() => openItemForm(item)}
+                            style={styles.editActionBtn}
+                          >
+                            <Ionicons
+                              name="create-outline"
+                              size={15}
+                              color={colors.foreground}
+                            />
+                            <Text style={styles.editActionBtnText} numberOfLines={1}>
+                              {t("Edit")}
+                            </Text>
+                          </Pressable>
+
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={t("Delete")}
+                            onPress={() => removeItem(item)}
+                            style={styles.deleteActionBtn}
+                          >
+                            <Ionicons
+                              name="trash-outline"
+                              size={15}
+                              color={colors.destructive}
+                            />
+                            <Text style={styles.deleteActionBtnText} numberOfLines={1}>
+                              {t("Delete")}
+                            </Text>
+                          </Pressable>
+                        </>
+                      ) : null}
                     </View>
                   </View>
-
-                  {/* Manager Controls */}
-                  {isManager ? (
-                    <View style={[styles.cardActionsRow, { marginTop: space.xs }]}>
-                      <SecondaryButton
-                        label="Receive"
-                        icon="download-outline"
-                        onPress={() => openMovement(item, "receive")}
-                        style={{ flex: 1 }}
-                      />
-                      <SecondaryButton
-                        label="Edit details"
-                        icon="create-outline"
-                        onPress={() => openItemForm(item)}
-                        style={{ flex: 1 }}
-                      />
-                      <DangerButton
-                        label="Delete"
-                        icon="trash-outline"
-                        onPress={() => removeItem(item)}
-                        style={{ flex: 1 }}
-                      />
-                    </View>
-                  ) : null}
                 </View>
               );
             })}
@@ -1756,8 +1844,13 @@ const getStyles = (colors: any) =>
       borderWidth: 1,
       borderColor: colors.border,
       padding: space.md,
-      gap: space.sm,
+      gap: 10,
       marginBottom: space.sm,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 6,
+      elevation: 2,
     },
     supplyCardHeader: {
       flexDirection: "row",
@@ -1768,22 +1861,22 @@ const getStyles = (colors: any) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
       borderRadius: radius.pill,
     },
     categoryBadgeText: {
       fontSize: 11,
       fontWeight: "700",
       textTransform: "uppercase",
-      letterSpacing: 0.3,
+      letterSpacing: 0.5,
     },
     statusBadge: {
       flexDirection: "row",
       alignItems: "center",
       gap: 5,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
       borderRadius: radius.pill,
     },
     statusBadgeGood: {
@@ -1793,29 +1886,38 @@ const getStyles = (colors: any) =>
       backgroundColor: colors.monitorSoft,
     },
     statusDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
+      width: 7,
+      height: 7,
+      borderRadius: 4,
     },
     statusBadgeText: {
       fontSize: 11,
       fontWeight: "700",
     },
     supplyCardMain: {
-      gap: 2,
+      gap: 3,
     },
     supplyName: {
       fontSize: 17,
       fontWeight: "700",
       color: colors.foreground,
+      letterSpacing: -0.2,
+    },
+    thresholdRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
     },
     supplyThreshold: {
       fontSize: 12,
       color: colors.mutedForeground,
+      fontWeight: "500",
     },
     stockLevelContainer: {
-      gap: 4,
-      paddingTop: 2,
+      backgroundColor: colors.elevated,
+      borderRadius: radius.sm,
+      padding: space.sm,
+      gap: 6,
     },
     stockLevelRow: {
       flexDirection: "row",
@@ -1823,97 +1925,152 @@ const getStyles = (colors: any) =>
       justifyContent: "space-between",
     },
     stockLevelQty: {
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: "800",
       color: colors.foreground,
     },
+    stockLevelUnit: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+      marginLeft: 4,
+    },
     stockLevelRatio: {
       fontSize: 12,
-      fontWeight: "600",
+      fontWeight: "700",
       color: colors.mutedForeground,
     },
 
-    // Action buttons inside card
+    // Action buttons inside card - Modern 2-Tier Layout
     cardActionsContainer: {
-      gap: space.xs,
+      gap: 8,
       paddingTop: space.xs,
-      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    cardActionsRow: {
+    cardMovementRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: space.xs,
-      paddingTop: space.xs,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border,
+      gap: 8,
     },
-    useActionBtn: {
-      width: "100%",
+    receiveActionBtn: {
+      flex: 1,
+      minHeight: 40,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 6,
-      paddingVertical: 10,
-      paddingHorizontal: space.sm,
+      paddingVertical: 9,
+      paddingHorizontal: 8,
       borderRadius: radius.sm,
       backgroundColor: colors.fitSoft,
       borderWidth: 1,
       borderColor: colors.primary,
     },
-    useActionBtnText: {
+    receiveActionBtnText: {
       fontSize: 13,
       fontWeight: "700",
       color: colors.primary,
     },
-    cardSecondaryActionsRow: {
+    useActionBtn: {
+      flex: 1,
+      minHeight: 40,
       flexDirection: "row",
       alignItems: "center",
-      gap: space.xs,
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 9,
+      paddingHorizontal: 8,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    secondaryActionBtn: {
+    useActionBtnText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    requestActionBtn: {
       flex: 1,
+      minHeight: 40,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 9,
+      paddingHorizontal: 8,
+      borderRadius: radius.sm,
+      backgroundColor: colors.fitSoft,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    requestActionBtnText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    cardManagementRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    detailsActionBtn: {
+      flex: 1.3,
+      minHeight: 38,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 5,
-      paddingVertical: 9,
-      paddingHorizontal: space.xs,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
       borderRadius: radius.sm,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    requestActionBtn: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-      paddingVertical: 9,
-      paddingHorizontal: 6,
-      borderRadius: radius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    detailsActionBtn: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-      paddingVertical: 9,
-      paddingHorizontal: 6,
-      borderRadius: radius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    secondaryActionBtnText: {
+    detailsActionBtnText: {
       fontSize: 12,
       fontWeight: "600",
       color: colors.foreground,
+    },
+    editActionBtn: {
+      flex: 0.95,
+      minHeight: 38,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    editActionBtnText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    deleteActionBtn: {
+      flex: 0.75,
+      minHeight: 38,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.injuredSoft,
+      borderWidth: 1,
+      borderColor: colors.destructive,
+    },
+    deleteActionBtnText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.destructive,
     },
 
     // Request Card
