@@ -1423,7 +1423,7 @@ export function CareTaskTypesScreen() {
       title="Care task types"
       subtitle="Manage reusable stable care tasks"
       back
-      fallbackHref="/manager/operations"
+      fallbackHref="/manager"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -1524,7 +1524,7 @@ export function UnappliedSurchargesScreen() {
       title="Surcharges"
       subtitle="Unapplied care charges across the club"
       back
-      fallbackHref="/manager/operations"
+      fallbackHref="/manager"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >

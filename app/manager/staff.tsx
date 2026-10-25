@@ -170,7 +170,7 @@ export default function StaffManagement() {
         subtitle={editingPerson?.fullName ?? "New club account"}
         back
         onBack={() => setIsAdding(false)}
-        fallbackHref="/manager/operations"
+        fallbackHref="/manager"
       >
         <Field label="Full name">
           <NativeInput value={name} onChangeText={setName} placeholder="e.g. Nguyen Van A" />
@@ -262,7 +262,7 @@ export default function StaffManagement() {
       title="Staff"
       subtitle="Manage club accounts and roles"
       back
-      fallbackHref="/manager/operations"
+      fallbackHref="/manager"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >

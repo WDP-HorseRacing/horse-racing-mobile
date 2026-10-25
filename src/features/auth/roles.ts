@@ -173,12 +173,6 @@ export const roles: Record<RoleId, RoleConfig> = {
         description: "Overview of all barns and stalls.",
       },
       {
-        label: "Operations",
-        icon: "business-outline",
-        path: "/manager/operations",
-        description: "Audit log and administrative overview.",
-      },
-      {
         label: "Supplies",
         icon: "cube-outline",
         path: "/manager/inventory",

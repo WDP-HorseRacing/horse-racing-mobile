@@ -43,7 +43,7 @@ async function loadWorkStats(token: string, role: RoleId, userId: string): Promi
       const activeUsers = users.filter((u) => u.status === "ACTIVE").length;
       return [
         { label: "Horses in club", value: horses.length, route: "/manager/horses" },
-        { label: "Active barns", value: barns.length, route: "/manager/operations" },
+        { label: "Active barns", value: barns.length, route: "/manager/stable" },
         { label: "Active staff", value: activeUsers, route: "/manager/staff" },
       ];
     }

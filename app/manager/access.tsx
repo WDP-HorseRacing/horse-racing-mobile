@@ -143,7 +143,7 @@ export default function AccessControl() {
         subtitle="Configure RBAC settings"
         back
         onBack={() => setEditingRole(null)}
-        fallbackHref="/manager/operations"
+        fallbackHref="/manager"
       >
         <View style={uiStyles.section}>
           <SectionTitle>Role Information</SectionTitle>
@@ -226,7 +226,7 @@ export default function AccessControl() {
       title="Access Control"
       subtitle="Manage roles, access scope, and system permissions"
       back
-      fallbackHref="/manager/operations"
+      fallbackHref="/manager"
     >
       <View style={uiStyles.section}>
         <SectionTitle>System Roles</SectionTitle>

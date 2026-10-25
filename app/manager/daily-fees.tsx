@@ -147,7 +147,7 @@ export default function ManagerDailyFees() {
       title="Daily boarding fees"
       subtitle="Set the club-wide VND rate per horse per day"
       back
-      fallbackHref="/manager/operations"
+      fallbackHref="/manager"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
