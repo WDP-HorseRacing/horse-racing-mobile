@@ -15,6 +15,7 @@ import { Panel, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
+import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
 import { groomService } from "@/services/groom.service";
 import { stableService, type BarnListItemDto, type StallDto } from "@/services/stable.service";
@@ -53,6 +54,7 @@ export default function Stable() {
   }, [token]);
 
   const resource = useApiResource(loadStable, Boolean(token));
+  useRefreshOnFocus(resource.revalidate);
   const payload = resource.data;
 
   // Map horses by location to find which horse is in which stall
@@ -68,17 +70,11 @@ export default function Stable() {
 
   // Unassigned horses (Awaiting placement)
   const pendingBarnHorses = useMemo(() => {
-    return (payload?.allHorses ?? []).filter(
-      (h) => h.location.placementStatus === "PENDING_BARN" || !h.location.barn,
-    );
+    return (payload?.allHorses ?? []).filter((h) => h.location.placementStatus === "PENDING_BARN");
   }, [payload?.allHorses]);
 
   const pendingStallHorses = useMemo(() => {
-    return (payload?.allHorses ?? []).filter(
-      (h) =>
-        h.location.placementStatus === "PENDING_STALL" ||
-        (Boolean(h.location.barn) && !h.location.stall),
-    );
+    return (payload?.allHorses ?? []).filter((h) => h.location.placementStatus === "PENDING_STALL");
   }, [payload?.allHorses]);
 
   const totalAwaitingPlacement = pendingBarnHorses.length + pendingStallHorses.length;

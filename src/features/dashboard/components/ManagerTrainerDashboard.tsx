@@ -102,17 +102,12 @@ export function ManagerTrainerDashboard({
   const watchHorses = useMemo(() => horses.filter(isWatch), [horses]);
 
   const pendingBarnHorses = useMemo(
-    () => horses.filter((h) => h.location.placementStatus === "PENDING_BARN" || !h.location.barn),
+    () => horses.filter((h) => h.location.placementStatus === "PENDING_BARN"),
     [horses],
   );
 
   const pendingStallHorses = useMemo(
-    () =>
-      horses.filter(
-        (h) =>
-          h.location.placementStatus === "PENDING_STALL" ||
-          (Boolean(h.location.barn) && !h.location.stall),
-      ),
+    () => horses.filter((h) => h.location.placementStatus === "PENDING_STALL"),
     [horses],
   );
 

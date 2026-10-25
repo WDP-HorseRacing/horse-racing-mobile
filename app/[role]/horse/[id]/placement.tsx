@@ -14,6 +14,14 @@ import { stableService } from "@/services/stable.service";
 import { isRole } from "@/features/auth/roles";
 import { extractErrorMessage } from "@/utils/errorHandler";
 
+const PLACEMENT_STATUS_LABELS: Record<string, string> = {
+  PENDING_BARN: "Awaiting barn",
+  PENDING_STALL: "Awaiting stall",
+  PENDING_GROOM: "Awaiting Groom",
+  PLACED: "Placed",
+  NOT_APPLICABLE: "Not applicable",
+};
+
 export default function HorsePlacement() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -50,6 +58,9 @@ export default function HorsePlacement() {
 
   const currentStall = horseResource.data?.location.stall;
   const currentGroom = horseResource.data?.groom;
+  const isPlaced = horseResource.data?.location.placementStatus === "PLACED";
+  const stallChanged = Boolean(stallId) && stallId !== currentStall?.id;
+  const groomChanged = Boolean(groomId) && groomId !== currentGroom?.id;
 
   useEffect(() => {
     if (horseResource.data) {
@@ -170,7 +181,7 @@ export default function HorsePlacement() {
   };
 
   const saveStallOnly = async () => {
-    if (!token || !stallId || saving) return;
+    if (!token || !stallChanged || saving) return;
     setSaving(true);
     setFormError("");
     try {
@@ -188,7 +199,7 @@ export default function HorsePlacement() {
   };
 
   const saveGroomOnly = async () => {
-    if (!token || !groomId || saving) return;
+    if (!token || !groomChanged || saving) return;
     setSaving(true);
     setFormError("");
     try {
@@ -206,12 +217,12 @@ export default function HorsePlacement() {
   };
 
   const placeHorse = async () => {
-    if (!token || (!stallId && !groomId) || saving) return;
-    if (stallId && !groomId) {
+    if (!token || (!stallChanged && !groomChanged) || saving) return;
+    if (stallChanged && !groomChanged) {
       await saveStallOnly();
       return;
     }
-    if (!stallId && groomId) {
+    if (!stallChanged && groomChanged) {
       await saveGroomOnly();
       return;
     }
@@ -352,7 +363,7 @@ export default function HorsePlacement() {
 
       {canPlace ? (
         <Panel>
-          <SectionTitle>Assign a stall and Groom</SectionTitle>
+          <SectionTitle>{isPlaced ? "Change stall or Groom" : "Assign a stall and Groom"}</SectionTitle>
           {barnIdForQuery ? (
             <View style={{ gap: 14, marginTop: 12 }}>
               <Field label="Available stall">
@@ -376,7 +387,7 @@ export default function HorsePlacement() {
                         setStallId(matched?.id ?? "");
                       }}
                     />
-                    {stallId && stallId !== currentStall?.id ? (
+                    {stallChanged ? (
                       <SecondaryButton
                         label={saving ? t("Saving…") : t("Save stall only")}
                         icon="checkmark-outline"
@@ -410,7 +421,7 @@ export default function HorsePlacement() {
                         setGroomId(matched?.groomId ?? "");
                       }}
                     />
-                    {groomId && groomId !== currentGroom?.id ? (
+                    {groomChanged ? (
                       <SecondaryButton
                         label={saving ? t("Saving…") : t("Save Groom only")}
                         icon="checkmark-outline"
@@ -425,9 +436,19 @@ export default function HorsePlacement() {
               </Field>
               {formError ? <Text style={styles.error}>{formError}</Text> : null}
               <PrimaryButton
-                label={saving ? t("Saving…") : t("Confirm stall and Groom")}
+                label={
+                  saving
+                    ? t("Saving…")
+                    : !stallChanged && !groomChanged
+                      ? t("No changes")
+                      : stallChanged && groomChanged
+                        ? t("Confirm stall and Groom")
+                        : stallChanged
+                          ? t("Save stall only")
+                          : t("Save Groom only")
+                }
                 icon="checkmark"
-                disabled={saving || (!stallId && !groomId)}
+                disabled={saving || (!stallChanged && !groomChanged)}
                 onPress={() => void placeHorse()}
               />
             </View>
@@ -440,7 +461,10 @@ export default function HorsePlacement() {
         <Panel>
           <SectionTitle>{t("Stall and Groom management")}</SectionTitle>
           <Text style={{ fontWeight: "700", color: colors.primary, marginBottom: 4 }}>
-            {t("Status")}: {t("Chờ xếp ô chuồng")} ({horseResource.data.location.placementStatus ?? "PENDING_STALL"})
+            {t("Status")}: {t(
+              PLACEMENT_STATUS_LABELS[horseResource.data.location.placementStatus] ??
+                horseResource.data.location.placementStatus,
+            )}
           </Text>
           <Text>
             {t(

@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
+  Animated,
   DimensionValue,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -43,6 +45,79 @@ export function BottomSheetModal({
   const { colors } = useTheme();
   const { t } = useI18n();
 
+  const panY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      panY.setValue(0);
+    }
+  }, [visible, panY]);
+
+  const handlePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 0,
+        onPanResponderMove: (_, gesture) => {
+          if (gesture.dy > 0) {
+            panY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > 60 || gesture.vy > 0.5) {
+            Animated.timing(panY, {
+              toValue: 600,
+              duration: 180,
+              useNativeDriver: true,
+            }).start(() => {
+              panY.setValue(0);
+              onClose();
+            });
+          } else {
+            Animated.spring(panY, {
+              toValue: 0,
+              bounciness: 4,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+      }),
+    [onClose, panY],
+  );
+
+  const headerPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          gesture.dy > 5 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderMove: (_, gesture) => {
+          if (gesture.dy > 0) {
+            panY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dy > 60 || gesture.vy > 0.5) {
+            Animated.timing(panY, {
+              toValue: 600,
+              duration: 180,
+              useNativeDriver: true,
+            }).start(() => {
+              panY.setValue(0);
+              onClose();
+            });
+          } else {
+            Animated.spring(panY, {
+              toValue: 0,
+              bounciness: 4,
+              useNativeDriver: true,
+            }).start();
+          }
+        },
+      }),
+    [onClose, panY],
+  );
+
   return (
     <Modal
       visible={visible}
@@ -61,23 +136,30 @@ export function BottomSheetModal({
           onPress={saveLoading ? undefined : onClose}
           style={styles.backdrop}
         />
-        <View
+        <Animated.View
           style={[
             styles.sheet,
             {
               backgroundColor: colors.surface,
               maxHeight,
               borderColor: colors.border,
+              transform: [{ translateY: panY }],
             },
           ]}
         >
-          {/* Top drag handle indicator */}
-          <View style={styles.handleContainer}>
+          {/* Top drag handle indicator - drag down or tap to dismiss */}
+          <View
+            style={styles.handleContainer}
+            {...handlePanResponder.panHandlers}
+          >
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
           </View>
 
           {/* Top Header Bar: Left = Cancel, Center = Title, Right = Save */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View
+            style={[styles.header, { borderBottomColor: colors.border }]}
+            {...headerPanResponder.panHandlers}
+          >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={cancelLabel ?? t("Cancel")}
@@ -132,7 +214,7 @@ export function BottomSheetModal({
           >
             {children}
           </ScrollView>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

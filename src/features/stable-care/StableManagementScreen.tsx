@@ -26,6 +26,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
+import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
 import {
   stableService,
@@ -177,6 +178,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
   }, [token, role]);
 
   const resource = useApiResource(loadStable, Boolean(token));
+  useRefreshOnFocus(resource.revalidate);
   const payload = resource.data;
 
   // Map horses by stall ID and by barn:stallCode
@@ -204,17 +206,11 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
 
   // Unassigned horses (Awaiting placement)
   const pendingBarnHorses = useMemo(() => {
-    return (payload?.horses ?? []).filter(
-      (h) => h.location.placementStatus === "PENDING_BARN" || !h.location.barn,
-    );
+    return (payload?.horses ?? []).filter((h) => h.location.placementStatus === "PENDING_BARN");
   }, [payload?.horses]);
 
   const pendingStallHorses = useMemo(() => {
-    return (payload?.horses ?? []).filter(
-      (h) =>
-        h.location.placementStatus === "PENDING_STALL" ||
-        (Boolean(h.location.barn) && !h.location.stall),
-    );
+    return (payload?.horses ?? []).filter((h) => h.location.placementStatus === "PENDING_STALL");
   }, [payload?.horses]);
 
   const pendingGroomHorses = useMemo(() => {
@@ -1358,7 +1354,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                     unassignedTab === "groom" && styles.segmentBtnTextActive,
                   ]}
                 >
-                  {t("Chờ giao Groom")} ({pendingGroomHorses.length})
+                  {t("Awaiting Groom")} ({pendingGroomHorses.length})
                 </Text>
               </Pressable>
             </View>
