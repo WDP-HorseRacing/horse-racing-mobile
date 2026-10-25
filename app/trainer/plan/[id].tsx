@@ -39,6 +39,7 @@ import {
 } from "@/services/training.service";
 import { horseService } from "@/services/horse.service";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
+import { formatSessionType, formatIntensity } from "../plans";
 import {
   addDaysToClubDate,
   classWeekNumber,
@@ -93,6 +94,7 @@ export default function TrainingClassDetail() {
   const [addModalHorses, setAddModalHorses] = useState<EnrollableHorseDto[]>([]);
   const [addSearch, setAddSearch] = useState("");
   const [addedHorseIds, setAddedHorseIds] = useState<Set<string>>(new Set());
+  const [addedEnrollmentIds, setAddedEnrollmentIds] = useState<Map<string, string>>(new Map());
   const [editModalHorses, setEditModalHorses] = useState<HorseEnrollmentDto[]>([]);
 
   const load = useCallback(async () => {
@@ -163,6 +165,7 @@ export default function TrainingClassDetail() {
     setAddModalVisible(true);
     setLoadingEnrollable(true);
     setAddedHorseIds(new Set());
+    setAddedEnrollmentIds(new Map());
     try {
       const list = await trainingService.listEnrollableHorses(token!, classId);
       const activeHorseIds = new Set(
@@ -179,11 +182,46 @@ export default function TrainingClassDetail() {
   const enrollSingleHorse = async (horseId: string) => {
     try {
       setPending(`enroll:${horseId}`);
-      await trainingService.enrollHorse(token!, classId, horseId);
+      const res = await trainingService.enrollHorse(token!, classId, horseId);
       setAddedHorseIds((prev) => new Set(prev).add(horseId));
+      if (res?.id) {
+        setAddedEnrollmentIds((prev) => new Map(prev).set(horseId, res.id));
+      }
       void resource.refresh();
     } catch (error) {
       Alert.alert("Lỗi đăng ký ngựa", extractErrorMessage(error));
+    } finally {
+      setPending("");
+    }
+  };
+
+  const unenrollSingleHorse = async (horseId: string) => {
+    let enrollmentId = addedEnrollmentIds.get(horseId);
+    if (!enrollmentId) {
+      enrollmentId = (payload?.enrollments ?? []).find(
+        (e) => e.horseId === horseId && e.status === "ACTIVE",
+      )?.id;
+    }
+    if (!enrollmentId) {
+      Alert.alert(t("Lỗi hoàn tác"), t("Không tìm thấy thông tin ghi danh để hoàn tác."));
+      return;
+    }
+    try {
+      setPending(`enroll:${horseId}`);
+      await trainingService.leaveEnrollment(token!, enrollmentId, { reason: "Added by mistake" });
+      setAddedHorseIds((prev) => {
+        const next = new Set(prev);
+        next.delete(horseId);
+        return next;
+      });
+      setAddedEnrollmentIds((prev) => {
+        const next = new Map(prev);
+        next.delete(horseId);
+        return next;
+      });
+      void resource.refresh();
+    } catch (error) {
+      Alert.alert(t("Lỗi gỡ ngựa"), extractErrorMessage(error));
     } finally {
       setPending("");
     }
@@ -429,7 +467,7 @@ export default function TrainingClassDetail() {
                 onSave={() => void saveClass()}
                 saveLoading={pending === "class"}
                 saveDisabled={pending !== ""}
-                saveLabel="Save class"
+                saveLabel={t("Lưu")}
                 cancelLabel="Cancel"
               >
                 <Field label="Class code">
@@ -769,9 +807,7 @@ export default function TrainingClassDetail() {
                 onSave={() => void addSessions()}
                 saveLoading={pending === "sessions"}
                 saveDisabled={pending !== "" || !allowedSubjects.length}
-                saveLabel={
-                  repeatWeeks === "1" ? "Schedule session" : "Schedule repeated sessions"
-                }
+                saveLabel={t("Lưu")}
                 cancelLabel="Cancel"
               >
                 <Text style={ui.value}>Add a session from this class phase</Text>
@@ -875,7 +911,7 @@ export default function TrainingClassDetail() {
                         {formatDateTime(session.scheduledEndAt)}
                       </Text>
                       <Text style={ui.label}>
-                        {session.sessionType.replaceAll("_", " ")} · {session.intensity} ·{" "}
+                        {formatSessionType(session.sessionType, t)} · {formatIntensity(session.intensity, t)} ·{" "}
                         {session.plannedDistanceM} m
                       </Text>
                       {session.cancelReason ? (
@@ -986,8 +1022,14 @@ export default function TrainingClassDetail() {
                     </Text>
                   </View>
                   <Pressable
-                    disabled={isAdded || pending === `enroll:${horse.horseId}`}
-                    onPress={() => void enrollSingleHorse(horse.horseId)}
+                    disabled={pending === `enroll:${horse.horseId}`}
+                    onPress={() => {
+                      if (isAdded) {
+                        void unenrollSingleHorse(horse.horseId);
+                      } else {
+                        void enrollSingleHorse(horse.horseId);
+                      }
+                    }}
                     style={styles.modalActionBtn}
                   >
                     {pending === `enroll:${horse.horseId}` ? (

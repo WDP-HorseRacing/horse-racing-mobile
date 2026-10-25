@@ -187,7 +187,7 @@ export default function CreateTrainingClass() {
         <SecondaryButton
           label="Cancel"
           icon="close"
-          style={{ flex: 1, minHeight: 48 }}
+          style={{ minWidth: 90, minHeight: 48, paddingHorizontal: 16 }}
           onPress={() => safeBack("/trainer/training")}
         />
         <PrimaryButton

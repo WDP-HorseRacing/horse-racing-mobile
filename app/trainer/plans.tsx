@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
+import { useI18n } from "@/context/I18nContext";
 import {
   trainingService,
   type TrainingPlanDto,
@@ -21,6 +22,19 @@ import {
 } from "@/services/training.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { radius, space } from "@/config/theme";
+
+export function formatSessionType(type: string, t: (key: string) => string): string {
+  if (type === "TIME_TRIAL" || type === "TIME TRIAL") return t("Chạy thử");
+  if (type === "REGULAR") return t("Thông thường");
+  return type.replaceAll("_", " ");
+}
+
+export function formatIntensity(intensity: string, t: (key: string) => string): string {
+  if (intensity === "LIGHT") return t("Nhẹ");
+  if (intensity === "HEAVY") return t("Nặng");
+  if (intensity === "MODERATE") return t("Vừa");
+  return intensity;
+}
 
 type EditorPhase = {
   id: string;
@@ -37,7 +51,9 @@ const EMPTY_SUBJECTS: TrainingSubjectDto[] = [];
 
 export default function TrainerPlans() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const ui = getUiStyles(colors);
+  const styles = useMemo(() => getPlanStyles(colors), [colors]);
   const { token } = useAuth();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -447,82 +463,88 @@ export default function TrainerPlans() {
           </Field>
           {phases.map((phase, phaseIndex) => (
             <Panel key={phase.id} style={{ gap: 12 }}>
-              <View style={[ui.row, { flexWrap: "wrap", gap: 6 }]}>
-                <SectionTitle>Phase {phaseIndex + 1}</SectionTitle>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  {phaseIndex > 0 ? (
-                    <Pressable
-                      hitSlop={8}
-                      onPress={() => movePhaseUp(phaseIndex)}
-                      style={{
-                        paddingVertical: 4,
-                        paddingHorizontal: 8,
-                        borderRadius: radius.sm,
-                        backgroundColor: colors.surface,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                      }}
-                    >
-                      <Ionicons name="arrow-up" size={14} color={colors.foreground} />
-                    </Pressable>
+              <View style={styles.phaseHeaderRow}>
+                <View style={styles.phaseTitleRow}>
+                  <Text style={styles.phaseTitleText}>
+                    {t("Giai đoạn")} {phaseIndex + 1}
+                  </Text>
+                  {phases.length > 1 ? (
+                    <View style={styles.phaseOrderGroup}>
+                      {phaseIndex > 0 ? (
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() => movePhaseUp(phaseIndex)}
+                          style={({ pressed }) => [
+                            styles.phaseOrderBtn,
+                            { backgroundColor: colors.surface, borderColor: colors.border },
+                            pressed && { opacity: 0.6 },
+                          ]}
+                          accessibilityLabel={t("Chuyển lên")}
+                        >
+                          <Ionicons name="chevron-up" size={14} color={colors.foreground} />
+                        </Pressable>
+                      ) : null}
+                      {phaseIndex < phases.length - 1 ? (
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() => movePhaseDown(phaseIndex)}
+                          style={({ pressed }) => [
+                            styles.phaseOrderBtn,
+                            { backgroundColor: colors.surface, borderColor: colors.border },
+                            pressed && { opacity: 0.6 },
+                          ]}
+                          accessibilityLabel={t("Chuyển xuống")}
+                        >
+                          <Ionicons name="chevron-down" size={14} color={colors.foreground} />
+                        </Pressable>
+                      ) : null}
+                    </View>
                   ) : null}
-                  {phaseIndex < phases.length - 1 ? (
-                    <Pressable
-                      hitSlop={8}
-                      onPress={() => movePhaseDown(phaseIndex)}
-                      style={{
-                        paddingVertical: 4,
-                        paddingHorizontal: 8,
-                        borderRadius: radius.sm,
-                        backgroundColor: colors.surface,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                      }}
-                    >
-                      <Ionicons name="arrow-down" size={14} color={colors.foreground} />
-                    </Pressable>
-                  ) : null}
+                </View>
+
+                {/* Mobile UX Action Chips: Duplicate & Remove */}
+                <View style={styles.phaseActionsRow}>
                   <Pressable
-                    hitSlop={8}
+                    hitSlop={6}
                     onPress={() => duplicatePhase(phaseIndex)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 4,
-                      paddingVertical: 4,
-                      paddingHorizontal: 8,
-                      borderRadius: radius.sm,
-                      backgroundColor: colors.fitSoft,
-                    }}
+                    style={({ pressed }) => [
+                      styles.phaseActionChip,
+                      {
+                        backgroundColor: colors.fitSoft,
+                        borderColor: "rgba(5, 150, 105, 0.25)",
+                      },
+                      pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
+                    ]}
                   >
-                    <Ionicons name="copy-outline" size={14} color={colors.primary} />
-                    <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
-                      Nhân bản
+                    <Ionicons name="copy-outline" size={13} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }}>
+                      {t("Nhân bản")}
                     </Text>
                   </Pressable>
+
                   {phases.length > 1 ? (
                     <Pressable
-                      hitSlop={8}
+                      hitSlop={6}
                       onPress={() => setPhases((items) => items.filter((p) => p.id !== phase.id))}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 4,
-                        paddingVertical: 4,
-                        paddingHorizontal: 8,
-                        borderRadius: radius.sm,
-                        backgroundColor: "rgba(239, 68, 68, 0.1)",
-                      }}
+                      style={({ pressed }) => [
+                        styles.phaseActionChip,
+                        {
+                          backgroundColor: colors.injuredSoft,
+                          borderColor: "rgba(239, 68, 68, 0.25)",
+                        },
+                        pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
+                      ]}
                     >
-                      <Ionicons name="trash-outline" size={14} color={colors.destructive} />
-                      <Text style={{ color: colors.destructive, fontSize: 13, fontWeight: "600" }}>
-                        Gỡ giai đoạn
+                      <Ionicons name="trash-outline" size={13} color={colors.destructive} />
+                      <Text style={{ color: colors.destructive, fontSize: 12, fontWeight: "700" }}>
+                        {t("Xóa")}
                       </Text>
                     </Pressable>
                   ) : null}
                 </View>
               </View>
-              <Field label="Phase length (weeks)">
+
+              <Field label={t("Thời lượng giai đoạn (tuần)")}>
                 <NativeInput
                   value={phase.weeks}
                   onChangeText={(value) =>
@@ -532,20 +554,21 @@ export default function TrainerPlans() {
                 />
               </Field>
               <Text style={ui.label}>
-                Choose the subjects in this phase. No weekday pattern is used.
+                {t("Chọn các môn trong giai đoạn này. Không cần thiết lập lịch theo thứ trong tuần.")}
               </Text>
               <View style={{ gap: 8 }}>
                 {subjects.map((subject) => {
                   const selected = phase.subjects.find((item) => item.subjectId === subject.id);
                   return (
-                    <View
+                    <Pressable
                       key={subject.id}
+                      onPress={() => toggleSubject(phaseIndex, subject)}
                       style={{
                         borderWidth: 1,
                         borderColor: selected ? colors.primary : colors.border,
                         backgroundColor: selected ? colors.fitSoft : colors.surface,
                         padding: 12,
-                        borderRadius: 12,
+                        borderRadius: radius.md,
                         gap: 8,
                       }}
                     >
@@ -553,83 +576,52 @@ export default function TrainerPlans() {
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
-                          justifyContent: "space-between",
+                          gap: 10,
                         }}
                       >
-                        <Pressable
-                          onPress={() => toggleSubject(phaseIndex, subject)}
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                            flex: 1,
-                            minWidth: 0,
-                          }}
-                        >
-                          <Ionicons
-                            name={selected ? "checkmark-circle" : "ellipse-outline"}
-                            size={20}
-                            color={selected ? colors.primary : colors.mutedForeground}
-                          />
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={ui.value} numberOfLines={1}>
-                              {subject.name}
-                            </Text>
-                            <Text style={ui.muted} numberOfLines={1}>
-                              {subject.sessionType.replaceAll("_", " ")} · {subject.intensity} ·{" "}
-                              {subject.durationMinutes} min · {subject.plannedDistanceM} m
-                            </Text>
-                          </View>
-                        </Pressable>
-                        {selected ? (
-                          <Pressable
-                            hitSlop={8}
-                            onPress={() => toggleSubject(phaseIndex, subject)}
-                            style={{
-                              paddingHorizontal: 8,
-                              paddingVertical: 4,
-                              borderRadius: radius.sm,
-                              backgroundColor: "rgba(239, 68, 68, 0.1)",
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: colors.destructive,
-                                fontSize: 12,
-                                fontWeight: "600",
-                              }}
-                            >
-                              Gỡ môn
-                            </Text>
-                          </Pressable>
-                        ) : null}
+                        <Ionicons
+                          name={selected ? "checkmark-circle" : "ellipse-outline"}
+                          size={22}
+                          color={selected ? colors.primary : colors.mutedForeground}
+                        />
+                        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                          <Text style={[ui.value, { fontSize: 15 }]} numberOfLines={1}>
+                            {subject.name}
+                          </Text>
+                          <Text style={ui.muted} numberOfLines={1}>
+                            {formatSessionType(subject.sessionType, t)} · {formatIntensity(subject.intensity, t)} ·{" "}
+                            {subject.durationMinutes} {t("phút")} · {subject.plannedDistanceM} m
+                          </Text>
+                        </View>
                       </View>
                       {selected ? (
-                        <Field label="Minimum sessions each week">
-                          <NativeInput
-                            value={selected.minSessionsPerWeek}
-                            onChangeText={(value) =>
-                              setPhase(phaseIndex, (item) => ({
-                                ...item,
-                                subjects: item.subjects.map((row) =>
-                                  row.subjectId === subject.id
-                                    ? { ...row, minSessionsPerWeek: value }
-                                    : row,
-                                ),
-                              }))
-                            }
-                            keyboardType="number-pad"
-                          />
-                        </Field>
+                        <View style={{ marginTop: 4 }}>
+                          <Field label={t("Số buổi tối thiểu mỗi tuần")}>
+                            <NativeInput
+                              value={selected.minSessionsPerWeek}
+                              onChangeText={(value) =>
+                                setPhase(phaseIndex, (item) => ({
+                                  ...item,
+                                  subjects: item.subjects.map((row) =>
+                                    row.subjectId === subject.id
+                                      ? { ...row, minSessionsPerWeek: value }
+                                      : row,
+                                  ),
+                                }))
+                              }
+                              keyboardType="number-pad"
+                            />
+                          </Field>
+                        </View>
                       ) : null}
-                    </View>
+                    </Pressable>
                   );
                 })}
               </View>
             </Panel>
           ))}
           <SecondaryButton
-            label="Add phase"
+            label={t("Thêm giai đoạn")}
             icon="add"
             disabled={phases.length >= 52}
             onPress={() => setPhases((items) => [...items, emptyPhase()])}
@@ -666,3 +658,50 @@ export default function TrainerPlans() {
     </Screen>
   );
 }
+
+const getPlanStyles = (colors: any) =>
+  StyleSheet.create({
+    phaseHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingBottom: 2,
+    },
+    phaseTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    phaseTitleText: {
+      fontSize: 17,
+      fontWeight: "800",
+      color: colors.foreground,
+    },
+    phaseOrderGroup: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    phaseOrderBtn: {
+      paddingVertical: 3,
+      paddingHorizontal: 6,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    phaseActionsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    phaseActionChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+    },
+  });

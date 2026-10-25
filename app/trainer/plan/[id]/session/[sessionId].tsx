@@ -13,6 +13,7 @@ import {
   getUiStyles,
 } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
 import {
@@ -59,6 +60,7 @@ type ParticipantRow = {
 
 export default function TrainingSessionDetail() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const ui = getUiStyles(colors);
   const { id, sessionId } = useLocalSearchParams<{ id: string; sessionId: string }>();
   const classId = Array.isArray(id) ? id[0] : id;
@@ -420,8 +422,18 @@ export default function TrainingSessionDetail() {
                 ["Class", `${payload.trainingClass.code} · ${payload.trainingClass.name}`],
                 ["Start", formatDateTime(session!.scheduledStartAt)],
                 ["End", formatDateTime(session!.scheduledEndAt)],
-                ["Type", session!.sessionType.replaceAll("_", " ")],
-                ["Intensity", session!.intensity],
+                [
+                  "Type",
+                  session!.sessionType === "TIME_TRIAL" ? t("Chạy thử") : t("Thông thường"),
+                ],
+                [
+                  "Intensity",
+                  session!.intensity === "LIGHT"
+                    ? t("Nhẹ")
+                    : session!.intensity === "HEAVY"
+                      ? t("Nặng")
+                      : t("Vừa"),
+                ],
                 ["Planned distance", `${session!.plannedDistanceM.toLocaleString()} m`],
                 ["Location", session!.location ?? "—"],
                 ["Surface", session!.surface ?? "—"],
@@ -461,7 +473,7 @@ export default function TrainingSessionDetail() {
                 onSave={() => void saveSessionEdit()}
                 saveLoading={pending === "edit-session"}
                 saveDisabled={pending !== ""}
-                saveLabel="Save session changes"
+                saveLabel={t("Lưu")}
                 cancelLabel="Cancel"
               >
                 <Text style={ui.value}>Move or update this scheduled session</Text>
@@ -510,7 +522,7 @@ export default function TrainingSessionDetail() {
                     onSave={() => void saveTrialConfig()}
                     saveLoading={pending === "edit-trial"}
                     saveDisabled={pending !== ""}
-                    saveLabel="Save trial setup"
+                    saveLabel={t("Lưu")}
                     cancelLabel="Cancel"
                   >
                     <Field label="Trial distance (m)">

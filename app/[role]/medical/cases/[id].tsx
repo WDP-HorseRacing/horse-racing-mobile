@@ -652,7 +652,7 @@ export default function MedicalCaseDetail() {
             onSave={() => void submitCostAdjustment(adjustRecordId)}
             saveLoading={saving}
             saveDisabled={saving || !adjustCost || !adjustReason.trim()}
-            saveLabel="Lưu chi phí"
+            saveLabel="Lưu"
             cancelLabel="Hủy"
           >
             <Field label="Chi phí mới (VND)">

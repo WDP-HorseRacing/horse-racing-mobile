@@ -374,7 +374,7 @@ export default function ManagerTraining() {
             onSave={() => void saveSubject()}
             saveDisabled={saving || !subjectForm?.name.trim()}
             saveLoading={saving}
-            saveLabel={subjectForm?.id ? t("Save subject") : t("Create subject")}
+            saveLabel={t("Lưu")}
             cancelLabel={t("Cancel")}
           >
             {subjectForm ? (

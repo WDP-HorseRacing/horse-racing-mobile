@@ -501,7 +501,7 @@ export default function GroomTasks() {
       <BottomSheetModal
         visible={Boolean(noteItemId)}
         title="Checklist note"
-        saveLabel="Save note"
+        saveLabel={t("Lưu")}
         cancelLabel="Cancel"
         onSave={() => {
           if (!noteItemId) return;

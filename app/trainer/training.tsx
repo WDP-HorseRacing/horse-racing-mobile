@@ -5,11 +5,13 @@ import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { Chips, Metric, Panel, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
 import { trainingService, type TrainingSessionDto } from "@/services/training.service";
 import { formatDate, formatDateTime } from "@/utils/formatters";
 import { formatTrainingStatus } from "@/features/training/training-utils";
+import { formatSessionType, formatIntensity } from "./plans";
 
 type TrainingHubPayload = {
   classes: Awaited<ReturnType<typeof trainingService.listClasses>>;
@@ -19,6 +21,7 @@ type TrainingHubPayload = {
 
 export default function TrainerTraining() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const ui = getUiStyles(colors);
   const { token } = useAuth();
   const [tab, setTab] = useState("Classes");
@@ -164,8 +167,8 @@ export default function TrainerTraining() {
                       {trainingClass?.code ?? "Class"} · {formatDateTime(session.scheduledStartAt)}
                     </Text>
                     <Text style={ui.label}>
-                      {session.sessionType.replaceAll("_", " ")} ·{" "}
-                      {session.plannedDistanceM.toLocaleString()} m · {session.intensity}
+                      {formatSessionType(session.sessionType, t)} ·{" "}
+                      {session.plannedDistanceM.toLocaleString()} m · {formatIntensity(session.intensity, t)}
                     </Text>
                   </Panel>
                 </Pressable>
