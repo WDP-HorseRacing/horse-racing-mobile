@@ -12,6 +12,7 @@ import type { MedicalDashboardDto } from "@/adapters/medical.adapter";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
 import type { SupplyItemDto } from "@/adapters/supplies.adapter";
 import type { NotificationDto } from "@/adapters/notifications.adapter";
+import type { TrainingSessionDto } from "@/services/training.service";
 import { formatDate, formatDateTime, formatQuantity } from "@/utils/formatters";
 
 export interface VetDashboardData {
@@ -20,6 +21,7 @@ export interface VetDashboardData {
   checkups?: MedicalDashboardDto["checkups"];
   supplies?: SupplyItemDto[];
   notifications?: NotificationDto[];
+  activeSessions?: TrainingSessionDto[];
 }
 
 function HealthStatusBadge({
@@ -102,7 +104,29 @@ export function VetDashboard({
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  const { dashboard, horses = [], checkups = dashboard.checkups, supplies = [] } = data;
+  const {
+    dashboard,
+    horses = [],
+    checkups = dashboard.checkups,
+    supplies = [],
+    notifications = [],
+    activeSessions = [],
+  } = data;
+
+  const performanceNotifications = useMemo(
+    () =>
+      notifications.filter(
+        (n) =>
+          n.category === "PERFORMANCE_ALERT" ||
+          n.resource?.type?.toLowerCase() === "session_participant",
+      ),
+    [notifications],
+  );
+
+  const ongoingSessions = useMemo(
+    () => activeSessions.filter((s) => s.status === "IN_PROGRESS"),
+    [activeSessions],
+  );
 
   // 1. Critical & Monitored Horses
   const criticalHorses = useMemo(() => {
@@ -171,6 +195,106 @@ export function VetDashboard({
           tone={overdueCheckups.length > 0 ? "danger" : "default"}
         />
       </View>
+
+      {/* Active Training Telemetry & Performance Alerts (Flow 2 / F8-F9) */}
+      {performanceNotifications.length > 0 || ongoingSessions.length > 0 ? (
+        <View style={uiStyles.section}>
+          <SectionTitle
+            action={
+              <Pressable onPress={() => router.push("/vet/alerts" as Href)}>
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>
+                  {t("All alerts")}
+                </Text>
+              </Pressable>
+            }
+          >
+            {t("Live training telemetry & alerts")}
+          </SectionTitle>
+
+          {performanceNotifications.slice(0, 2).map((notif) => (
+            <Panel
+              key={notif.id}
+              style={{
+                borderColor: colors.destructive,
+                backgroundColor: colors.injuredSoft,
+                gap: 6,
+              }}
+            >
+              <View style={uiStyles.row}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                  <Ionicons name="warning" size={18} color={colors.destructive} />
+                  <Text
+                    style={{ ...uiStyles.label, color: colors.destructive, fontWeight: "700" }}
+                    numberOfLines={1}
+                  >
+                    {notif.title}
+                  </Text>
+                </View>
+                <Text style={uiStyles.muted}>{formatDateTime(notif.createdAt)}</Text>
+              </View>
+              <Text style={{ ...uiStyles.muted, color: colors.foreground }}>{notif.message}</Text>
+              <View style={[uiStyles.row, { marginTop: 4 }]}>
+                {notif.resource?.horseId ? (
+                  <Pressable
+                    onPress={() => router.push(`/vet/horse/${notif.resource!.horseId}` as Href)}
+                  >
+                    <Text style={{ ...uiStyles.label, color: colors.primary }}>
+                      {t("View horse profile")}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <Pressable onPress={() => router.push("/vet/alerts" as Href)}>
+                  <Text style={{ ...uiStyles.label, color: colors.destructive, fontWeight: "700" }}>
+                    Theo dõi cảnh báo (Live) →
+                  </Text>
+                </Pressable>
+              </View>
+            </Panel>
+          ))}
+
+          {ongoingSessions.map((session) => (
+            <Panel key={session.id} style={{ gap: 8 }}>
+              <View style={uiStyles.row}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                  <View
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: colors.destructive,
+                    }}
+                  />
+                  <Text style={[uiStyles.value, { fontSize: 15 }]} numberOfLines={1}>
+                    {session.name}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: radius.pill,
+                    backgroundColor: colors.fitSoft,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>
+                    ĐANG DIỄN RA
+                  </Text>
+                </View>
+              </View>
+              <Text style={uiStyles.muted}>
+                {formatDate(session.scheduledStartAt)} · {session.sessionType.replaceAll("_", " ")}
+              </Text>
+              <PrimaryButton
+                label="Theo dõi lượt tập (Live)"
+                icon="pulse"
+                onPress={() =>
+                  router.push(`/trainer/plan/${session.classId}/session/${session.id}` as Href)
+                }
+              />
+            </Panel>
+          ))}
+        </View>
+      ) : null}
 
       {/* Immediate Clinical Attention Queue (Urgent/Injured/Quarantined) */}
       {criticalHorses.length > 0 || urgentRequests.length > 0 ? (

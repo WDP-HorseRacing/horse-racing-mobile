@@ -31,6 +31,8 @@ import {
   subscribeToPerformanceMetrics,
   type PerformanceMetricPoint,
 } from "@/services/realtime.service";
+import { Ionicons } from "@expo/vector-icons";
+import { radius, space } from "@/config/theme";
 import { formatDateTime, formatDurationMs } from "@/utils/formatters";
 import {
   clubDateTimeParts,
@@ -38,7 +40,14 @@ import {
   formatTrainingStatus,
   isParticipantWindowOpen,
   MAX_TRIAL_TIME_MS,
+  parseTrialDurationMs,
 } from "@/features/training/training-utils";
+import {
+  startSimulation,
+  stopSimulation,
+  isSimulating,
+  sendHeartRateSpike,
+} from "@/features/training/sensor-simulator";
 import { extractErrorMessage } from "@/utils/errorHandler";
 
 type ParticipantRow = {
@@ -54,7 +63,8 @@ export default function TrainingSessionDetail() {
   const { id, sessionId } = useLocalSearchParams<{ id: string; sessionId: string }>();
   const classId = Array.isArray(id) ? id[0] : id;
   const sessionKey = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-  const { token } = useAuth();
+  const { token, role: userRole } = useAuth();
+  const isTrainer = !userRole || userRole === "trainer";
   const [pending, setPending] = useState("");
   const [absentId, setAbsentId] = useState("");
   const [absentReason, setAbsentReason] = useState("");
@@ -73,14 +83,29 @@ export default function TrainingSessionDetail() {
   const [trialTarget, setTrialTarget] = useState("");
   const [trialNotes, setTrialNotes] = useState("");
   const [liveMetrics, setLiveMetrics] = useState<Record<string, PerformanceMetricPoint>>({});
+  const [simulatingIds, setSimulatingIds] = useState<Record<string, boolean>>({});
+  const [stopParticipantId, setStopParticipantId] = useState("");
+  const [stopReason, setStopReason] = useState("");
+  const [showStopModal, setShowStopModal] = useState(false);
+  const [trialCompletionParticipantId, setTrialCompletionParticipantId] = useState("");
+  const [trialTimeInput, setTrialTimeInput] = useState("");
+  const [trialTimeNotes, setTrialTimeNotes] = useState("");
+  const [showTrialCompleteModal, setShowTrialCompleteModal] = useState(false);
   const hasFocusedRef = useRef(false);
 
+  useEffect(() => {
+    return () => {
+      stopSimulation();
+    };
+  }, []);
+
   const load = useCallback(async () => {
-    const [session, trainingClass, participants, grooms] = await Promise.all([
-      trainingService.getSession(token!, sessionKey),
-      trainingService.getClass(token!, classId),
+    const session = await trainingService.getSession(token!, sessionKey);
+    const effectiveClassId = session.classId || classId;
+    const [trainingClass, participants, grooms] = await Promise.all([
+      trainingService.getClass(token!, effectiveClassId),
       trainingService.listSessionParticipants(token!, sessionKey),
-      stableService.listGroomWorkload(token!),
+      stableService.listGroomWorkload(token!).catch(() => []),
     ]);
     const rows = await Promise.all(
       participants.map(async (participant): Promise<ParticipantRow> => {
@@ -201,6 +226,106 @@ export default function TrainingSessionDetail() {
     }
   };
 
+  const toggleSimulation = (participantId: string) => {
+    if (isSimulating(participantId)) {
+      stopSimulation(participantId);
+      setSimulatingIds((prev) => ({ ...prev, [participantId]: false }));
+    } else {
+      startSimulation(participantId, token, {
+        onTick: (point) => {
+          setLiveMetrics((current) => ({
+            ...current,
+            [participantId]: {
+              recordedAt: point.recordedAt,
+              heartRateBpm: point.heartRateBpm,
+              speedMps: point.speedMps,
+              alertLevel:
+                point.heartRateBpm >= 240
+                  ? "CRITICAL"
+                  : point.heartRateBpm >= 220
+                    ? "WARNING"
+                    : "NORMAL",
+            },
+          }));
+        },
+        onError: (err) => {
+          Alert.alert("Lỗi phát giả lập", extractErrorMessage(err));
+          setSimulatingIds((prev) => ({ ...prev, [participantId]: false }));
+        },
+      });
+      setSimulatingIds((prev) => ({ ...prev, [participantId]: true }));
+    }
+  };
+
+  const handleHeartRateSpike = async (participantId: string) => {
+    try {
+      await sendHeartRateSpike(participantId, token);
+      setLiveMetrics((current) => ({
+        ...current,
+        [participantId]: {
+          recordedAt: new Date().toISOString(),
+          heartRateBpm: 248,
+          speedMps: 16.8,
+          alertLevel: "CRITICAL",
+        },
+      }));
+      Alert.alert(
+        "Đã tạo vọt nhịp tim!",
+        "Đã gửi điểm đo 248 bpm lên hệ thống. Backend đã kích hoạt cảnh báo khẩn cấp tới Bác sĩ và Huấn luyện viên.",
+      );
+    } catch (err) {
+      Alert.alert("Không thể gửi dữ liệu", extractErrorMessage(err));
+    }
+  };
+
+  const submitStopParticipant = async () => {
+    if (!stopReason.trim()) {
+      Alert.alert("Lý do bắt buộc", "Vui lòng nhập lý do dừng sớm lượt tập (tối đa 500 ký tự).");
+      return;
+    }
+    if (
+      await perform(`stop:${stopParticipantId}`, () =>
+        trainingService.stopParticipant(token!, stopParticipantId, stopReason.trim()),
+      )
+    ) {
+      stopSimulation(stopParticipantId);
+      setSimulatingIds((prev) => ({ ...prev, [stopParticipantId]: false }));
+      setShowStopModal(false);
+      setStopParticipantId("");
+      setStopReason("");
+    }
+  };
+
+  const submitTrialComplete = async (withTime: boolean) => {
+    const pId = trialCompletionParticipantId;
+    if (withTime) {
+      const parsedMs = parseTrialDurationMs(trialTimeInput);
+      if (!parsedMs) {
+        Alert.alert("Thời gian không hợp lệ", "Vui lòng nhập định dạng mm:ss.s (ví dụ 01:14.5).");
+        return;
+      }
+    }
+    setShowTrialCompleteModal(false);
+    await perform(`complete:${pId}`, async () => {
+      await trainingService.completeParticipant(token!, pId);
+      if (withTime) {
+        const parsedMs = parseTrialDurationMs(trialTimeInput)!;
+        const row = payload?.rows.find((r) => r.participant.id === pId);
+        const attemptNo = (row?.results.length ?? 0) + 1;
+        await trainingService.createTrialResult(token!, pId, {
+          attemptNo,
+          elapsedMs: parsedMs,
+          notes: trialTimeNotes.trim() || undefined,
+        });
+      }
+    });
+    stopSimulation(pId);
+    setSimulatingIds((prev) => ({ ...prev, [pId]: false }));
+    setTrialTimeInput("");
+    setTrialTimeNotes("");
+    setTrialCompletionParticipantId("");
+  };
+
   const cancelSession = async () => {
     if (!cancelReason.trim())
       return Alert.alert("Reason required", "Enter a reason before cancelling the session.");
@@ -266,11 +391,11 @@ export default function TrainingSessionDetail() {
 
   return (
     <Screen
-      role="trainer"
+      role={userRole ?? "trainer"}
       title={session?.name ?? "Training session"}
       subtitle={payload?.trainingClass.name ?? "Session details"}
       back
-      fallbackHref={`/trainer/plan/${id}` as any}
+      fallbackHref={`/${userRole ?? "trainer"}` as any}
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -491,13 +616,31 @@ export default function TrainingSessionDetail() {
                         </Text>
                       ) : null}
                     </View>
+                      {participant.status === "STOPPED" ? (
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: radius.sm,
+                            backgroundColor: colors.injuredSoft,
+                            alignSelf: "flex-start",
+                            marginTop: 2,
+                          }}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.destructive }}>
+                            DỪNG SỚM
+                          </Text>
+                        </View>
+                      ) : null}
                     {participant.ineligibilityReason ||
                     participant.cancelReason ||
-                    participant.absenceReason ? (
+                    participant.absenceReason ||
+                    participant.stoppedReason ? (
                       <Text style={{ ...ui.muted, color: colors.destructive }}>
                         {participant.ineligibilityReason ??
                           participant.cancelReason ??
-                          participant.absenceReason}
+                          participant.absenceReason ??
+                          `Đã dừng sớm: ${participant.stoppedReason}`}
                       </Text>
                     ) : null}
                     {summary ? (
@@ -649,18 +792,38 @@ export default function TrainingSessionDetail() {
                             }
                           />
                         ) : null}
-                        {canComplete ? (
-                          <PrimaryButton
-                            label="Complete training"
-                            icon="checkmark-done"
-                            disabled={pending !== ""}
-                            style={{ flexGrow: 1 }}
-                            onPress={() =>
-                              void perform(`complete:${participant.id}`, () =>
-                                trainingService.completeParticipant(token!, participant.id),
-                              )
-                            }
-                          />
+                        {canComplete && isTrainer ? (
+                          <>
+                            <PrimaryButton
+                              label="Complete training"
+                              icon="checkmark-done"
+                              disabled={pending !== ""}
+                              style={{ flexGrow: 1 }}
+                              onPress={() => {
+                                if (session?.sessionType === "TIME_TRIAL") {
+                                  setTrialCompletionParticipantId(participant.id);
+                                  setTrialTimeInput("");
+                                  setTrialTimeNotes("");
+                                  setShowTrialCompleteModal(true);
+                                } else {
+                                  void perform(`complete:${participant.id}`, () =>
+                                    trainingService.completeParticipant(token!, participant.id),
+                                  );
+                                }
+                              }}
+                            />
+                            <SecondaryButton
+                              label="Dừng sớm lượt tập"
+                              icon="stop-circle-outline"
+                              disabled={pending !== ""}
+                              style={{ flexGrow: 1, borderColor: colors.destructive }}
+                              onPress={() => {
+                                setStopParticipantId(participant.id);
+                                setStopReason("");
+                                setShowStopModal(true);
+                              }}
+                            />
+                          </>
                         ) : null}
                         {participant.status !== "ONGOING" &&
                         participant.status !== "COMPLETED" &&
@@ -695,6 +858,61 @@ export default function TrainingSessionDetail() {
                           disabled={pending !== ""}
                           onPress={() => void reportAbsent(participant.id)}
                         />
+                      </View>
+                    ) : null}
+
+                    {/* Sensor Simulator Panel for Ongoing Horses */}
+                    {participant.status === "ONGOING" ? (
+                      <View
+                        style={{
+                          backgroundColor: colors.surface,
+                          borderRadius: radius.md,
+                          padding: space.sm,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          gap: 8,
+                          marginVertical: 4,
+                        }}
+                      >
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Ionicons name="hardware-chip-outline" size={16} color={colors.primary} />
+                            <Text style={{ fontWeight: "700", fontSize: 13, color: colors.foreground }}>
+                              Giả lập cảm biến IoT
+                            </Text>
+                          </View>
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: simulatingIds[participant.id]
+                                ? colors.primary
+                                : colors.mutedForeground,
+                              fontWeight: "600",
+                            }}
+                          >
+                            {simulatingIds[participant.id] ? "🟢 Đang phát tín hiệu" : "⚪ Tắt"}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <SecondaryButton
+                            label={simulatingIds[participant.id] ? "Dừng phát" : "Phát nhịp tim tự động"}
+                            icon={simulatingIds[participant.id] ? "pause-outline" : "pulse-outline"}
+                            style={{ flexGrow: 1 }}
+                            onPress={() => toggleSimulation(participant.id)}
+                          />
+                          <PrimaryButton
+                            label="⚡ Vọt nhịp tim"
+                            icon="flash"
+                            style={{ flexGrow: 1, backgroundColor: colors.destructive }}
+                            onPress={() => void handleHeartRateSpike(participant.id)}
+                          />
+                        </View>
                       </View>
                     ) : null}
 
@@ -776,6 +994,58 @@ export default function TrainingSessionDetail() {
           </View>
         </>
       ) : null}
+
+      {/* Early Stop Modal */}
+      <BottomSheetModal
+        visible={showStopModal}
+        title="Dừng sớm lượt tập"
+        onClose={() => setShowStopModal(false)}
+        onSave={() => void submitStopParticipant()}
+        saveLoading={pending === `stop:${stopParticipantId}`}
+        saveDisabled={pending !== "" || !stopReason.trim()}
+        saveLabel="Xác nhận dừng sớm"
+        cancelLabel="Hủy"
+      >
+        <Field label="Lý do dừng sớm (bắt buộc, tối đa 500 ký tự)">
+          <NativeInput
+            value={stopReason}
+            onChangeText={setStopReason}
+            multiline
+            placeholder="Nhập lý do dừng sớm lượt tập..."
+          />
+        </Field>
+      </BottomSheetModal>
+
+      {/* Complete Trial Run Modal */}
+      <BottomSheetModal
+        visible={showTrialCompleteModal}
+        title="Hoàn thành lượt chạy thử"
+        onClose={() => setShowTrialCompleteModal(false)}
+        onSave={() => void submitTrialComplete(Boolean(trialTimeInput.trim()))}
+        saveLoading={pending === `complete:${trialCompletionParticipantId}`}
+        saveDisabled={pending !== ""}
+        saveLabel={trialTimeInput.trim() ? "Hoàn thành & Lưu kết quả" : "Chỉ hoàn thành (Ghi sau)"}
+        cancelLabel="Hủy"
+      >
+        <Text style={ui.muted}>
+          Nhập thời gian chạy thử để hoàn thành và ghi nhận kết quả ngay, hoặc bấm tiếp tục để hoàn thành trước.
+        </Text>
+        <Field label="Thời gian chạy thử (mm:ss.s, ví dụ: 01:14.5)">
+          <NativeInput
+            value={trialTimeInput}
+            onChangeText={setTrialTimeInput}
+            placeholder="01:14.5"
+          />
+        </Field>
+        <Field label="Ghi chú kết quả (tùy chọn)">
+          <NativeInput
+            value={trialTimeNotes}
+            onChangeText={setTrialTimeNotes}
+            multiline
+            placeholder="Ghi chú về vòng chạy thử..."
+          />
+        </Field>
+      </BottomSheetModal>
     </Screen>
   );
 }

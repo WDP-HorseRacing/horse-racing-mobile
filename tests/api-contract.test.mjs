@@ -371,6 +371,7 @@ test("Mobile response DTO fields and JSON shapes agree with Backend success sche
       "POST /session-participants/{}/evaluation: response.comment: Mobile type includes null but Backend schema does not allow null",
       "POST /session-participants/{}/ready: response.checkedInAt: Mobile type includes null but Backend schema does not allow null",
       "POST /session-participants/{}/start: response.checkedInAt: Mobile type includes null but Backend schema does not allow null",
+      "POST /session-participants/{}/stop: response.checkedInAt: Mobile type includes null but Backend schema does not allow null",
       "GET /horses/{}/medical-records: response[].healthOutcome: Mobile expects a field absent from Backend schema",
       "GET /medical-cases/{}: response.visits[].healthOutcome: Mobile expects a field absent from Backend schema",
       "GET /medical-records/{}: response.healthOutcome: Mobile expects a field absent from Backend schema",

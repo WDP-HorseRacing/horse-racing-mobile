@@ -21,6 +21,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { trainingService, type TrainingClassDto } from "@/services/training.service";
 import { performanceService } from "@/services/performance.service";
 import { usersService } from "@/services/users.service";
+import { stableService, type BarnListItemDto } from "@/services/stable.service";
 import type { StaffDto } from "@/adapters/staff.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatDateTime, formatEnum } from "@/utils/formatters";
@@ -41,6 +42,7 @@ type ManagerPayload = {
     summary: Awaited<ReturnType<typeof performanceService.getHorseSummary>> | null;
   }[];
   users: StaffDto[];
+  barns: BarnListItemDto[];
 };
 
 type SubjectForm = {
@@ -86,11 +88,12 @@ export default function ManagerTraining() {
   const [handoverBusy, setHandoverBusy] = useState(false);
 
   const load = useCallback(async (): Promise<ManagerPayload> => {
-    const [subjects, plans, classes, users] = await Promise.all([
+    const [subjects, plans, classes, users, barns] = await Promise.all([
       trainingService.listSubjects(token!),
       trainingService.listPlans(token!),
       trainingService.listClasses(token!),
       usersService.list(token!),
+      stableService.listBarns(token!).catch(() => []),
     ]);
     const details = await Promise.all(
       classes.map(async (trainingClass) => {
@@ -118,7 +121,7 @@ export default function ManagerTraining() {
         return { horseId, horseName, summary: null };
       }
     });
-    return { subjects, plans, classes: details, performanceRows, users };
+    return { subjects, plans, classes: details, performanceRows, users, barns };
   }, [token]);
 
   const resource = useApiResource(load, Boolean(token));
@@ -288,6 +291,25 @@ export default function ManagerTraining() {
 
   const sourceTrainerObj = trainers.find((tr) => tr.id === sourceTrainer);
   const targetTrainerObj = trainers.find((tr) => tr.id === targetTrainer);
+
+  const transferredBarns = useMemo(
+    () => (payload?.barns ?? []).filter((b) => b.headTrainerId === sourceTrainer),
+    [payload?.barns, sourceTrainer],
+  );
+  const transferredPlans = useMemo(
+    () => (payload?.plans ?? []).filter((p) => p.headTrainerId === sourceTrainer),
+    [payload?.plans, sourceTrainer],
+  );
+  const transferredClasses = useMemo(
+    () =>
+      (payload?.classes ?? []).filter(
+        (c) =>
+          c.trainingClass.headTrainerId === sourceTrainer &&
+          c.trainingClass.status !== "COMPLETED" &&
+          c.trainingClass.status !== "CANCELLED",
+      ),
+    [payload?.classes, sourceTrainer],
+  );
 
   return (
     <Screen
@@ -918,7 +940,7 @@ export default function ManagerTraining() {
 
             {/* Transfer Preview Card */}
             {sourceTrainerObj && targetTrainerObj ? (
-              <View style={styles.transferPreviewCard}>
+              <View style={[styles.transferPreviewCard, { gap: 10 }]}>
                 <View style={styles.transferFlowRow}>
                   <Text style={styles.transferTrainerText} numberOfLines={1}>
                     {sourceTrainerObj.fullName}
@@ -927,6 +949,48 @@ export default function ManagerTraining() {
                   <Text style={styles.transferTrainerText} numberOfLines={1}>
                     {targetTrainerObj.fullName}
                   </Text>
+                </View>
+
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.md,
+                    padding: 10,
+                    gap: 6,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ ...ui.label, fontWeight: "700", color: colors.foreground }}>
+                    Tài nguyên sẽ được chuyển giao:
+                  </Text>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={ui.muted}>Khu chuồng (Barns):</Text>
+                    <Text style={{ ...ui.value, fontSize: 13, fontWeight: "700" }}>
+                      {transferredBarns.length} khu
+                      {transferredBarns.length > 0
+                        ? ` (${transferredBarns.map((b) => b.name).join(", ")})`
+                        : ""}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={ui.muted}>Giáo án huấn luyện:</Text>
+                    <Text style={{ ...ui.value, fontSize: 13, fontWeight: "700" }}>
+                      {transferredPlans.length} giáo án
+                      {transferredPlans.length > 0
+                        ? ` (${transferredPlans.map((p) => p.name).join(", ")})`
+                        : ""}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={ui.muted}>Lớp đang hoạt động:</Text>
+                    <Text style={{ ...ui.value, fontSize: 13, fontWeight: "700" }}>
+                      {transferredClasses.length} lớp
+                      {transferredClasses.length > 0
+                        ? ` (${transferredClasses.map((c) => c.trainingClass.code).join(", ")})`
+                        : ""}
+                    </Text>
+                  </View>
                 </View>
               </View>
             ) : null}
@@ -940,7 +1004,7 @@ export default function ManagerTraining() {
               onPress={() =>
                 Alert.alert(
                   t("Confirm handover"),
-                  t("Transfer all barns, plans and unfinished classes from this Head Trainer?"),
+                  `${t("Transfer all barns, plans and unfinished classes from this Head Trainer?")}\n\n• ${transferredBarns.length} khu chuồng\n• ${transferredPlans.length} giáo án\n• ${transferredClasses.length} lớp đang hoạt động`,
                   [
                     { text: t("Cancel"), style: "cancel" },
                     { text: t("Transfer"), style: "destructive", onPress: () => void handover() },

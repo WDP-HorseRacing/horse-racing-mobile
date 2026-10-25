@@ -112,6 +112,7 @@ export function formatTrainingStatus(status: string | null | undefined): string 
     ONGOING: "Đang tập",
     IN_PROGRESS: "Đang diễn ra",
     COMPLETED: "Đã hoàn thành",
+    STOPPED: "Đã dừng sớm",
     ABSENT: "Vắng mặt",
     SKIPPED: "Bỏ qua",
     CANCELLED: "Đã hủy",

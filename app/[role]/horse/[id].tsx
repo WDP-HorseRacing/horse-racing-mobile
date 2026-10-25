@@ -758,12 +758,19 @@ export default function HorseProfile() {
                   ["Stall", horse.stall],
                 ]}
               />
-              <ChartSection
-                title="Fitness trend"
-                data={fitnessTrend}
-                valueKey="v"
-                color={colors.primary}
-              />
+              <Panel style={{ gap: 8, marginTop: 4 }}>
+                <View style={uiStyles.row}>
+                  <Text style={[uiStyles.value, { fontSize: 14 }]}>Dữ liệu thể lực & hiệu suất</Text>
+                  <Pressable onPress={() => setTab("Performance")}>
+                    <Text style={{ ...uiStyles.label, color: colors.primary, fontWeight: "700" }}>
+                      Xem tab Hiệu suất →
+                    </Text>
+                  </Pressable>
+                </View>
+                <Text style={uiStyles.muted}>
+                  Dữ liệu tốc độ, nhịp tim và tổng kết buổi tập từ backend được hiển thị chi tiết trong tab Hiệu suất.
+                </Text>
+              </Panel>
             </>
           )}
           {!horseResource.data && roleId === "manager" ? (

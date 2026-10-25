@@ -172,13 +172,19 @@ export default function RoleHome() {
         todayPrescriptions: [],
         pendingRequests: [],
       };
-      const [dashboard, horses, checkups, supplies, notifications] = await Promise.all([
+      const [dashboard, horses, checkups, supplies, notifications, classes] = await Promise.all([
         medicalService.getDashboard(token).catch(() => fallbackDashboard),
         horseService.list(token).catch(() => []),
         medicalService.listCheckups(token).catch(() => []),
         suppliesService.listItems(token).catch(() => []),
         notificationsService.list(token).catch(() => undefined),
+        trainingService.listClasses(token).catch(() => []),
       ]);
+      const openClasses = classes.filter((c) => c.status === "ACTIVE");
+      const sessionGroups = await Promise.all(
+        openClasses.map((c) => trainingService.listClassSessions(token, c.id).catch(() => [])),
+      );
+      const allSessions = sessionGroups.flat();
       return {
         kind: "medical",
         dashboard,
@@ -186,6 +192,7 @@ export default function RoleHome() {
         checkups,
         supplies,
         notifications: notifications?.items,
+        activeSessions: allSessions.filter((s) => s.status === "IN_PROGRESS"),
       };
     }
     const horses = await horseService.list(token);

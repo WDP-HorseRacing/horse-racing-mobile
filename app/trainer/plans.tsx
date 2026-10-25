@@ -96,6 +96,42 @@ export default function TrainerPlans() {
     }));
   };
 
+  const duplicatePhase = (index: number) => {
+    setPhases((current) => {
+      const source = current[index];
+      const cloned: EditorPhase = {
+        id: Math.random().toString(36).slice(2),
+        weeks: source.weeks,
+        subjects: source.subjects.map((s) => ({ ...s })),
+      };
+      const next = [...current];
+      next.splice(index + 1, 0, cloned);
+      return next;
+    });
+  };
+
+  const movePhaseUp = (index: number) => {
+    if (index <= 0) return;
+    setPhases((current) => {
+      const next = [...current];
+      const temp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  };
+
+  const movePhaseDown = (index: number) => {
+    setPhases((current) => {
+      if (index >= current.length - 1) return current;
+      const next = [...current];
+      const temp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  };
+
   const save = async () => {
     if (!token) return;
     if (!name.trim() || name.trim().length > 160)
@@ -411,12 +447,44 @@ export default function TrainerPlans() {
           </Field>
           {phases.map((phase, phaseIndex) => (
             <Panel key={phase.id} style={{ gap: 12 }}>
-              <View style={ui.row}>
+              <View style={[ui.row, { flexWrap: "wrap", gap: 6 }]}>
                 <SectionTitle>Phase {phaseIndex + 1}</SectionTitle>
-                {phases.length > 1 ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  {phaseIndex > 0 ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => movePhaseUp(phaseIndex)}
+                      style={{
+                        paddingVertical: 4,
+                        paddingHorizontal: 8,
+                        borderRadius: radius.sm,
+                        backgroundColor: colors.surface,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Ionicons name="arrow-up" size={14} color={colors.foreground} />
+                    </Pressable>
+                  ) : null}
+                  {phaseIndex < phases.length - 1 ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => movePhaseDown(phaseIndex)}
+                      style={{
+                        paddingVertical: 4,
+                        paddingHorizontal: 8,
+                        borderRadius: radius.sm,
+                        backgroundColor: colors.surface,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Ionicons name="arrow-down" size={14} color={colors.foreground} />
+                    </Pressable>
+                  ) : null}
                   <Pressable
                     hitSlop={8}
-                    onPress={() => setPhases((items) => items.filter((p) => p.id !== phase.id))}
+                    onPress={() => duplicatePhase(phaseIndex)}
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
@@ -424,15 +492,35 @@ export default function TrainerPlans() {
                       paddingVertical: 4,
                       paddingHorizontal: 8,
                       borderRadius: radius.sm,
-                      backgroundColor: "rgba(239, 68, 68, 0.1)",
+                      backgroundColor: colors.fitSoft,
                     }}
                   >
-                    <Ionicons name="trash-outline" size={14} color={colors.destructive} />
-                    <Text style={{ color: colors.destructive, fontSize: 13, fontWeight: "600" }}>
-                      Gỡ giai đoạn
+                    <Ionicons name="copy-outline" size={14} color={colors.primary} />
+                    <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
+                      Nhân bản
                     </Text>
                   </Pressable>
-                ) : null}
+                  {phases.length > 1 ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => setPhases((items) => items.filter((p) => p.id !== phase.id))}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 4,
+                        paddingVertical: 4,
+                        paddingHorizontal: 8,
+                        borderRadius: radius.sm,
+                        backgroundColor: "rgba(239, 68, 68, 0.1)",
+                      }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={colors.destructive} />
+                      <Text style={{ color: colors.destructive, fontSize: 13, fontWeight: "600" }}>
+                        Gỡ giai đoạn
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
               <Field label="Phase length (weeks)">
                 <NativeInput

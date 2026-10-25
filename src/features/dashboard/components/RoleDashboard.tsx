@@ -40,6 +40,7 @@ export type DashboardPayload =
       checkups?: MedicalDashboardDto["checkups"];
       supplies?: SupplyItemDto[];
       notifications?: NotificationDto[];
+      activeSessions?: TrainingSessionDto[];
     }
   | { kind: "manager_ops"; data: ManagerTrainerDashboardData }
   | { kind: "trainer_ops"; data: ManagerTrainerDashboardData };
@@ -525,6 +526,7 @@ export function RoleDashboard({
           checkups: payload.checkups,
           supplies: payload.supplies,
           notifications: payload.notifications,
+          activeSessions: payload.activeSessions,
         }}
         token={token}
         onRefresh={onRefresh}

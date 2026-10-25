@@ -199,6 +199,7 @@ export type SessionParticipantDto = {
   startedAt: string | null;
   completedAt: string | null;
   absenceReason: string | null;
+  stoppedReason?: string | null;
   cancelReason: string | null;
   ineligibilityReason: string | null;
   trainingLocked: boolean;
@@ -426,6 +427,12 @@ export const trainingService = {
     return apiRequest<SessionParticipantResponseDto>(
       `/session-participants/${encodeURIComponent(participantId)}/complete`,
       { method: "POST", token },
+    );
+  },
+  stopParticipant(token: string, participantId: string, reason: string) {
+    return apiRequest<SessionParticipantResponseDto>(
+      `/session-participants/${encodeURIComponent(participantId)}/stop`,
+      { method: "POST", token, body: { reason } },
     );
   },
   createEvaluation(

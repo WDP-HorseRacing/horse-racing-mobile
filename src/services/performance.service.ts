@@ -61,6 +61,13 @@ export type HorseAlertDto = {
 };
 export type HorseAlertPageDto = Page<HorseAlertDto>;
 
+export type IngestMetricsResultDto = {
+  accepted: number;
+  skippedDuplicates: number;
+  skippedInvalid: number;
+  highestAlertLevel: "NORMAL" | "WARNING" | "CRITICAL";
+};
+
 export type HorseWorkloadDto = {
   horseId: string;
   from: string;
@@ -101,22 +108,24 @@ export const performanceService = {
       token,
     });
   },
-  setThresholds(
-    token: string,
-    horseId: string,
-    input: {
-      profileName: string;
-      effectiveFrom: string;
-      effectiveTo?: string;
-      limits: { heartRateWarningBpm: number; heartRateCriticalBpm: number; maxSpeedMps: number };
+  ingestMetric(
+    participantId: string,
+    metric: {
+      sourceId: string;
+      recordedAt: string;
+      heartRateBpm: number;
+      speedMps: number;
     },
+    token?: string | null,
   ) {
-    return apiRequest<{
-      profileName: string;
-      effectiveFrom: string;
-      effectiveTo?: string;
-      limits: ThresholdLimitsDto;
-    }>(`/horses/${encodeURIComponent(horseId)}/thresholds`, { method: "PUT", token, body: input });
+    return apiRequest<IngestMetricsResultDto>(
+      `/session-participants/${encodeURIComponent(participantId)}/metrics`,
+      {
+        method: "POST",
+        token: token ?? undefined,
+        body: metric,
+      },
+    );
   },
   listHorseAlerts(
     token: string,

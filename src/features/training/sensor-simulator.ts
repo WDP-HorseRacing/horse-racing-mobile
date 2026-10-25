@@ -1,0 +1,117 @@
+import { performanceService } from "@/services/performance.service";
+
+const activeSimulators = new Map<string, ReturnType<typeof setInterval>>();
+
+export type SimTelemetryPoint = {
+  sourceId: string;
+  recordedAt: string;
+  heartRateBpm: number;
+  speedMps: number;
+};
+
+/**
+ * Generate a realistic telemetry point within normal or elevated bounds
+ */
+export function generateNormalMetric(): { heartRateBpm: number; speedMps: number } {
+  // Typical training heart rate between 150 - 180 bpm
+  const heartRateBpm = Math.floor(150 + Math.random() * 32);
+  // Typical canter/gallop speed between 11.0 - 14.5 m/s (approx 40 - 52 km/h)
+  const speedMps = Number((11.0 + Math.random() * 3.5).toFixed(2));
+  return { heartRateBpm, speedMps };
+}
+
+/**
+ * Send a single telemetry point to Backend API
+ */
+export async function sendTelemetryPoint(
+  participantId: string,
+  overrides?: Partial<SimTelemetryPoint>,
+  token?: string | null,
+) {
+  const normal = generateNormalMetric();
+  const point: SimTelemetryPoint = {
+    sourceId: overrides?.sourceId ?? "sim-device-01",
+    recordedAt: overrides?.recordedAt ?? new Date().toISOString(),
+    heartRateBpm: overrides?.heartRateBpm ?? normal.heartRateBpm,
+    speedMps: overrides?.speedMps ?? normal.speedMps,
+  };
+
+  const result = await performanceService.ingestMetric(participantId, point, token);
+  return { point, result };
+}
+
+/**
+ * Trigger an acute Heart Rate Spike (Vọt nhịp tim)
+ * Backend CRITICAL threshold is >= 240 bpm.
+ * This triggers domain event PERFORMANCE_METRIC_CRITICAL_EVENT, pushing an URGENT notification
+ * to Veterinarians and Head Trainer, and emitting realtime metrics to the socket.
+ */
+export async function sendHeartRateSpike(
+  participantId: string,
+  token?: string | null,
+) {
+  const point: SimTelemetryPoint = {
+    sourceId: "sim-device-01",
+    recordedAt: new Date().toISOString(),
+    heartRateBpm: 248, // Exceeds 240 bpm -> CRITICAL
+    speedMps: 16.8,   // High galloping speed
+  };
+
+  const result = await performanceService.ingestMetric(participantId, point, token);
+  return { point, result };
+}
+
+/**
+ * Start periodic telemetry streaming (simulating an active IoT sensor)
+ */
+export function startSimulation(
+  participantId: string,
+  token?: string | null,
+  options?: {
+    intervalMs?: number;
+    onTick?: (point: SimTelemetryPoint) => void;
+    onError?: (error: unknown) => void;
+  },
+) {
+  stopSimulation(participantId);
+
+  const intervalMs = options?.intervalMs ?? 3000;
+
+  // Immediately send the first point
+  void sendTelemetryPoint(participantId, undefined, token)
+    .then(({ point }) => options?.onTick?.(point))
+    .catch((err) => options?.onError?.(err));
+
+  const timer = setInterval(() => {
+    void sendTelemetryPoint(participantId, undefined, token)
+      .then(({ point }) => options?.onTick?.(point))
+      .catch((err) => options?.onError?.(err));
+  }, intervalMs);
+
+  activeSimulators.set(participantId, timer);
+}
+
+/**
+ * Stop simulation for a specific participant or all participants
+ */
+export function stopSimulation(participantId?: string) {
+  if (participantId) {
+    const timer = activeSimulators.get(participantId);
+    if (timer) {
+      clearInterval(timer);
+      activeSimulators.delete(participantId);
+    }
+  } else {
+    for (const [, timer] of activeSimulators) {
+      clearInterval(timer);
+    }
+    activeSimulators.clear();
+  }
+}
+
+/**
+ * Check if a participant is currently streaming simulated telemetry
+ */
+export function isSimulating(participantId: string): boolean {
+  return activeSimulators.has(participantId);
+}

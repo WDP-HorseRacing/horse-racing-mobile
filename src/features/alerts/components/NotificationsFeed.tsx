@@ -137,6 +137,38 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
                 ) : (
                   <Text style={uiStyles.label}>Read</Text>
                 )}
+                {notification.resource?.type?.toLowerCase() === "session_participant" &&
+                notification.resource.id ? (
+                  (() => {
+                    const matchedAlert = horseAlerts.find(
+                      (a) => a.sessionParticipantId === notification.resource?.id,
+                    );
+                    const sessionId = matchedAlert?.sessionId;
+                    return (
+                      <Pressable
+                        onPress={() => {
+                          if (sessionId) {
+                            router.push(
+                              `/trainer/plan/${sessionId}/session/${sessionId}?participantId=${notification.resource?.id}` as Href,
+                            );
+                          } else if (notification.resource?.horseId) {
+                            router.push(`/${role}/horse/${notification.resource.horseId}` as Href);
+                          }
+                        }}
+                      >
+                        <Text
+                          style={{
+                            ...uiStyles.label,
+                            color: colors.destructive,
+                            fontWeight: "700",
+                          }}
+                        >
+                          Theo dõi cảnh báo (Live) →
+                        </Text>
+                      </Pressable>
+                    );
+                  })()
+                ) : null}
                 {notification.resource?.horseId ? (
                   <Pressable
                     onPress={() =>
@@ -157,7 +189,15 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
           {horseAlerts.map((alert) => (
             <Pressable
               key={`${alert.horseId}-${alert.sessionParticipantId}-${alert.recordedAt}`}
-              onPress={() => router.push(`/${role}/horse/${alert.horseId}` as Href)}
+              onPress={() => {
+                if (alert.sessionId) {
+                  router.push(
+                    `/trainer/plan/${alert.sessionId}/session/${alert.sessionId}?participantId=${alert.sessionParticipantId}` as Href,
+                  );
+                } else {
+                  router.push(`/${role}/horse/${alert.horseId}` as Href);
+                }
+              }}
             >
               <Panel style={uiStyles.alert}>
                 <View style={uiStyles.row}>
@@ -176,6 +216,26 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
                   {alert.sessionName ?? "Training session"} · {alert.heartRateBpm} bpm ·{" "}
                   {alert.speedMps} m/s
                 </Text>
+                <View style={[uiStyles.row, { marginTop: 8, justifyContent: "space-between" }]}>
+                  {alert.sessionId ? (
+                    <Text style={{ ...uiStyles.label, color: colors.primary, fontWeight: "700" }}>
+                      Theo dõi lượt tập (Live) →
+                    </Text>
+                  ) : (
+                    <View />
+                  )}
+                  <Pressable
+                    hitSlop={8}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      router.push(`/${role}/horse/${alert.horseId}` as Href);
+                    }}
+                  >
+                    <Text style={{ ...uiStyles.label, color: colors.mutedForeground }}>
+                      Hồ sơ ngựa
+                    </Text>
+                  </Pressable>
+                </View>
               </Panel>
             </Pressable>
           ))}
