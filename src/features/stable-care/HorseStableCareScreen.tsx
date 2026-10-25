@@ -31,6 +31,7 @@ import {
   type HorseSurchargeDto,
 } from "@/services/stable-care.service";
 import { suppliesService } from "@/services/supplies.service";
+import { horseService } from "@/services/horse.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import {
   hasFeedingMealDuplicate,
@@ -138,15 +139,19 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
   const careStyles = useMemo(() => getCareStyles(colors), [colors]);
   const canEdit = role === "trainer";
   const status = role === "groom" ? ("ACTIVE" as const) : undefined;
+
   const load = useCallback(
     async () =>
       Promise.all([
         stableCareService.listFeedingPlans(token!, horseId, status),
         suppliesService.listItems(token!, {}),
+        horseService.get(token!, horseId).catch(() => null),
       ]),
     [horseId, status, token],
   );
   const resource = useApiResource(load, Boolean(token && horseId));
+
+  const [modalVisible, setModalVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<FeedingPlanDto | null>(null);
   const [targetIds, setTargetIds] = useState(horseId);
   const [note, setNote] = useState("");
@@ -157,10 +162,26 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
   const [copyFromPlanId, setCopyFromPlanId] = useState("");
   const [lines, setLines] = useState<FeedingPlanLineInput[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const plans = resource.data?.[0] ?? [];
   const feedItems = (resource.data?.[1] ?? []).filter((item) =>
     ["FEED", "SUPPLEMENT"].includes(item.category),
   );
-  const plans = resource.data?.[0] ?? [];
+  const horseDetail = resource.data?.[2];
+  const currentHorseName = horseDetail?.name ?? plans[0]?.horseName ?? t("Horse");
+
+  const openCreateModal = () => {
+    setSelectedPlan(null);
+    setLines([]);
+    setNote("");
+    setLineNote("");
+    setQuantity("");
+    setItemId(feedItems[0]?.id ?? "");
+    setCopyFromPlanId("");
+    setTargetIds(horseId);
+    setMeal("EARLY_MORNING");
+    setModalVisible(true);
+  };
 
   const beginEdit = (plan: FeedingPlanDto) => {
     setSelectedPlan(plan);
@@ -175,6 +196,13 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
       ),
     );
     setNote(plan.note ?? "");
+    setLineNote("");
+    setQuantity("");
+    setItemId(feedItems[0]?.id ?? "");
+    setCopyFromPlanId("");
+    setTargetIds(plan.horseId || horseId);
+    setMeal("EARLY_MORNING");
+    setModalVisible(true);
   };
 
   const clearEditor = () => {
@@ -186,7 +214,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
     setTargetIds(horseId);
   };
 
-  const addLine = () => {
+  const addOrUpdateLine = () => {
     const parsed = Number(quantity);
     if (!itemId || !Number.isFinite(parsed) || parsed <= 0) {
       Alert.alert(
@@ -195,24 +223,53 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
       );
       return;
     }
-    if (hasFeedingMealDuplicate(lines, meal, itemId)) {
-      Alert.alert(
-        t("Duplicate meal item"),
-        t("Each feed or supplement can appear only once in a meal."),
+
+    setLines((current) => {
+      const existingIndex = current.findIndex(
+        (l) => l.meal === meal && l.supplyItemId === itemId,
       );
-      return;
-    }
-    setLines((current) => [
-      ...current,
-      {
-        meal,
-        supplyItemId: itemId,
-        quantity: parsed,
-        ...(lineNote.trim() ? { note: lineNote.trim() } : {}),
-      },
-    ]);
+      if (existingIndex >= 0) {
+        const updated = [...current];
+        updated[existingIndex] = {
+          meal,
+          supplyItemId: itemId,
+          quantity: parsed,
+          ...(lineNote.trim() ? { note: lineNote.trim() } : {}),
+        };
+        return updated;
+      }
+      return [
+        ...current,
+        {
+          meal,
+          supplyItemId: itemId,
+          quantity: parsed,
+          ...(lineNote.trim() ? { note: lineNote.trim() } : {}),
+        },
+      ];
+    });
+
     setQuantity("");
     setLineNote("");
+  };
+
+  const adjustLineQty = (index: number, step: number) => {
+    setLines((current) => {
+      const line = current[index];
+      if (!line) return current;
+      const nextQty = Math.round((line.quantity + step) * 10) / 10;
+      if (nextQty <= 0) return current;
+      const updated = [...current];
+      updated[index] = { ...line, quantity: nextQty };
+      return updated;
+    });
+  };
+
+  const editLine = (line: FeedingPlanLineInput) => {
+    setMeal(line.meal);
+    setItemId(line.supplyItemId);
+    setQuantity(String(line.quantity));
+    setLineNote(line.note ?? "");
   };
 
   const handleQuickAddQty = (step: number) => {
@@ -222,16 +279,18 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
     setQuantity(String(nextVal));
   };
 
-  const save = async () => {
+  const save = async (approveImmediately = false) => {
     if (!token || (!lines.length && !copyFromPlanId) || saving) return;
     setSaving(true);
     try {
-      if (selectedPlan)
-        await stableCareService.replaceFeedingPlan(token, selectedPlan.id, {
+      let savedPlanId = selectedPlan?.id;
+      if (selectedPlan) {
+        const res = await stableCareService.replaceFeedingPlan(token, selectedPlan.id, {
           items: lines,
           note: note.trim() || null,
         });
-      else {
+        savedPlanId = res.id;
+      } else {
         const horseIds = [
           ...new Set(
             targetIds
@@ -242,14 +301,27 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
         ];
         if (!horseIds.length || horseIds.length > 50)
           throw new Error("Choose between 1 and 50 horse IDs.");
-        await stableCareService.createFeedingPlans(token, {
+        const created = await stableCareService.createFeedingPlans(token, {
           horseIds,
           ...(copyFromPlanId ? { copyFromPlanId } : { items: lines }),
           note: note.trim() || undefined,
         });
+        savedPlanId = created?.[0]?.id;
       }
+
+      if (approveImmediately && savedPlanId) {
+        await stableCareService.approveFeedingPlan(token, savedPlanId);
+      }
+
+      setModalVisible(false);
       clearEditor();
       await resource.refresh();
+      Alert.alert(
+        t("Success"),
+        approveImmediately
+          ? t("Feeding plan created and approved")
+          : t("Feeding plan saved as draft"),
+      );
     } catch (error) {
       Alert.alert(t("Could not save feeding plan"), extractErrorMessage(error));
     } finally {
@@ -290,7 +362,21 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
   return (
     <View style={ui.section}>
-      <SectionTitle>Feeding plans</SectionTitle>
+      <View style={careStyles.sectionHeaderRow}>
+        <SectionTitle>Feeding plans</SectionTitle>
+        {canEdit ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("Add feeding plan")}
+            onPress={openCreateModal}
+            style={careStyles.createPlanBtn}
+          >
+            <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+            <Text style={careStyles.createPlanBtnText}>{t("Add feeding plan")}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
       <AsyncStateView
         isLoading={resource.isLoading}
         error={resource.error}
@@ -353,21 +439,34 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                     {entry.items.length > 0 ? (
                       <View style={careStyles.mealItemsWrap}>
                         {entry.items.map((line, lineIdx) => (
-                          <View key={lineIdx} style={careStyles.mealItemChip}>
-                            <Text style={careStyles.mealItemName}>{line.name}</Text>
-                            <View style={careStyles.mealItemQtyBadge}>
-                              <Text style={careStyles.mealItemQtyText}>
-                                {line.quantity} {line.unit}
+                          <View key={lineIdx} style={careStyles.mealItemCard}>
+                            <View style={careStyles.mealItemHeaderRow}>
+                              <Text style={careStyles.mealItemName} numberOfLines={1}>
+                                {line.name}
                               </Text>
+                              <View style={careStyles.mealItemQtyBadge}>
+                                <Text style={careStyles.mealItemQtyText}>
+                                  {line.quantity} {line.unit}
+                                </Text>
+                              </View>
                             </View>
                             {line.note ? (
-                              <Text style={careStyles.mealItemNote}>({line.note})</Text>
+                              <View style={careStyles.mealItemNoteRow}>
+                                <Ionicons
+                                  name="document-text-outline"
+                                  size={12}
+                                  color={colors.mutedForeground}
+                                />
+                                <Text style={careStyles.mealItemNote} numberOfLines={2}>
+                                  {line.note}
+                                </Text>
+                              </View>
                             ) : null}
                           </View>
                         ))}
                       </View>
                     ) : (
-                      <Text style={ui.muted}>{t("No items in this meal")}</Text>
+                      <Text style={careStyles.mealEmptyText}>{t("No items in this meal")}</Text>
                     )}
                   </View>
                 );
@@ -383,31 +482,36 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
             {/* Actions for draft plans */}
             {canEdit && plan.status === "DRAFT" ? (
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: space.sm,
-                  marginTop: space.xs,
-                }}
-              >
+              <View style={careStyles.cardActionRow}>
                 <SecondaryButton
-                  label="Edit draft"
+                  label={t("Edit draft plan")}
                   icon="create-outline"
                   style={{ flexGrow: 1 }}
                   onPress={() => beginEdit(plan)}
                 />
                 <SecondaryButton
-                  label="Delete"
+                  label={t("Delete")}
                   icon="trash-outline"
                   style={{ flexGrow: 1 }}
                   onPress={() => remove(plan)}
                 />
                 <PrimaryButton
-                  label="Approve"
+                  label={t("Approve")}
                   icon="checkmark-outline"
                   style={{ flexGrow: 1 }}
                   onPress={() => approve(plan)}
+                />
+              </View>
+            ) : null}
+
+            {/* Actions for active plans */}
+            {canEdit && plan.status === "ACTIVE" ? (
+              <View style={careStyles.cardActionRow}>
+                <SecondaryButton
+                  label={t("Chỉnh sửa / Tạo bản mới")}
+                  icon="create-outline"
+                  style={{ flexGrow: 1 }}
+                  onPress={() => beginEdit(plan)}
                 />
               </View>
             ) : null}
@@ -415,27 +519,39 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
         );
       })}
 
+      {/* Modern Bottom Sheet Modal for Creating / Editing Feeding Plan */}
       {canEdit ? (
-        <View style={careStyles.builderCard}>
-          <View style={careStyles.builderHeader}>
-            <Ionicons name="restaurant-outline" size={20} color={colors.primary} />
-            <Text style={careStyles.builderTitle}>
-              {selectedPlan ? t("Edit draft plan") : t("Create feeding plan")}
-            </Text>
+        <BottomSheetModal
+          visible={modalVisible}
+          title={selectedPlan ? t("Edit draft plan") : t("Create feeding plan")}
+          cancelLabel={t("Cancel")}
+          onClose={() => {
+            setModalVisible(false);
+            clearEditor();
+          }}
+          maxHeight="92%"
+        >
+          {/* Horse Banner - Showing Name Directly, Not UUID */}
+          <View style={careStyles.modalHorseBanner}>
+            <View style={careStyles.modalHorseIconContainer}>
+              <Ionicons name="nutrition" size={20} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={careStyles.modalHorseBannerLabel}>{t("Applicable horse")}</Text>
+              <Text style={careStyles.modalHorseBannerName}>{currentHorseName}</Text>
+            </View>
           </View>
 
-          {!selectedPlan ? (
-            <Field label="Horse IDs · one or more, up to 50">
-              <NativeInput value={targetIds} onChangeText={setTargetIds} placeholder={horseId} />
-            </Field>
-          ) : null}
-
           <Field label="Plan note">
-            <NativeInput value={note} onChangeText={setNote} placeholder="Optional instructions" />
+            <NativeInput
+              value={note}
+              onChangeText={setNote}
+              placeholder="Optional instructions"
+            />
           </Field>
 
           {!selectedPlan && plans.length ? (
-            <>
+            <View style={{ gap: space.xs }}>
               <Text style={ui.muted}>
                 {t("Start with a previous plan, or enter feed items below.")}
               </Text>
@@ -455,48 +571,87 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                   )
                 }
               />
-            </>
+            </View>
           ) : null}
 
           {!copyFromPlanId || selectedPlan ? (
             <View style={{ gap: space.md, marginTop: space.xs }}>
-              {/* Meal Selector Pills */}
-              <View style={careStyles.mealSelectorRow}>
-                {MEALS.map((entry) => {
-                  const meta = MEAL_METADATA[entry];
-                  const isSelected = meal === entry;
-                  return (
-                    <Pressable
-                      key={entry}
-                      accessibilityRole="button"
-                      onPress={() => setMeal(entry)}
-                      style={[
-                        careStyles.mealTabBtn,
-                        isSelected && [careStyles.mealTabBtnActive, { borderColor: meta.color }],
-                      ]}
-                    >
-                      <Ionicons
-                        name={meta.icon}
-                        size={14}
-                        color={isSelected ? meta.color : colors.mutedForeground}
-                      />
-                      <Text
+              {/* 2x2 Meal Selector Grid */}
+              <View style={{ gap: 6 }}>
+                <Text style={[ui.value, { fontSize: 13, fontWeight: "700" }]}>
+                  {t("Select meal to add")}
+                </Text>
+                <View style={careStyles.mealGrid}>
+                  {MEALS.map((entry) => {
+                    const meta = MEAL_METADATA[entry];
+                    const isSelected = meal === entry;
+                    const count = lines.filter((l) => l.meal === entry).length;
+                    return (
+                      <Pressable
+                        key={entry}
+                        accessibilityRole="button"
+                        onPress={() => setMeal(entry)}
                         style={[
-                          careStyles.mealTabBtnText,
-                          isSelected && { color: meta.color, fontWeight: "700" },
+                          careStyles.mealGridCard,
+                          isSelected && {
+                            borderColor: meta.color,
+                            backgroundColor: meta.bg,
+                          },
                         ]}
-                        numberOfLines={1}
                       >
-                        {t(meta.label)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                        <View style={careStyles.mealGridHeader}>
+                          <View
+                            style={[
+                              careStyles.mealIconCircle,
+                              { backgroundColor: isSelected ? meta.color : colors.elevated },
+                            ]}
+                          >
+                            <Ionicons
+                              name={meta.icon}
+                              size={18}
+                              color={isSelected ? "#FFFFFF" : meta.color}
+                            />
+                          </View>
+                          <View
+                            style={[
+                              careStyles.mealItemCountBadge,
+                              count > 0 && {
+                                backgroundColor: isSelected ? meta.color : colors.fitSoft,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                careStyles.mealItemCountText,
+                                count > 0 && {
+                                  color: isSelected ? "#FFFFFF" : colors.primary,
+                                  fontWeight: "700",
+                                },
+                              ]}
+                            >
+                              {count > 0 ? `${count} ${t("item")}` : t("Empty")}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text
+                          style={[
+                            careStyles.mealGridLabel,
+                            isSelected && { color: meta.color, fontWeight: "800" },
+                          ]}
+                        >
+                          {t(meta.label)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
 
-              {/* Feed Items Selector Chips */}
+              {/* Feed items chips */}
               <View style={{ gap: space.xs }}>
-                <Text style={[ui.value, { fontSize: 13 }]}>{t("Select feed or supplement")}</Text>
+                <Text style={[ui.value, { fontSize: 13 }]}>
+                  {t("Select feed or supplement")}
+                </Text>
                 <Chips
                   options={feedItems.map((item) => item.name)}
                   value={feedItems.find((item) => item.id === itemId)?.name ?? ""}
@@ -506,7 +661,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                 />
               </View>
 
-              {/* Quantity Field + Stepper */}
+              {/* Quantity field + quick stepper */}
               <Field
                 label={`Quantity (${feedItems.find((item) => item.id === itemId)?.unit ?? "unit"})`}
               >
@@ -541,17 +696,25 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
               </Field>
 
               <SecondaryButton
-                label="Add item to meal"
-                icon="add-circle-outline"
-                onPress={addLine}
+                label={
+                  lines.some((l) => l.meal === meal && l.supplyItemId === itemId)
+                    ? t("Update meal item")
+                    : t("Add item to meal")
+                }
+                icon={
+                  lines.some((l) => l.meal === meal && l.supplyItemId === itemId)
+                    ? "checkmark-circle-outline"
+                    : "add-circle-outline"
+                }
+                onPress={addOrUpdateLine}
                 disabled={!itemId}
               />
             </View>
           ) : null}
 
-          {/* Configured Lines */}
+          {/* Configured Lines with Inline Quantity Adjustment and Quick Edit */}
           {lines.length > 0 ? (
-            <View style={{ gap: space.xs, marginTop: space.xs }}>
+            <View style={{ gap: space.xs, marginTop: space.sm }}>
               <Text style={[ui.value, { fontSize: 13, fontWeight: "700" }]}>
                 {t("Configured items in this plan")} ({lines.length})
               </Text>
@@ -561,21 +724,21 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                 return (
                   <View
                     key={`${line.supplyItemId}-${line.meal}-${index}`}
-                    style={careStyles.configuredLineRow}
+                    style={careStyles.configuredLineCard}
                   >
-                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                         <View
                           style={[
                             careStyles.statusBadge,
                             {
                               backgroundColor: mealMeta.bg,
-                              paddingHorizontal: 6,
-                              paddingVertical: 2,
+                              paddingHorizontal: 8,
+                              paddingVertical: 3,
                             },
                           ]}
                         >
-                          <Ionicons name={mealMeta.icon} size={11} color={mealMeta.color} />
+                          <Ionicons name={mealMeta.icon} size={12} color={mealMeta.color} />
                           <Text
                             style={[
                               careStyles.statusBadgeText,
@@ -585,39 +748,86 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                             {t(mealMeta.label)}
                           </Text>
                         </View>
-                        <Text style={[ui.value, { flex: 1 }]} numberOfLines={1}>
+                        <Text style={[ui.value, { flex: 1, fontSize: 14 }]} numberOfLines={1}>
                           {itemMeta?.name ?? "Feed item"}
                         </Text>
                       </View>
-                      <Text style={ui.muted}>
-                        {line.quantity} {itemMeta?.unit ?? "unit"}
-                        {line.note ? ` · ${line.note}` : ""}
-                      </Text>
+                      {line.note ? (
+                        <Text
+                          style={[ui.muted, { fontSize: 12, fontStyle: "italic" }]}
+                          numberOfLines={1}
+                        >
+                          {line.note}
+                        </Text>
+                      ) : null}
                     </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Remove item"
-                      onPress={() => setLines((curr) => curr.filter((_, idx) => idx !== index))}
-                      style={{ padding: 6 }}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={colors.destructive} />
-                    </Pressable>
+
+                    <View style={careStyles.lineStepperRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Decrease quantity"
+                        onPress={() => adjustLineQty(index, -0.5)}
+                        style={careStyles.stepperBtn}
+                      >
+                        <Ionicons name="remove" size={16} color={colors.foreground} />
+                      </Pressable>
+
+                      <View style={careStyles.stepperQtyDisplay}>
+                        <Text style={careStyles.stepperQtyText}>{line.quantity}</Text>
+                        <Text style={careStyles.stepperQtyUnit}>{itemMeta?.unit ?? "unit"}</Text>
+                      </View>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Increase quantity"
+                        onPress={() => adjustLineQty(index, 0.5)}
+                        style={careStyles.stepperBtn}
+                      >
+                        <Ionicons name="add" size={16} color={colors.foreground} />
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit line details"
+                        onPress={() => editLine(line)}
+                        style={careStyles.lineActionBtn}
+                      >
+                        <Ionicons name="create-outline" size={18} color={colors.primary} />
+                      </Pressable>
+
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove item"
+                        onPress={() =>
+                          setLines((curr) => curr.filter((_, idx) => idx !== index))
+                        }
+                        style={careStyles.lineActionBtn}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={colors.destructive} />
+                      </Pressable>
+                    </View>
                   </View>
                 );
               })}
             </View>
           ) : null}
 
-          <View style={{ gap: space.xs, marginTop: space.sm }}>
+          {/* Modal Bottom Actions */}
+          <View style={careStyles.modalBottomActions}>
             <PrimaryButton
-              label={saving ? "Saving…" : selectedPlan ? "Save draft" : "Create draft plan"}
-              icon="save-outline"
-              onPress={() => void save()}
+              label={saving ? t("Saving…") : t("Save and approve")}
+              icon="checkmark-circle-outline"
+              onPress={() => void save(true)}
               disabled={saving || (!lines.length && !copyFromPlanId)}
             />
-            {selectedPlan ? <SecondaryButton label="Cancel edit" onPress={clearEditor} /> : null}
+            <SecondaryButton
+              label={saving ? t("Saving…") : t("Save draft")}
+              icon="save-outline"
+              onPress={() => void save(false)}
+              disabled={saving || (!lines.length && !copyFromPlanId)}
+            />
           </View>
-        </View>
+        </BottomSheetModal>
       ) : null}
     </View>
   );
@@ -1639,43 +1849,88 @@ function getCareStyles(colors: ThemeColors) {
       fontWeight: "700",
       letterSpacing: 0.1,
     },
-    mealItemsWrap: {
+    sectionHeaderRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      gap: space.xs,
-      marginTop: space.xs,
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: space.xs,
     },
-    mealItemChip: {
+    createPlanBtn: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: radius.pill,
+    },
+    createPlanBtnText: {
+      color: "#FFFFFF",
+      fontSize: 13,
+      fontWeight: "700",
+    },
+    cardActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.sm,
+      marginTop: space.xs,
+    },
+    mealItemsWrap: {
+      gap: 8,
+      marginTop: space.xs,
+    },
+    mealItemCard: {
+      width: "100%",
       backgroundColor: colors.surface,
       borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: colors.border,
       paddingHorizontal: space.sm,
-      paddingVertical: 5,
+      paddingVertical: 7,
+      gap: 4,
+    },
+    mealItemHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
     },
     mealItemName: {
       fontSize: 13,
-      fontWeight: "600",
+      fontWeight: "700",
       color: colors.foreground,
+      flex: 1,
     },
     mealItemQtyBadge: {
       backgroundColor: colors.fitSoft,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.primary,
     },
     mealItemQtyText: {
       fontSize: 12,
-      fontWeight: "700",
+      fontWeight: "800",
       color: colors.primary,
+    },
+    mealItemNoteRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      flexWrap: "wrap",
     },
     mealItemNote: {
       fontSize: 11,
       fontStyle: "italic",
       color: colors.mutedForeground,
+      flexShrink: 1,
+    },
+    mealEmptyText: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      fontStyle: "italic",
+      paddingVertical: 2,
     },
     planNoteBox: {
       backgroundColor: colors.elevated,
@@ -1710,30 +1965,78 @@ function getCareStyles(colors: ThemeColors) {
       fontWeight: "700",
       color: colors.foreground,
     },
-    mealSelectorRow: {
-      flexDirection: "row",
-      gap: space.xs,
-    },
-    mealTabBtn: {
-      flex: 1,
+
+    // Modal & Builder Styles
+    modalHorseBanner: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-      paddingVertical: space.sm,
+      gap: 12,
+      backgroundColor: colors.fitSoft,
       borderRadius: radius.md,
-      backgroundColor: colors.elevated,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.primary,
+      padding: space.sm,
     },
-    mealTabBtnActive: {
+    modalHorseIconContainer: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
       backgroundColor: colors.surface,
-      borderWidth: 2,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    mealTabBtnText: {
-      fontSize: 12,
+    modalHorseBannerLabel: {
+      fontSize: 11,
       fontWeight: "600",
       color: colors.mutedForeground,
+      textTransform: "uppercase",
+    },
+    modalHorseBannerName: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: colors.foreground,
+    },
+    mealGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    mealGridCard: {
+      width: "48%",
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      padding: space.sm,
+      gap: 6,
+    },
+    mealGridHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    mealIconCircle: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    mealItemCountBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+      backgroundColor: colors.border,
+    },
+    mealItemCountText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    mealGridLabel: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.foreground,
     },
     quickChipsRow: {
       flexDirection: "row",
@@ -1754,16 +2057,59 @@ function getCareStyles(colors: ThemeColors) {
       fontWeight: "700",
       color: colors.foreground,
     },
-    configuredLineRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: colors.elevated,
+    configuredLineCard: {
+      backgroundColor: colors.surface,
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       padding: space.sm,
+      gap: 8,
+    },
+    lineStepperRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 6,
+      paddingTop: 6,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    stepperBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.elevated,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepperQtyDisplay: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 3,
+      paddingHorizontal: 4,
+    },
+    stepperQtyText: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: colors.foreground,
+    },
+    stepperQtyUnit: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    lineActionBtn: {
+      padding: 5,
+      marginLeft: 2,
+    },
+    modalBottomActions: {
       gap: space.sm,
+      marginTop: space.sm,
+      paddingTop: space.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
     },
     taskCard: {
       backgroundColor: colors.surface,
