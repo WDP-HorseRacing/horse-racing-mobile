@@ -980,13 +980,33 @@ export default function TrainingSessionDetail() {
                             disabled={!canStreamMetrics}
                             onPress={() => void handleHeartRateSpike(participant.id)}
                           />
+                          <SecondaryButton
+                            label="📊 Xem biểu đồ & Bảng giả lập"
+                            icon="analytics-outline"
+                            style={{ width: "100%" }}
+                            onPress={() => {
+                              const params = new URLSearchParams({
+                                horse: participant.horseName,
+                                session: session!.name,
+                                classId: payload.trainingClass.id,
+                                sessionId: session!.id,
+                                sessionType: session!.sessionType,
+                                sessionStatus: session!.status,
+                                participantStatus: participant.status,
+                                horseId: participant.horseId,
+                              });
+                              router.push(
+                                `/trainer/participant/${participant.id}?${params.toString()}` as Href,
+                              );
+                            }}
+                          />
                         </View>
                       </View>
                     ) : null}
 
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                       <SecondaryButton
-                        label="Performance"
+                        label="Hiệu suất & Biểu đồ IoT"
                         icon="pulse-outline"
                         style={{ flexGrow: 1 }}
                         onPress={() => {
