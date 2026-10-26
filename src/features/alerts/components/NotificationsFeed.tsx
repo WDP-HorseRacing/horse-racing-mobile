@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { type Href, router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import { Panel, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
+import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { horseService } from "@/services/horse.service";
@@ -17,11 +18,13 @@ import type { RoleId } from "@/types/raceos";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
+import { radius, space } from "@/config/theme";
 
 export function NotificationsFeed({ role }: { role: RoleId }) {
   const { colors } = useTheme();
   const { t } = useI18n();
   const uiStyles = getUiStyles(colors);
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { token } = useAuth();
   const load = useCallback(async () => {
     const inboxPromise = notificationsService.list(token!);
@@ -101,12 +104,22 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
       />
       {notifications.length ? (
         <View style={uiStyles.section}>
-          <View style={uiStyles.row}>
-            <SectionTitle>Notifications</SectionTitle>
-            {unreadCount ? (
-              <SecondaryButton label="Mark all read" onPress={() => void markAllRead()} />
-            ) : null}
-          </View>
+          <SectionTitle
+            action={
+              unreadCount ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void markAllRead()}
+                  style={styles.markAllReadBtn}
+                >
+                  <Ionicons name="checkmark-done-circle-outline" size={15} color={colors.primary} />
+                  <Text style={styles.markAllReadText}>{t("Đánh dấu tất cả đã đọc")}</Text>
+                </Pressable>
+              ) : null
+            }
+          >
+            Notifications
+          </SectionTitle>
           {notifications.map((notification) => (
             <Panel key={notification.id} style={!notification.readAt ? uiStyles.alert : undefined}>
               <View style={uiStyles.row}>
@@ -128,56 +141,76 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
               </View>
               <Text style={uiStyles.value}>{notification.title}</Text>
               <Text style={uiStyles.muted}>{notification.message}</Text>
-              <View style={uiStyles.row}>
+              <View style={styles.cardFooter}>
                 {!notification.readAt ? (
-                  <SecondaryButton
-                    label="Mark read"
-                    onPress={() => void markRead(notification.id)}
-                  />
-                ) : (
-                  <Text style={uiStyles.label}>Read</Text>
-                )}
-                {notification.resource?.type?.toLowerCase() === "session_participant" &&
-                notification.resource.id ? (
-                  (() => {
-                    const matchedAlert = horseAlerts.find(
-                      (a) => a.sessionParticipantId === notification.resource?.id,
-                    );
-                    const sessionId = matchedAlert?.sessionId;
-                    return (
-                      <Pressable
-                        onPress={() => {
-                          if (sessionId) {
-                            router.push(
-                              `/trainer/plan/${sessionId}/session/${sessionId}?participantId=${notification.resource?.id}` as Href,
-                            );
-                          } else if (notification.resource?.horseId) {
-                            router.push(`/${role}/horse/${notification.resource.horseId}` as Href);
-                          }
-                        }}
-                      >
-                        <Text
-                          style={{
-                            ...uiStyles.label,
-                            color: colors.destructive,
-                            fontWeight: "700",
-                          }}
-                        >
-                          Theo dõi cảnh báo (Live) →
-                        </Text>
-                      </Pressable>
-                    );
-                  })()
-                ) : null}
-                {notification.resource?.horseId ? (
                   <Pressable
-                    onPress={() =>
-                      router.push(`/${role}/horse/${notification.resource!.horseId}` as Href)
-                    }
+                    accessibilityRole="button"
+                    onPress={() => void markRead(notification.id)}
+                    style={styles.markReadBtn}
                   >
-                    <Text style={{ ...uiStyles.label, color: colors.primary }}>Open horse</Text>
+                    <Ionicons name="checkmark-done" size={14} color={colors.primary} />
+                    <Text style={styles.markReadText}>{t("Đánh dấu đã đọc")}</Text>
                   </Pressable>
-                ) : null}
+                ) : (
+                  <View style={styles.readStatusBox}>
+                    <Ionicons name="checkmark-circle-outline" size={13} color={colors.mutedForeground} />
+                    <Text style={styles.readStatusText}>{t("Đã đọc")}</Text>
+                  </View>
+                )}
+
+                <View style={styles.navLinksGroup}>
+                  {notification.resource?.type?.toLowerCase() === "session_participant" &&
+                  notification.resource.id ? (
+                    (() => {
+                      const matchedAlert = horseAlerts.find(
+                        (a) => a.sessionParticipantId === notification.resource?.id,
+                      );
+                      const sessionId = matchedAlert?.sessionId;
+                      return (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            if (role === "trainer" || role === "vet") {
+                              const query = new URLSearchParams({
+                                ...(matchedAlert?.horseName ? { horse: matchedAlert.horseName } : {}),
+                                ...(matchedAlert?.sessionName
+                                  ? { session: matchedAlert.sessionName }
+                                  : {}),
+                                ...(notification.resource?.horseId
+                                  ? { horseId: notification.resource.horseId }
+                                  : {}),
+                                ...(sessionId ? { sessionId } : {}),
+                              });
+                              router.push(
+                                `/${role}/participant/${notification.resource?.id}?${query.toString()}` as Href,
+                              );
+                            } else if (notification.resource?.horseId) {
+                              router.push(`/${role}/horse/${notification.resource.horseId}` as Href);
+                            }
+                          }}
+                          style={styles.sensorLinkBtn}
+                        >
+                          <Ionicons name="pulse" size={13} color={colors.destructive} />
+                          <Text style={styles.sensorLinkText}>
+                            {t("Xem dữ liệu cảm biến →")}
+                          </Text>
+                        </Pressable>
+                      );
+                    })()
+                  ) : null}
+                  {notification.resource?.horseId ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() =>
+                        router.push(`/${role}/horse/${notification.resource!.horseId}` as Href)
+                      }
+                      style={styles.horseLinkBtn}
+                    >
+                      <Ionicons name="paw-outline" size={13} color={colors.primary} />
+                      <Text style={styles.horseLinkText}>{t("Mở hồ sơ ngựa")}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
             </Panel>
           ))}
@@ -190,9 +223,15 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
             <Pressable
               key={`${alert.horseId}-${alert.sessionParticipantId}-${alert.recordedAt}`}
               onPress={() => {
-                if (alert.sessionId) {
+                if (role === "trainer" || role === "vet") {
+                  const query = new URLSearchParams({
+                    horse: alert.horseName,
+                    ...(alert.sessionName ? { session: alert.sessionName } : {}),
+                    horseId: alert.horseId,
+                    sessionId: alert.sessionId,
+                  });
                   router.push(
-                    `/trainer/plan/${alert.sessionId}/session/${alert.sessionId}?participantId=${alert.sessionParticipantId}` as Href,
+                    `/${role}/participant/${alert.sessionParticipantId}?${query.toString()}` as Href,
                   );
                 } else {
                   router.push(`/${role}/horse/${alert.horseId}` as Href);
@@ -216,23 +255,46 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
                   {alert.sessionName ?? "Training session"} · {alert.heartRateBpm} bpm ·{" "}
                   {alert.speedMps} m/s
                 </Text>
-                <View style={[uiStyles.row, { marginTop: 8, justifyContent: "space-between" }]}>
+                <View style={styles.horseAlertFooter}>
                   {alert.sessionId ? (
-                    <Text style={{ ...uiStyles.label, color: colors.primary, fontWeight: "700" }}>
-                      Theo dõi lượt tập (Live) →
-                    </Text>
+                    <Pressable
+                      style={styles.sensorLinkBtn}
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        if (role === "trainer" || role === "vet") {
+                          const query = new URLSearchParams({
+                            horse: alert.horseName,
+                            ...(alert.sessionName ? { session: alert.sessionName } : {}),
+                            horseId: alert.horseId,
+                            sessionId: alert.sessionId,
+                          });
+                          router.push(
+                            `/${role}/participant/${alert.sessionParticipantId}?${query.toString()}` as Href,
+                          );
+                        } else {
+                          router.push(`/${role}/horse/${alert.horseId}` as Href);
+                        }
+                      }}
+                    >
+                      <Ionicons name="pulse" size={13} color={colors.destructive} />
+                      <Text style={styles.sensorLinkText}>
+                        {t("Xem dữ liệu cảm biến →")}
+                      </Text>
+                    </Pressable>
                   ) : (
                     <View />
                   )}
                   <Pressable
                     hitSlop={8}
+                    style={styles.horseLinkBtn}
                     onPress={(e) => {
                       e.stopPropagation?.();
                       router.push(`/${role}/horse/${alert.horseId}` as Href);
                     }}
                   >
-                    <Text style={{ ...uiStyles.label, color: colors.mutedForeground }}>
-                      Hồ sơ ngựa
+                    <Ionicons name="paw-outline" size={13} color={colors.primary} />
+                    <Text style={styles.horseLinkText}>
+                      {t("Hồ sơ ngựa")}
                     </Text>
                   </Pressable>
                 </View>
@@ -255,3 +317,110 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
     </Screen>
   );
 }
+
+function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
+  return StyleSheet.create({
+    markAllReadBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexShrink: 0,
+    },
+    markAllReadText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    cardFooter: {
+      marginTop: space.xs,
+      paddingTop: space.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    markReadBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    markReadText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    readStatusBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 4,
+      paddingHorizontal: 4,
+    },
+    readStatusText: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      fontWeight: "600",
+    },
+    navLinksGroup: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: 6,
+    },
+    sensorLinkBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      backgroundColor: colors.injuredSoft,
+    },
+    sensorLinkText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.destructive,
+    },
+    horseLinkBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      backgroundColor: colors.fitSoft,
+    },
+    horseLinkText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    horseAlertFooter: {
+      marginTop: space.xs,
+      paddingTop: space.xs,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+  });
+}
+
