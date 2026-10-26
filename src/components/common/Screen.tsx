@@ -224,7 +224,7 @@ export function Screen({
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Change language"
+          accessibilityLabel={t("Change language")}
           onPress={toggleLanguage}
           style={styles.language}
         >

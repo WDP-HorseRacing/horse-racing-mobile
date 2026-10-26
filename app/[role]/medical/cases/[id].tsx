@@ -28,7 +28,7 @@ import {
   toClubDateTime,
 } from "@/features/medical/medical-validation";
 import { extractErrorMessage } from "@/utils/errorHandler";
-import { formatDate, formatDateTime, formatVnd } from "@/utils/formatters";
+import { formatDate, formatDateTime, formatEnum, formatVnd } from "@/utils/formatters";
 import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
 import type {
   InjuryDraftMarker,
@@ -579,8 +579,7 @@ export default function MedicalCaseDetail() {
                         {visit.injuries.map((injury) => (
                           <View key={injury.id} style={styles.injuryPill}>
                             <Text style={styles.injuryPillText}>
-                              {injury.bodyRegion.replaceAll("_", " ")} ·{" "}
-                              {injury.injuryType.replaceAll("_", " ")}
+                              {injury.bodyRegion} · {injury.injuryType}
                             </Text>
                           </View>
                         ))}
@@ -739,7 +738,7 @@ export default function MedicalCaseDetail() {
                     <Text style={styles.previewTitle}>Kiểm tra trước khi đóng</Text>
                     <Text style={styles.previewItem}>
                       • Trạng thái sức khỏe:{" "}
-                      {resource.data.preview.healthStatus.replaceAll("_", " ")}
+                      {formatEnum(resource.data.preview.healthStatus)}
                       {resource.data.preview.healthWarning ? " (vẫn còn cảnh báo sức khỏe)" : ""}
                     </Text>
                     <Text style={styles.previewItem}>
@@ -771,7 +770,7 @@ export default function MedicalCaseDetail() {
                           • Còn {resource.data.preview.unhealedInjuryCount} chấn thương chưa lành.
                         </Text>
                         <Text style={[uiStyles.muted, { fontSize: 13, color: colors.destructive }]}>
-                          Backend không cho phép đóng bệnh án khi còn vết thương chưa lành (trừ trường hợp ghi nhận ngựa mất).
+                          Hệ thống không cho phép đóng bệnh án khi còn vết thương chưa lành (trừ trường hợp ghi nhận ngựa mất).
                         </Text>
                         <Pressable
                           accessibilityRole="button"
@@ -859,7 +858,7 @@ export default function MedicalCaseDetail() {
                     onChange={(value) => setRecordDeath(value === "Ghi nhận ngựa mất")}
                   />
                   <Text style={uiStyles.muted}>
-                    Khi ghi nhận ngựa mất, Backend tự dùng ngày hiện tại theo lịch câu lạc bộ.
+                    Khi ghi nhận ngựa mất, hệ thống tự lấy ngày hiện tại theo lịch câu lạc bộ.
                   </Text>
                 </Field>
 

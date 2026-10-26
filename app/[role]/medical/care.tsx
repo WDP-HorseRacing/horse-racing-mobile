@@ -408,11 +408,7 @@ export default function CareSchedules() {
     }
     setSaving(true);
     try {
-      await medicalService.reopenCareSchedule(
-        token,
-        reopeningSchedule.id,
-        reopenReason.trim(),
-      );
+      await medicalService.reopenCareSchedule(token, reopeningSchedule.id, reopenReason.trim());
       setReopeningSchedule(null);
       setReopenReason("");
       await resource.refresh();
@@ -515,9 +511,7 @@ export default function CareSchedules() {
                         size={20}
                         color={isCurrent ? colors.primary : colors.mutedForeground}
                       />
-                      <Text
-                        style={[styles.careTypeTitle, isCurrent && styles.careTypeTitleActive]}
-                      >
+                      <Text style={[styles.careTypeTitle, isCurrent && styles.careTypeTitleActive]}>
                         {cfg.label}
                       </Text>
                     </Pressable>
@@ -797,11 +791,7 @@ export default function CareSchedules() {
               />
             </Field>
             <Field label="Giờ mới">
-              <NativeInput
-                value={editTime}
-                onChangeText={setEditTime}
-                placeholder="09:00"
-              />
+              <NativeInput value={editTime} onChangeText={setEditTime} placeholder="09:00" />
             </Field>
             {editDate ? (
               <Field label="Lý do dời ngày *">
@@ -823,15 +813,9 @@ export default function CareSchedules() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.personnelTriggerName}>{editPersonnel.name}</Text>
-                  <Text style={styles.personnelTriggerDesc}>
-                    {editPersonnel.roleTitle}
-                  </Text>
+                  <Text style={styles.personnelTriggerDesc}>{editPersonnel.roleTitle}</Text>
                 </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
+                <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
               </Pressable>
             </Field>
             <Field label="Cập nhật ghi chú">
@@ -946,7 +930,7 @@ export default function CareSchedules() {
               </Pressable>
             </View>
 
-            <Field label="Lý do hủy (bắt buộc) *">
+            <Field label="Lý do hủy *">
               <NativeInput
                 value={cancelReason}
                 onChangeText={setCancelReason}
@@ -1003,15 +987,12 @@ export default function CareSchedules() {
                   Lịch đã hoàn tất sẽ trở về Đã lên lịch; lịch lần tới đã tạo vẫn được giữ.
                 </Text>
               </View>
-              <Pressable
-                onPress={() => setReopeningSchedule(null)}
-                style={styles.modalCloseButton}
-              >
+              <Pressable onPress={() => setReopeningSchedule(null)} style={styles.modalCloseButton}>
                 <Ionicons name="close" size={20} color={colors.foreground} />
               </Pressable>
             </View>
 
-            <Field label="Lý do mở lại (bắt buộc) *">
+            <Field label="Lý do mở lại *">
               <NativeInput
                 value={reopenReason}
                 onChangeText={setReopenReason}

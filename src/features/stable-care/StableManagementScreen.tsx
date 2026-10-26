@@ -5,6 +5,7 @@ import {
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -92,7 +93,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
 
   const [activeBarnIndex, setActiveBarnIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
-  const pagerRef = useRef<ScrollView>(null);
+  const pagerRef = useRef<ScrollViewInstance>(null);
 
   // Selected stall for bottom sheet / modal interaction
   const [selectedStall, setSelectedStall] = useState<StallDto | null>(null);
@@ -754,7 +755,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               {role === "manager" ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Add barn"
+                  accessibilityLabel={t("Add barn")}
                   onPress={openCreateBarnModal}
                   style={styles.addBarnTabChip}
                 >
@@ -1040,7 +1041,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                         {role === "manager" ? (
                           <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel="Add stall"
+                            accessibilityLabel={t("Add stall")}
                             onPress={() => openCreateStallModal(barn)}
                             style={({ pressed }) => [
                               styles.addStallCard,
@@ -1089,7 +1090,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Refresh care overview"
+              accessibilityLabel={t("Refresh care overview")}
               onPress={() => void loadCareOverview()}
               style={styles.careRefreshBtn}
             >
@@ -1564,7 +1565,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Close"
+                    accessibilityLabel={t("Close")}
                     onPress={() => setSelectedStall(null)}
                     style={styles.modalCloseBtn}
                   >
@@ -1832,7 +1833,9 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         visible={showCreateBarnModal}
         animationType="fade"
         transparent
-        onRequestClose={() => !creatingBarn && setShowCreateBarnModal(false)}
+        onRequestClose={() => {
+          if (!creatingBarn) setShowCreateBarnModal(false);
+        }}
       >
         <Pressable
           style={styles.modalBackdrop}
@@ -1846,7 +1849,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("Close")}
                 disabled={creatingBarn}
                 onPress={() => setShowCreateBarnModal(false)}
                 style={styles.modalCloseBtn}
@@ -1905,7 +1908,9 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         visible={showCreateStallModal}
         animationType="fade"
         transparent
-        onRequestClose={() => !creatingStall && setShowCreateStallModal(false)}
+        onRequestClose={() => {
+          if (!creatingStall) setShowCreateStallModal(false);
+        }}
       >
         <Pressable
           style={styles.modalBackdrop}
@@ -1921,7 +1926,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("Close")}
                 disabled={creatingStall}
                 onPress={() => setShowCreateStallModal(false)}
                 style={styles.modalCloseBtn}
@@ -1992,7 +1997,9 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         visible={showEditBarnModal}
         animationType="fade"
         transparent
-        onRequestClose={() => !savingBarn && setShowEditBarnModal(false)}
+        onRequestClose={() => {
+          if (!savingBarn) setShowEditBarnModal(false);
+        }}
       >
         <Pressable
           style={styles.modalBackdrop}
@@ -2006,7 +2013,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("Close")}
                 disabled={savingBarn}
                 onPress={() => setShowEditBarnModal(false)}
                 style={styles.modalCloseBtn}
@@ -2096,7 +2103,9 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         visible={showEditStallModal}
         animationType="fade"
         transparent
-        onRequestClose={() => !savingStall && setShowEditStallModal(false)}
+        onRequestClose={() => {
+          if (!savingStall) setShowEditStallModal(false);
+        }}
       >
         <Pressable
           style={styles.modalBackdrop}
@@ -2110,7 +2119,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close"
+                accessibilityLabel={t("Close")}
                 disabled={savingStall}
                 onPress={() => setShowEditStallModal(false)}
                 style={styles.modalCloseBtn}

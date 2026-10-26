@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,7 +42,7 @@ export default function Stable() {
 
   const [activeBarnIndex, setActiveBarnIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
-  const pagerRef = useRef<ScrollView>(null);
+  const pagerRef = useRef<ScrollViewInstance>(null);
 
   const loadStable = useCallback(async (): Promise<StablePayload> => {
     const [barns, stalls, today, allHorses] = await Promise.all([

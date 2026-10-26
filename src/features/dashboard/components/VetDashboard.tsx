@@ -220,17 +220,38 @@ export function VetDashboard({
                 gap: 6,
               }}
             >
-              <View style={uiStyles.row}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                  <Ionicons name="warning" size={18} color={colors.destructive} />
+              <View style={[uiStyles.row, { alignItems: "flex-start" }]}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    gap: 6,
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  <Ionicons
+                    name="warning"
+                    size={18}
+                    color={colors.destructive}
+                    style={{ marginTop: 2 }}
+                  />
                   <Text
-                    style={{ ...uiStyles.label, color: colors.destructive, fontWeight: "700" }}
-                    numberOfLines={1}
+                    style={{
+                      ...uiStyles.label,
+                      color: colors.destructive,
+                      fontWeight: "700",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                    numberOfLines={2}
                   >
                     {notif.title}
                   </Text>
                 </View>
-                <Text style={uiStyles.muted}>{formatDateTime(notif.createdAt)}</Text>
+                <Text style={[uiStyles.muted, { flexShrink: 0, marginLeft: 8 }]}>
+                  {formatDateTime(notif.createdAt)}
+                </Text>
               </View>
               <Text style={{ ...uiStyles.muted, color: colors.foreground }}>{notif.message}</Text>
               <View style={[uiStyles.row, { marginTop: 4 }]}>
@@ -340,7 +361,7 @@ export function VetDashboard({
                 {activeCase ? (
                   <View style={styles.caseBadgeRow}>
                     <Ionicons name="folder-open-outline" size={14} color={colors.primary} />
-                    <Text style={styles.caseBadgeText} numberOfLines={1}>
+                    <Text style={styles.caseBadgeText} numberOfLines={2}>
                       {t("Case:")} {activeCase.initialDiagnosis}
                     </Text>
                   </View>
@@ -364,7 +385,9 @@ export function VetDashboard({
 
                       <Pressable
                         accessibilityRole="button"
-                        onPress={() => router.push(`/vet/medical/cases/${activeCase.caseId}` as Href)}
+                        onPress={() =>
+                          router.push(`/vet/medical/cases/${activeCase.caseId}` as Href)
+                        }
                         style={styles.secondaryActionBtn}
                       >
                         <Text style={styles.secondaryActionBtnText}>{t("View case")}</Text>
@@ -597,7 +620,9 @@ export function VetDashboard({
                   </Text>
                   <Text style={[uiStyles.label, { fontSize: 11 }]}>
                     {t("Từ")} {formatDate(p.startDate)}
-                    {p.endDate ? ` ${t("đến")} ${formatDate(p.endDate)}` : ` (${t("Tới khi đóng bệnh án")})`}
+                    {p.endDate
+                      ? ` ${t("đến")} ${formatDate(p.endDate)}`
+                      : ` (${t("Tới khi đóng bệnh án")})`}
                   </Text>
                 </View>
                 {p.caseId ? (

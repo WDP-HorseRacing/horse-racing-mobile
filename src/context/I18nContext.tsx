@@ -38,9 +38,20 @@ english["bị khóa"] = "locked";
 english["bị thương"] = "injured";
 english["HorseRacing"] = "HorseRacing";
 english["HorseRacing Mobile"] = "HorseRacing Mobile";
+english["Vuot mong ngua"] = "Clean hooves";
 
-let currentLanguage: Language = "en";
-let currentT: (text: string) => string = (t) => t;
+type I18nRuntime = typeof globalThis & {
+  __raceosLanguage?: Language;
+  __raceosTranslateText?: (text: string, language: Language) => string;
+  __raceosOriginalAlert?: typeof Alert.alert;
+};
+const i18nRuntime = globalThis as I18nRuntime;
+i18nRuntime.__raceosLanguage ??= "en";
+// Keep the Alert wrapper stable across Fast Refresh while refreshing its translator.
+// Otherwise a one-time Alert patch can retain an older locale catalog after HMR.
+i18nRuntime.__raceosTranslateText = translateText;
+const currentT = (text: string) =>
+  (i18nRuntime.__raceosTranslateText ?? translateText)(text, i18nRuntime.__raceosLanguage ?? "en");
 const templateCache = new WeakMap<Record<string, string>, [string, string][]>();
 
 function translateTemplate(text: string, catalog: Record<string, string>): string | null {
@@ -71,12 +82,17 @@ function translateTemplate(text: string, catalog: Record<string, string>): strin
 }
 
 // Global Alert.alert localization hook
-let alertPatched = false;
 function patchAlert() {
-  if (alertPatched) return;
-  alertPatched = true;
-  const originalAlert = Alert.alert;
-  Alert.alert = (title, message, buttons, options) => {
+  type LocalizedAlert = typeof Alert.alert & {
+    __raceosAlertWrapper?: true;
+    __raceosOriginalAlert?: typeof Alert.alert;
+  };
+  const currentAlert = Alert.alert as LocalizedAlert;
+  const originalAlert = currentAlert.__raceosAlertWrapper
+    ? (currentAlert.__raceosOriginalAlert ?? i18nRuntime.__raceosOriginalAlert ?? currentAlert)
+    : (i18nRuntime.__raceosOriginalAlert ?? currentAlert);
+  i18nRuntime.__raceosOriginalAlert = originalAlert;
+  const localizedAlert = ((title, message, buttons, options) => {
     const locTitle = typeof title === "string" ? currentT(title) : title;
     const locMessage = typeof message === "string" ? currentT(message) : message;
     const locButtons = buttons?.map((b) => ({
@@ -84,14 +100,38 @@ function patchAlert() {
       text: typeof b.text === "string" ? currentT(b.text) : b.text,
     }));
     return originalAlert(locTitle, locMessage, locButtons, options);
-  };
+  }) as LocalizedAlert;
+  localizedAlert.__raceosAlertWrapper = true;
+  localizedAlert.__raceosOriginalAlert = originalAlert;
+  Alert.alert = localizedAlert;
 }
 patchAlert();
+
+export function showLocalizedAlert(
+  language: Language,
+  title: string,
+  message?: string,
+  buttons?: Parameters<typeof Alert.alert>[2],
+  options?: Parameters<typeof Alert.alert>[3],
+) {
+  const originalAlert = i18nRuntime.__raceosOriginalAlert ?? Alert.alert;
+  const localizedButtons = buttons?.map((button) => ({
+    ...button,
+    text: typeof button.text === "string" ? translateText(button.text, language) : button.text,
+  }));
+  return originalAlert(
+    translateText(title, language),
+    typeof message === "string" ? translateText(message, language) : message,
+    localizedButtons,
+    options,
+  );
+}
 
 function translateToEnglish(text: string): string {
   if (english[text]) return english[text];
   const trimmed = text.trim();
   if (english[trimmed]) return text.replace(trimmed, english[trimmed]);
+  if (/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(text)) return text.replaceAll("_", " ");
 
   if (text.startsWith("• ")) {
     return `• ${translateToEnglish(text.slice(2))}`;
@@ -193,13 +233,13 @@ export function translateText(text: string, lang: Language): string {
 }
 
 export function I18nProvider({ children }: PropsWithChildren) {
-  const [language, setLanguageState] = useState<Language>(currentLanguage);
+  const [language, setLanguageState] = useState<Language>(i18nRuntime.__raceosLanguage ?? "en");
 
   useEffect(() => {
     void AsyncStorage.getItem(LANGUAGE_STORAGE_KEY)
       .then((saved) => {
         if (saved === "en" || saved === "vi") {
-          currentLanguage = saved;
+          i18nRuntime.__raceosLanguage = saved;
           setLanguageState(saved);
         }
       })
@@ -207,14 +247,14 @@ export function I18nProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    currentT = (text: string) => translateText(text, language);
-    currentLanguage = language;
+    i18nRuntime.__raceosLanguage = language;
   }, [language]);
 
   const value = useMemo<I18nValue>(() => {
     const t = (text: string) => translateText(text, language);
 
     const setLanguage = (next: Language) => {
+      i18nRuntime.__raceosLanguage = next;
       setLanguageState(next);
       void AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, next).catch(() => undefined);
     };

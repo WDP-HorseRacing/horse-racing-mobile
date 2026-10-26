@@ -1221,6 +1221,7 @@ function PlanBottomSheetModal({
   children: React.ReactNode;
   colors: any;
 }) {
+  const { t } = useI18n();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const panResponder = useMemo(
     () =>
@@ -1244,7 +1245,7 @@ function PlanBottomSheetModal({
           style={StyleSheet.absoluteFill}
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t("Close")}
         />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -1294,7 +1295,7 @@ function PlanBottomSheetModal({
                     },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel="Close"
+                  accessibilityLabel={t("Close")}
                 >
                   <Ionicons name="close" size={18} color={colors.foreground} />
                 </Pressable>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import { Chips, Field, NativeInput, Panel, PrimaryButton, SecondaryButton } from "@/components/ui";
+import { Field, NativeInput, Panel, PrimaryButton, SecondaryButton } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
@@ -88,42 +88,6 @@ export default function HorsePlacement() {
       (stall) => stall.status === "AVAILABLE" || (currentStall && stall.id === currentStall.id),
     );
   }, [stallsResource.data, currentStall]);
-
-  const stallOptions = useMemo(
-    () =>
-      availableStalls.map((stall) =>
-        stall.id === currentStall?.id
-          ? `${stall.code} · ${stall.type} (${t("Current")})`
-          : `${stall.code} · ${stall.type}`,
-      ),
-    [availableStalls, currentStall, t],
-  );
-
-  const selectedStallOption = useMemo(() => {
-    const found = availableStalls.find((stall) => stall.id === stallId);
-    if (!found) return "";
-    return found.id === currentStall?.id
-      ? `${found.code} · ${found.type} (${t("Current")})`
-      : `${found.code} · ${found.type}`;
-  }, [availableStalls, stallId, currentStall, t]);
-
-  const groomOptions = useMemo(
-    () =>
-      (groomsResource.data ?? []).map((groom) =>
-        groom.groomId === currentGroom?.id
-          ? `${groom.fullName} · ${groom.activeHorseCount} (${t("Current")})`
-          : `${groom.fullName} · ${groom.activeHorseCount}`,
-      ),
-    [groomsResource.data, currentGroom, t],
-  );
-
-  const selectedGroomOption = useMemo(() => {
-    const found = (groomsResource.data ?? []).find((groom) => groom.groomId === groomId);
-    if (!found) return "";
-    return found.groomId === currentGroom?.id
-      ? `${found.fullName} · ${found.activeHorseCount} (${t("Current")})`
-      : `${found.fullName} · ${found.activeHorseCount}`;
-  }, [groomsResource.data, groomId, currentGroom, t]);
 
   if (!isRole(role)) return <Redirect href="/" />;
 
@@ -375,18 +339,33 @@ export default function HorsePlacement() {
                   />
                 ) : availableStalls.length ? (
                   <View style={{ gap: 8 }}>
-                    <Chips
-                      options={stallOptions}
-                      value={selectedStallOption}
-                      onChange={(value) => {
-                        const matched = availableStalls.find(
-                          (stall) =>
-                            `${stall.code} · ${stall.type}` === value ||
-                            `${stall.code} · ${stall.type} (${t("Current")})` === value,
+                    <View style={styles.assignmentOptions}>
+                      {availableStalls.map((stall) => {
+                        const selected = stall.id === stallId;
+                        return (
+                          <Pressable
+                            key={stall.id}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            onPress={() => setStallId(stall.id)}
+                            style={[
+                              styles.assignmentOption,
+                              selected && styles.assignmentOptionSelected,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.assignmentOptionText,
+                                selected && styles.assignmentOptionTextSelected,
+                              ]}
+                            >
+                              {stall.code} · {t(stall.type)}
+                              {stall.id === currentStall?.id ? ` · ${t("Current")}` : ""}
+                            </Text>
+                          </Pressable>
                         );
-                        setStallId(matched?.id ?? "");
-                      }}
-                    />
+                      })}
+                    </View>
                     {stallChanged ? (
                       <SecondaryButton
                         label={saving ? t("Saving…") : t("Save stall only")}
@@ -409,18 +388,33 @@ export default function HorsePlacement() {
                   />
                 ) : groomsResource.data?.length ? (
                   <View style={{ gap: 8 }}>
-                    <Chips
-                      options={groomOptions}
-                      value={selectedGroomOption}
-                      onChange={(value) => {
-                        const matched = (groomsResource.data ?? []).find(
-                          (groom) =>
-                            `${groom.fullName} · ${groom.activeHorseCount}` === value ||
-                            `${groom.fullName} · ${groom.activeHorseCount} (${t("Current")})` === value,
+                    <View style={styles.assignmentOptions}>
+                      {(groomsResource.data ?? []).map((groom) => {
+                        const selected = groom.groomId === groomId;
+                        return (
+                          <Pressable
+                            key={groom.groomId}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            onPress={() => setGroomId(groom.groomId)}
+                            style={[
+                              styles.assignmentOption,
+                              selected && styles.assignmentOptionSelected,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.assignmentOptionText,
+                                selected && styles.assignmentOptionTextSelected,
+                              ]}
+                            >
+                              {groom.fullName} · {groom.activeHorseCount}
+                              {groom.groomId === currentGroom?.id ? ` · ${t("Current")}` : ""}
+                            </Text>
+                          </Pressable>
                         );
-                        setGroomId(matched?.groomId ?? "");
-                      }}
-                    />
+                      })}
+                    </View>
                     {groomChanged ? (
                       <SecondaryButton
                         label={saving ? t("Saving…") : t("Save Groom only")}
@@ -517,5 +511,22 @@ const getStyles = (colors: any) =>
     optionTitle: { color: colors.foreground, fontWeight: "700" },
     selectedTitle: { color: colors.primary, fontWeight: "800" },
     optionCopy: { color: colors.mutedForeground, fontSize: 12 },
+    assignmentOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    assignmentOption: {
+      flexBasis: "48%",
+      flexGrow: 1,
+      maxWidth: "100%",
+      minHeight: 44,
+      justifyContent: "center",
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+    },
+    assignmentOptionSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+    assignmentOptionText: { color: colors.mutedForeground, fontSize: 12, fontWeight: "600" },
+    assignmentOptionTextSelected: { color: "#FFFFFF" },
     error: { color: colors.destructive, fontSize: 13 },
   });

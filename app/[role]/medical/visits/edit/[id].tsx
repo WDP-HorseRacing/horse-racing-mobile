@@ -145,10 +145,10 @@ export default function EditMedicalVisit() {
   const isAuthor = Boolean(record && user?.userId === record.vetId);
   const isEditable = Boolean(
     record &&
-      isAuthor &&
-      !record.voidedAt &&
-      resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
-      resource.data?.horse.lifecycleStatus !== "DECEASED",
+    isAuthor &&
+    !record.voidedAt &&
+    resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
+    resource.data?.horse.lifecycleStatus !== "DECEASED",
   );
   const isFollowUp = record?.kind === "FOLLOW_UP";
   const canEditVisitStructure = Boolean(
@@ -156,7 +156,7 @@ export default function EditMedicalVisit() {
   );
   const canEditFollowUp = Boolean(
     (record?.caseId && resource.data?.linkedCase?.status === "OPEN") ||
-      (canEditVisitStructure && conclusion === "ISSUE"),
+    (canEditVisitStructure && conclusion === "ISSUE"),
   );
   const isClosedCase = resource.data?.linkedCase?.status === "CLOSED";
 
@@ -271,7 +271,10 @@ export default function EditMedicalVisit() {
     for (const item of resource.data.visitMeasurements) {
       const text = measurementValues[item.type]?.trim();
       if (!text) {
-        Alert.alert("Measurement required", "Enter a value for every measurement recorded in this visit.");
+        Alert.alert(
+          "Measurement required",
+          "Enter a value for every measurement recorded in this visit.",
+        );
         return;
       }
       const value = Number(text);
@@ -313,7 +316,10 @@ export default function EditMedicalVisit() {
       if (conclusion === "ISSUE") {
         const currentInitialDiagnosis = resource.data.linkedCase?.initialDiagnosis ?? "";
         if (!isValidRequiredText(initialDiagnosis, 2000)) {
-          Alert.alert("Cần chẩn đoán ban đầu", "Nhập chẩn đoán bệnh án (tối đa 2.000 ký tự).");
+          Alert.alert(
+            "Initial diagnosis required",
+            "Enter the case diagnosis (up to 2,000 characters).",
+          );
           return;
         }
         if (initialDiagnosis.trim() !== currentInitialDiagnosis) {
@@ -343,7 +349,8 @@ export default function EditMedicalVisit() {
     }
 
     if (canEditFollowUp) {
-      const cancelCaseWithVisit = canEditVisitStructure && record.conclusion === "ISSUE" && conclusion === "NORMAL";
+      const cancelCaseWithVisit =
+        canEditVisitStructure && record.conclusion === "ISSUE" && conclusion === "NORMAL";
       if (cancelCaseWithVisit && record.nextVisitAt) {
         input.nextVisitAt = null;
         changed = true;
@@ -354,11 +361,7 @@ export default function EditMedicalVisit() {
         }
       } else {
         const nextVisitAt = toClubDateTime(nextVisitDate, nextVisitTime);
-        if (
-          !isValidDateOnly(nextVisitDate) ||
-          !nextVisitAt ||
-          !isNotPastDateTime(nextVisitAt)
-        ) {
+        if (!isValidDateOnly(nextVisitDate) || !nextVisitAt || !isNotPastDateTime(nextVisitAt)) {
           Alert.alert("Lịch tái khám không hợp lệ", "Chọn ngày giờ hợp lệ trong tương lai.");
           return;
         }
@@ -386,11 +389,7 @@ export default function EditMedicalVisit() {
       startDate: item.startDate.trim(),
       endDate: item.endDate.trim(),
     }));
-    if (
-      !isFollowUp &&
-      conclusion === "NORMAL" &&
-      nextPrescriptions.some((item) => !item.endDate)
-    ) {
+    if (!isFollowUp && conclusion === "NORMAL" && nextPrescriptions.some((item) => !item.endDate)) {
       Alert.alert(
         "Cần ngày kết thúc đơn thuốc",
         "Buổi khám không mở bệnh án phải có ngày kết thúc cho tất cả đơn thuốc.",
@@ -426,9 +425,7 @@ export default function EditMedicalVisit() {
       changed = true;
     }
 
-    const timelineById = new Map(
-      resource.data.injuryTimeline.map((item) => [item.id, item]),
-    );
+    const timelineById = new Map(resource.data.injuryTimeline.map((item) => [item.id, item]));
     const hasInvalidPosition = injuries.some((draft) => {
       const original = record.injuries.find((item) => item.injuryId === draft.injuryId);
       const timeline = timelineById.get(draft.injuryId);
@@ -557,7 +554,11 @@ export default function EditMedicalVisit() {
     <Screen
       role="vet"
       title="Sửa buổi khám"
-      subtitle={record ? `${resource.data?.horse.name} · ${formatDateTime(record.examDate)}` : "Đính chính có lý do"}
+      subtitle={
+        record
+          ? `${resource.data?.horse.name} · ${formatDateTime(record.examDate)}`
+          : "Đính chính có lý do"
+      }
       back
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
@@ -572,19 +573,36 @@ export default function EditMedicalVisit() {
           <View style={ui.section}>
             <Panel>
               <Text style={ui.muted}>
-                Chỉ bác sĩ ghi phiếu mới được sửa. Không thể đổi ngựa, bác sĩ, thời điểm khám hoặc chi phí.
+                Chỉ bác sĩ ghi phiếu mới được sửa. Không thể đổi ngựa, bác sĩ, thời điểm khám hoặc
+                chi phí.
               </Text>
-              <Text style={ui.muted}>Chỉ các chỉ số đã ghi trong buổi khám mới có thể sửa; không thể thêm loại đo mới.</Text>
+              <Text style={ui.muted}>
+                Chỉ các chỉ số đã ghi trong buổi khám mới có thể sửa; không thể thêm loại đo mới.
+              </Text>
             </Panel>
             <SectionTitle>Thông tin đính chính</SectionTitle>
             <Field label="Chẩn đoán / nhận xét">
-              <NativeInput value={diagnosis} onChangeText={setDiagnosis} multiline maxLength={4000} />
+              <NativeInput
+                value={diagnosis}
+                onChangeText={setDiagnosis}
+                multiline
+                maxLength={4000}
+              />
             </Field>
             <Field label="Hướng dẫn chăm sóc">
-              <NativeInput value={careInstructions} onChangeText={setCareInstructions} multiline maxLength={2000} />
+              <NativeInput
+                value={careInstructions}
+                onChangeText={setCareInstructions}
+                multiline
+                maxLength={2000}
+              />
             </Field>
             <Field label="Trạng thái sức khỏe sau khám">
-              <Chips options={healthStatuses} value={healthStatus} onChange={(value) => setHealthStatus(value as HealthStatusDto)} />
+              <Chips
+                options={healthStatuses}
+                value={healthStatus}
+                onChange={(value) => setHealthStatus(value as HealthStatusDto)}
+              />
             </Field>
 
             {resource.data.visitMeasurements.length ? (
@@ -596,18 +614,37 @@ export default function EditMedicalVisit() {
                   const rawVal = measurementValues[item.type] ?? String(item.value);
                   const validation = validateMeasurementField(item.type, rawVal);
                   return (
-                    <Field key={item.id} label={`${meta.label} · ${meta.unit} (${range.min}–${range.max})`}>
+                    <Field
+                      key={item.id}
+                      label={`${meta.label} · ${meta.unit} (${range.min}–${range.max})`}
+                    >
                       <NativeInput
                         value={rawVal}
-                        onChangeText={(value) => setMeasurementValues((current) => ({ ...current, [item.type]: value }))}
+                        onChangeText={(value) =>
+                          setMeasurementValues((current) => ({ ...current, [item.type]: value }))
+                        }
                         keyboardType="decimal-pad"
                       />
                       {validation.error ? (
-                        <Text style={{ color: colors.destructive, fontSize: 11, fontWeight: "600", marginTop: 2 }}>
+                        <Text
+                          style={{
+                            color: colors.destructive,
+                            fontSize: 11,
+                            fontWeight: "600",
+                            marginTop: 2,
+                          }}
+                        >
                           {validation.error}
                         </Text>
                       ) : validation.warning ? (
-                        <Text style={{ color: colors.monitor ?? "#d97706", fontSize: 11, fontWeight: "600", marginTop: 2 }}>
+                        <Text
+                          style={{
+                            color: colors.monitor ?? "#d97706",
+                            fontSize: 11,
+                            fontWeight: "600",
+                            marginTop: 2,
+                          }}
+                        >
                           {validation.warning}
                         </Text>
                       ) : null}
@@ -615,7 +652,9 @@ export default function EditMedicalVisit() {
                   );
                 })}
                 <Pressable onPress={() => setConfirmAbnormal((current) => !current)}>
-                  <Text style={ui.muted}>{confirmAbnormal ? "✓ " : "□ "}Confirm saving a value outside the normal range</Text>
+                  <Text style={ui.muted}>
+                    {confirmAbnormal ? "✓ " : "□ "}Confirm saving a value outside the normal range
+                  </Text>
                 </Pressable>
               </>
             ) : null}
@@ -624,14 +663,27 @@ export default function EditMedicalVisit() {
               <>
                 <SectionTitle>Loại và kết luận buổi khám</SectionTitle>
                 <Field label="Loại buổi khám">
-                  <Chips options={["ROUTINE", "REQUEST"]} value={kind} onChange={(value) => setKind(value as "ROUTINE" | "REQUEST")} />
+                  <Chips
+                    options={["ROUTINE", "REQUEST"]}
+                    value={kind}
+                    onChange={(value) => setKind(value as "ROUTINE" | "REQUEST")}
+                  />
                 </Field>
                 <Field label="Kết luận">
-                  <Chips options={["NORMAL", "ISSUE"]} value={conclusion} onChange={(value) => setConclusion(value as "NORMAL" | "ISSUE")} />
+                  <Chips
+                    options={["NORMAL", "ISSUE"]}
+                    value={conclusion}
+                    onChange={(value) => setConclusion(value as "NORMAL" | "ISSUE")}
+                  />
                 </Field>
                 {conclusion === "ISSUE" ? (
                   <Field label="Chẩn đoán ban đầu của bệnh án · bắt buộc">
-                    <NativeInput value={initialDiagnosis} onChangeText={setInitialDiagnosis} multiline maxLength={2000} />
+                    <NativeInput
+                      value={initialDiagnosis}
+                      onChangeText={setInitialDiagnosis}
+                      multiline
+                      maxLength={2000}
+                    />
                   </Field>
                 ) : null}
               </>
@@ -645,22 +697,38 @@ export default function EditMedicalVisit() {
                   return (
                     <Pressable key={item.id} onPress={() => toggleRequest(item.id)}>
                       <Panel style={{ borderColor: selected ? colors.primary : colors.border }}>
-                        <Text style={ui.value}>{selected ? "✓ " : "○ "}{item.description || "Yêu cầu khám"}</Text>
-                        <Text style={ui.muted}>{item.status === "PENDING" ? "Chờ xử lý" : "Đã khám"}</Text>
+                        <Text style={ui.value}>
+                          {selected ? "✓ " : "○ "}
+                          {item.description || "Yêu cầu khám"}
+                        </Text>
+                        <Text style={ui.muted}>
+                          {item.status === "PENDING" ? "Chờ xử lý" : "Đã khám"}
+                        </Text>
                       </Panel>
                     </Pressable>
                   );
                 })}
-                {!availableRequests.length ? <Text style={ui.muted}>Không có yêu cầu đang chờ hoặc đã gắn với buổi khám này.</Text> : null}
+                {!availableRequests.length ? (
+                  <Text style={ui.muted}>
+                    Không có yêu cầu đang chờ hoặc đã gắn với buổi khám này.
+                  </Text>
+                ) : null}
               </>
             }
 
-            {canEditFollowUp && !(canEditVisitStructure && record.conclusion === "ISSUE" && conclusion === "NORMAL") ? (
+            {canEditFollowUp &&
+            !(canEditVisitStructure && record.conclusion === "ISSUE" && conclusion === "NORMAL") ? (
               <>
                 <SectionTitle>Lịch tái khám</SectionTitle>
-                <Text style={ui.muted}>Để trống ngày và giờ để bỏ lịch; ngày giờ mới phải ở hiện tại hoặc tương lai.</Text>
-                <Field label="Ngày tái khám · YYYY-MM-DD"><NativeInput value={nextVisitDate} onChangeText={setNextVisitDate} /></Field>
-                <Field label="Giờ tái khám · HH:mm"><NativeInput value={nextVisitTime} onChangeText={setNextVisitTime} /></Field>
+                <Text style={ui.muted}>
+                  Để trống ngày và giờ để bỏ lịch; ngày giờ mới phải ở hiện tại hoặc tương lai.
+                </Text>
+                <Field label="Ngày tái khám · YYYY-MM-DD">
+                  <NativeInput value={nextVisitDate} onChangeText={setNextVisitDate} />
+                </Field>
+                <Field label="Giờ tái khám · HH:mm">
+                  <NativeInput value={nextVisitTime} onChangeText={setNextVisitTime} />
+                </Field>
               </>
             ) : null}
 
@@ -668,61 +736,203 @@ export default function EditMedicalVisit() {
             {prescriptions.map((item, index) => (
               <Panel key={`${record.id}-prescription-${index}`} style={{ gap: 8 }}>
                 <Text style={ui.value}>Đơn thuốc {index + 1}</Text>
-                <Field label="Tên thuốc"><NativeInput value={item.medicine} onChangeText={(value) => updatePrescription(index, { medicine: value })} maxLength={160} /></Field>
-                <Field label="Liều dùng"><NativeInput value={item.dosage} onChangeText={(value) => updatePrescription(index, { dosage: value })} maxLength={160} /></Field>
-                <Field label="Tần suất"><NativeInput value={item.frequency} onChangeText={(value) => updatePrescription(index, { frequency: value })} maxLength={160} /></Field>
-                <Field label="Ngày bắt đầu · YYYY-MM-DD"><NativeInput value={item.startDate} onChangeText={(value) => updatePrescription(index, { startDate: value })} /></Field>
-                <Field label="Ngày kết thúc · để trống nếu đang dùng"><NativeInput value={item.endDate} onChangeText={(value) => updatePrescription(index, { endDate: value })} /></Field>
-                <SecondaryButton label="Xóa đơn thuốc" onPress={() => setPrescriptions((current) => current.filter((_, itemIndex) => itemIndex !== index))} />
+                <Field label="Tên thuốc">
+                  <NativeInput
+                    value={item.medicine}
+                    onChangeText={(value) => updatePrescription(index, { medicine: value })}
+                    maxLength={160}
+                  />
+                </Field>
+                <Field label="Liều dùng">
+                  <NativeInput
+                    value={item.dosage}
+                    onChangeText={(value) => updatePrescription(index, { dosage: value })}
+                    maxLength={160}
+                  />
+                </Field>
+                <Field label="Tần suất">
+                  <NativeInput
+                    value={item.frequency}
+                    onChangeText={(value) => updatePrescription(index, { frequency: value })}
+                    maxLength={160}
+                  />
+                </Field>
+                <Field label="Ngày bắt đầu · YYYY-MM-DD">
+                  <NativeInput
+                    value={item.startDate}
+                    onChangeText={(value) => updatePrescription(index, { startDate: value })}
+                  />
+                </Field>
+                <Field label="Ngày kết thúc · để trống nếu đang dùng">
+                  <NativeInput
+                    value={item.endDate}
+                    onChangeText={(value) => updatePrescription(index, { endDate: value })}
+                  />
+                </Field>
+                <SecondaryButton
+                  label="Xóa đơn thuốc"
+                  onPress={() =>
+                    setPrescriptions((current) =>
+                      current.filter((_, itemIndex) => itemIndex !== index),
+                    )
+                  }
+                />
               </Panel>
             ))}
             <SecondaryButton
               label="Thêm đơn thuốc"
               disabled={prescriptions.length >= 20}
-              onPress={() => setPrescriptions((current) => [...current, { ...EMPTY_PRESCRIPTION, startDate: clubDate() }])}
+              onPress={() =>
+                setPrescriptions((current) => [
+                  ...current,
+                  { ...EMPTY_PRESCRIPTION, startDate: clubDate() },
+                ])
+              }
             />
 
             <SectionTitle>Chấn thương ghi trong buổi khám ({injuries.length})</SectionTitle>
             {injuries.map((item) => {
-              const timeline = resource.data?.injuryTimeline.find((entry) => entry.id === item.injuryId);
+              const timeline = resource.data?.injuryTimeline.find(
+                (entry) => entry.id === item.injuryId,
+              );
               const canEditFixedDetails = timeline?.firstMedicalRecordId === record.id;
               const canRemove = canEditFixedDetails && (timeline?.history.length ?? 0) <= 1;
               const removed = removedInjuryIds.includes(item.injuryId);
               return (
                 <Panel key={item.injuryId} style={{ gap: 8, opacity: removed ? 0.55 : 1 }}>
-                  <Text style={ui.value}>{item.bodyRegion.replaceAll("_", " ")} · {item.injuryType.replaceAll("_", " ")}</Text>
+                  <Text style={ui.value}>
+                    {item.bodyRegion} · {item.injuryType}
+                  </Text>
                   {!removed ? (
                     <>
-                      <Field label="Tiến triển hồi phục"><Chips options={isClosedCase ? ["HEALED"] : [...INJURY_RECOVERY_STATES]} value={item.recoveryStatus} onChange={(value) => updateInjury(item.injuryId, { recoveryStatus: value as InjuryRecoveryStatus })} /></Field>
-                      <Field label="Ghi chú"><NativeInput value={item.notes} onChangeText={(value) => updateInjury(item.injuryId, { notes: value })} multiline maxLength={2000} /></Field>
+                      <Field label="Tiến triển hồi phục">
+                        <Chips
+                          options={isClosedCase ? ["HEALED"] : [...INJURY_RECOVERY_STATES]}
+                          value={item.recoveryStatus}
+                          onChange={(value) =>
+                            updateInjury(item.injuryId, {
+                              recoveryStatus: value as InjuryRecoveryStatus,
+                            })
+                          }
+                        />
+                      </Field>
+                      <Field label="Ghi chú">
+                        <NativeInput
+                          value={item.notes}
+                          onChangeText={(value) => updateInjury(item.injuryId, { notes: value })}
+                          multiline
+                          maxLength={2000}
+                        />
+                      </Field>
                       {canEditFixedDetails ? (
                         <>
-                          <Field label="Vùng cơ thể"><Chips options={[...INJURY_BODY_REGIONS]} value={item.bodyRegion} onChange={(value) => updateInjury(item.injuryId, { bodyRegion: value as InjuryBodyRegion })} /></Field>
-                          <Field label="Loại chấn thương"><Chips options={[...INJURY_TYPES]} value={item.injuryType} onChange={(value) => updateInjury(item.injuryId, { injuryType: value as InjuryType })} /></Field>
+                          <Field label="Vùng cơ thể">
+                            <Chips
+                              options={[...INJURY_BODY_REGIONS]}
+                              value={item.bodyRegion}
+                              onChange={(value) =>
+                                updateInjury(item.injuryId, {
+                                  bodyRegion: value as InjuryBodyRegion,
+                                })
+                              }
+                            />
+                          </Field>
+                          <Field label="Loại chấn thương">
+                            <Chips
+                              options={[...INJURY_TYPES]}
+                              value={item.injuryType}
+                              onChange={(value) =>
+                                updateInjury(item.injuryId, { injuryType: value as InjuryType })
+                              }
+                            />
+                          </Field>
                           <Text style={ui.muted}>Vị trí theo hệ tọa độ gốc của mô hình (mét).</Text>
                           <View style={{ flexDirection: "row", gap: 8 }}>
-                            <View style={{ flex: 1, minWidth: 0 }}><Field label="X · m"><NativeInput value={item.position.x} onChangeText={(value) => updateInjury(item.injuryId, { position: { ...item.position, x: value } })} keyboardType="decimal-pad" /></Field></View>
-                            <View style={{ flex: 1, minWidth: 0 }}><Field label="Y · m"><NativeInput value={item.position.y} onChangeText={(value) => updateInjury(item.injuryId, { position: { ...item.position, y: value } })} keyboardType="decimal-pad" /></Field></View>
-                            <View style={{ flex: 1, minWidth: 0 }}><Field label="Z · m"><NativeInput value={item.position.z} onChangeText={(value) => updateInjury(item.injuryId, { position: { ...item.position, z: value } })} keyboardType="decimal-pad" /></Field></View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Field label="X · m">
+                                <NativeInput
+                                  value={item.position.x}
+                                  onChangeText={(value) =>
+                                    updateInjury(item.injuryId, {
+                                      position: { ...item.position, x: value },
+                                    })
+                                  }
+                                  keyboardType="decimal-pad"
+                                />
+                              </Field>
+                            </View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Field label="Y · m">
+                                <NativeInput
+                                  value={item.position.y}
+                                  onChangeText={(value) =>
+                                    updateInjury(item.injuryId, {
+                                      position: { ...item.position, y: value },
+                                    })
+                                  }
+                                  keyboardType="decimal-pad"
+                                />
+                              </Field>
+                            </View>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Field label="Z · m">
+                                <NativeInput
+                                  value={item.position.z}
+                                  onChangeText={(value) =>
+                                    updateInjury(item.injuryId, {
+                                      position: { ...item.position, z: value },
+                                    })
+                                  }
+                                  keyboardType="decimal-pad"
+                                />
+                              </Field>
+                            </View>
                           </View>
                         </>
                       ) : null}
-                      {canRemove ? <SecondaryButton label="Xóa chấn thương khỏi buổi khám" onPress={() => toggleRemovedInjury(item.injuryId)} /> : null}
+                      {canRemove ? (
+                        <SecondaryButton
+                          label="Xóa chấn thương khỏi buổi khám"
+                          onPress={() => toggleRemovedInjury(item.injuryId)}
+                        />
+                      ) : null}
                     </>
-                  ) : <SecondaryButton label="Khôi phục chấn thương" onPress={() => toggleRemovedInjury(item.injuryId)} />}
-                  {!canEditFixedDetails ? <Text style={ui.muted}>Vùng, loại và vị trí chỉ sửa được ở buổi phát hiện đầu tiên.</Text> : null}
+                  ) : (
+                    <SecondaryButton
+                      label="Khôi phục chấn thương"
+                      onPress={() => toggleRemovedInjury(item.injuryId)}
+                    />
+                  )}
+                  {!canEditFixedDetails ? (
+                    <Text style={ui.muted}>
+                      Vùng, loại và vị trí chỉ sửa được ở buổi phát hiện đầu tiên.
+                    </Text>
+                  ) : null}
                 </Panel>
               );
             })}
 
             <Field label="Lý do sửa · bắt buộc (tối đa 500 ký tự)">
-              <NativeInput value={reason} onChangeText={setReason} multiline maxLength={500} placeholder="Nêu rõ nội dung cần đính chính" />
+              <NativeInput
+                value={reason}
+                onChangeText={setReason}
+                multiline
+                maxLength={500}
+                placeholder="Nêu rõ nội dung cần đính chính"
+              />
             </Field>
-            <PrimaryButton label={saving ? "Đang lưu…" : "Lưu đính chính"} disabled={saving || !reason.trim()} onPress={() => void submit()} />
+            <PrimaryButton
+              label={saving ? "Đang lưu…" : "Lưu đính chính"}
+              disabled={saving || !reason.trim()}
+              onPress={() => void submit()}
+            />
           </View>
         ) : (
           <Panel>
-            <Text>Phiếu này không thể sửa: chỉ bác sĩ ghi phiếu được sửa; buổi đã hủy hoặc hồ sơ ngựa đã chuyển nhượng/ghi nhận mất cũng không cho sửa.</Text>
+            <Text>
+              Phiếu này không thể sửa: chỉ bác sĩ ghi phiếu được sửa; buổi đã hủy hoặc hồ sơ ngựa đã
+              chuyển nhượng/ghi nhận mất cũng không cho sửa.
+            </Text>
           </Panel>
         )
       ) : null}

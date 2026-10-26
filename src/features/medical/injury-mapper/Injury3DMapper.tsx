@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WebView, type WebViewMessageEvent } from "react-native-webview";
+import { WebView, type WebViewMessageEvent, type WebViewProps } from "react-native-webview";
 import MODEL_ASSET from "./assets/horse-anatomy-v2.glb";
 import VIEWER_BUNDLE_ASSET from "./assets/injury-viewer.bundle.txt";
 import { Text } from "@/components/common/LocalizedText";
@@ -120,7 +120,7 @@ export function Injury3DMapper({
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<WebViewProps>>(null);
   const mountedRef = useRef(true);
   const sentModelRef = useRef(false);
   const lastFocusedMarkerId = useRef("");
@@ -511,7 +511,7 @@ export function Injury3DMapper({
 
           <View style={styles.viewerFrame}>
             {html ? (
-              <WebView
+              <WebView<WebViewProps>
                 ref={webViewRef}
                 source={{ html }}
                 originWhitelist={["*"]}

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AndroidImportance } from "expo-notifications";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { apiRequest } from "@/services/api-client";
@@ -24,7 +25,7 @@ export const pushDeviceService = {
     if (platform === "ANDROID") {
       await Notifications.setNotificationChannelAsync("default", {
         name: "Horse Racing",
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: AndroidImportance.DEFAULT,
       });
     }
 

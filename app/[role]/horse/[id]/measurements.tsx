@@ -23,6 +23,7 @@ import {
 import { horseService, type HorseMeasurementDto } from "@/services/horse.service";
 import { isRole } from "@/features/auth/roles";
 import { extractErrorMessage } from "@/utils/errorHandler";
+import { formatEnum } from "@/utils/formatters";
 
 const TYPES = ["WEIGHT", "HEIGHT", "BODY_CONDITION", "TEMPERATURE"] as const;
 type MeasurementType = (typeof TYPES)[number];
@@ -32,6 +33,10 @@ const UNITS: Record<MeasurementType, string> = {
   BODY_CONDITION: "score",
   TEMPERATURE: "°C",
 };
+
+function formatMeasurementUnit(unit: string): string {
+  return unit.toLowerCase() === "celsius" ? "°C" : unit;
+}
 
 export default function BodyMeasurements() {
   const { colors } = useTheme();
@@ -194,9 +199,9 @@ export default function BodyMeasurements() {
               const latest = latestByType.get(type);
               return (
                 <Panel key={type}>
-                  <Text style={uiStyles.label}>{type.replaceAll("_", " ")}</Text>
+                  <Text style={uiStyles.label}>{formatEnum(type)}</Text>
                   <Text style={styles.metricValue}>
-                    {latest ? `${latest.value} ${latest.unit}` : "—"}
+                    {latest ? `${latest.value} ${formatMeasurementUnit(latest.unit)}` : "—"}
                   </Text>
                   <Text style={uiStyles.muted}>
                     {latest ? new Date(latest.measuredAt).toLocaleDateString() : "No value yet"}
@@ -228,7 +233,7 @@ export default function BodyMeasurements() {
                   <View style={styles.recordHeader}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.recordTitle}>
-                        {row.type.replaceAll("_", " ")} · {row.value} {row.unit}
+                        {formatEnum(row.type)} · {row.value} {formatMeasurementUnit(row.unit)}
                       </Text>
                       <Text style={uiStyles.muted}>
                         {new Date(row.measuredAt).toLocaleString()} · {row.measuredByName} ·{" "}
@@ -299,7 +304,7 @@ export default function BodyMeasurements() {
             {TYPES.map((type) => {
               const validation = fieldValidations[type];
               return (
-                <Field key={type} label={`${type.replaceAll("_", " ")} (${UNITS[type]})`}>
+                <Field key={type} label={`${formatEnum(type)} (${UNITS[type]})`}>
                   <NativeInput
                     value={values[type]}
                     onChangeText={(value) => updateValue(type, value)}
@@ -314,14 +319,36 @@ export default function BodyMeasurements() {
                 </Field>
               );
             })}
-            <Chips
-              options={["Không xác nhận bất thường", "Xác nhận nếu có cảnh báo"]}
-              value={confirmAbnormal ? "Xác nhận nếu có cảnh báo" : "Không xác nhận bất thường"}
-              onChange={(value) => setConfirmAbnormal(value.startsWith("Xác nhận"))}
-            />
+            <View style={styles.confirmOptions}>
+              {["Không xác nhận bất thường", "Xác nhận nếu có cảnh báo"].map((option) => {
+                const selected =
+                  (option === "Xác nhận nếu có cảnh báo") === confirmAbnormal;
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => setConfirmAbnormal(option === "Xác nhận nếu có cảnh báo")}
+                    style={[styles.confirmOption, selected && styles.confirmOptionActive]}
+                  >
+                    <Text
+                      style={[
+                        styles.confirmOptionText,
+                        selected && styles.confirmOptionTextActive,
+                      ]}
+                    >
+                      {formatEnum(t(option))}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             {hasAnyAbnormalField && !confirmAbnormal ? (
               <Text style={styles.warningNotice}>
-                ⚠️ {t("Có giá trị ngoài khoảng bình thường. Vui lòng chọn 'Xác nhận nếu có cảnh báo' để hệ thống cho phép lưu.")}
+                ⚠️{" "}
+                {t(
+                  "Có giá trị ngoài khoảng bình thường. Vui lòng chọn 'Xác nhận nếu có cảnh báo' để hệ thống cho phép lưu.",
+                )}
               </Text>
             ) : null}
             {formError ? <Text style={styles.error}>{formError}</Text> : null}
@@ -329,9 +356,7 @@ export default function BodyMeasurements() {
               label={saving ? t("Saving…") : t("Save measurements")}
               icon="checkmark"
               disabled={
-                saving ||
-                hasAnyInvalidField ||
-                !TYPES.some((type) => values[type].trim() !== "")
+                saving || hasAnyInvalidField || !TYPES.some((type) => values[type].trim() !== "")
               }
               onPress={() => void addMeasurement()}
             />
@@ -355,6 +380,30 @@ const getStyles = (colors: any) =>
     deleteLink: { color: colors.destructive, fontSize: 13, fontWeight: "700", marginTop: 10 },
     error: { color: colors.destructive, fontSize: 13 },
     fieldError: { color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" },
-    warningText: { color: colors.warning ?? "#d97706", fontSize: 12, marginTop: 4, fontWeight: "600" },
-    warningNotice: { color: colors.warning ?? "#d97706", fontSize: 13, lineHeight: 18, fontWeight: "600" },
+    warningText: {
+      color: colors.warning ?? "#d97706",
+      fontSize: 12,
+      marginTop: 4,
+      fontWeight: "600",
+    },
+    warningNotice: {
+      color: colors.warning ?? "#d97706",
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: "600",
+    },
+    confirmOptions: { gap: 8 },
+    confirmOption: {
+      minHeight: 44,
+      justifyContent: "center",
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    confirmOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    confirmOptionText: { color: colors.mutedForeground, fontSize: 13, fontWeight: "600" },
+    confirmOptionTextActive: { color: "#FFFFFF" },
   });

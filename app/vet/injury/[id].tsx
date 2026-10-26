@@ -13,20 +13,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
 import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
 
-const regionLabels: Record<string, string> = {
-  HEAD: "Head",
-  NECK: "Neck",
-  BACK: "Back",
-  CHEST: "Chest",
-  ABDOMEN: "Abdomen",
-  PELVIS: "Pelvis",
-  LEFT_FRONT_LEG: "Left front leg",
-  RIGHT_FRONT_LEG: "Right front leg",
-  LEFT_HIND_LEG: "Left hind leg",
-  RIGHT_HIND_LEG: "Right hind leg",
-  OTHER: "Other region",
-};
-
 export default function InjuryMap() {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -87,11 +73,10 @@ export default function InjuryMap() {
               return (
                 <Panel key={injury.id}>
                   <Text style={uiStyles.value}>
-                    {regionLabels[injury.bodyRegion] ?? injury.bodyRegion.replaceAll("_", " ")} ·{" "}
-                    {injury.injuryType.replaceAll("_", " ")}
+                    {injury.bodyRegion} · {injury.injuryType}
                   </Text>
                   <Text style={uiStyles.muted}>
-                    {t("Current status")}: {injury.currentRecoveryStatus.replaceAll("_", " ")}
+                    {t("Current status")}: {injury.currentRecoveryStatus}
                   </Text>
                   {injury.history.map((event) => {
                     const statusTone =

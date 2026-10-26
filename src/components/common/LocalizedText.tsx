@@ -23,7 +23,7 @@ export function LanguageToggle() {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Change language"
+      accessibilityLabel={language === "vi" ? "Đổi ngôn ngữ" : "Change language"}
       onPress={toggleLanguage}
       style={{
         borderRadius: 10,

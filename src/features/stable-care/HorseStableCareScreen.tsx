@@ -99,8 +99,8 @@ export default function HorseStableCareScreen() {
     if (["manager", "trainer", "owner"].includes(role)) tabs.push("Surcharges");
     return tabs;
   }, [role]);
-  const [tab, setTab] = useState(
-    () => (initialTab && options.includes(initialTab) ? initialTab : (options[0] ?? "Feeding plan")),
+  const [tab, setTab] = useState(() =>
+    initialTab && options.includes(initialTab) ? initialTab : (options[0] ?? "Feeding plan"),
   );
 
   const visibleTab = options.includes(tab) ? tab : (options[0] ?? "Feeding plan");
@@ -225,9 +225,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
     }
 
     setLines((current) => {
-      const existingIndex = current.findIndex(
-        (l) => l.meal === meal && l.supplyItemId === itemId,
-      );
+      const existingIndex = current.findIndex((l) => l.meal === meal && l.supplyItemId === itemId);
       if (existingIndex >= 0) {
         const updated = [...current];
         updated[existingIndex] = {
@@ -546,11 +544,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
           </View>
 
           <Field label="Plan note">
-            <NativeInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Optional instructions"
-            />
+            <NativeInput value={note} onChangeText={setNote} placeholder="Optional instructions" />
           </Field>
 
           {!selectedPlan && plans.length ? (
@@ -652,9 +646,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
               {/* Feed items chips */}
               <View style={{ gap: space.xs }}>
-                <Text style={[ui.value, { fontSize: 13 }]}>
-                  {t("Select feed or supplement")}
-                </Text>
+                <Text style={[ui.value, { fontSize: 13 }]}>{t("Select feed or supplement")}</Text>
                 <Chips
                   options={feedItems.map((item) => item.name)}
                   value={feedItems.find((item) => item.id === itemId)?.name ?? ""}
@@ -768,7 +760,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
                     <View style={careStyles.lineStepperRow}>
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Decrease quantity"
+                        accessibilityLabel={t("Decrease quantity")}
                         onPress={() => adjustLineQty(index, -0.5)}
                         style={careStyles.stepperBtn}
                       >
@@ -782,7 +774,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Increase quantity"
+                        accessibilityLabel={t("Increase quantity")}
                         onPress={() => adjustLineQty(index, 0.5)}
                         style={careStyles.stepperBtn}
                       >
@@ -791,7 +783,7 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Edit line details"
+                        accessibilityLabel={t("Edit line details")}
                         onPress={() => editLine(line)}
                         style={careStyles.lineActionBtn}
                       >
@@ -800,10 +792,8 @@ function FeedingPlansTab({ role, horseId }: { role: string; horseId: string }) {
 
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Remove item"
-                        onPress={() =>
-                          setLines((curr) => curr.filter((_, idx) => idx !== index))
-                        }
+                        accessibilityLabel={t("Remove item")}
+                        onPress={() => setLines((curr) => curr.filter((_, idx) => idx !== index))}
                         style={careStyles.lineActionBtn}
                       >
                         <Ionicons name="trash-outline" size={18} color={colors.destructive} />
@@ -888,10 +878,7 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
       return;
     }
     if (taskMode === "EXEMPT" && !note.trim()) {
-      Alert.alert(
-        t("Lý do bắt buộc"),
-        t("Vui lòng nhập lý do miễn loại việc chung này."),
-      );
+      Alert.alert(t("Lý do bắt buộc"), t("Vui lòng nhập lý do miễn loại việc chung này."));
       return;
     }
     setSaving(true);
@@ -973,7 +960,10 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
           <View style={ui.row}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs, flex: 1 }}>
               <Ionicons name="calendar-outline" size={17} color={colors.primary} />
-              <Text style={[careStyles.planHorseName, { fontSize: 16 }]} numberOfLines={1}>
+              <Text
+                style={[careStyles.planHorseName, { fontSize: 16, flexShrink: 1 }]}
+                numberOfLines={2}
+              >
                 {task.taskType.name}
               </Text>
             </View>
@@ -1031,11 +1021,7 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
           visible={showAssignModal}
           title={taskMode === "EXTRA" ? t("Gắn việc riêng") : t("Miễn việc chung")}
           saveLabel={
-            saving
-              ? t("Saving…")
-              : taskMode === "EXTRA"
-                ? t("Gán việc")
-                : t("Xác nhận miễn")
+            saving ? t("Saving…") : taskMode === "EXTRA" ? t("Gán việc") : t("Xác nhận miễn")
           }
           cancelLabel={t("Cancel")}
           saveDisabled={!taskTypeId || (taskMode === "EXEMPT" && !note.trim()) || saving}
@@ -1068,7 +1054,9 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
           ) : (
             <Text style={ui.muted}>
               {taskMode === "EXTRA"
-                ? t("No active individual task types are available. Club Manager can add them under Care task types.")
+                ? t(
+                    "No active individual task types are available. Club Manager can add them under Care task types.",
+                  )
                 : t("Không có loại việc chung nào để miễn.")}
             </Text>
           )}
@@ -1083,10 +1071,7 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
                   key={d}
                   accessibilityRole="button"
                   onPress={() => handleApplyPresetDays(d)}
-                  style={[
-                    careStyles.quickQtyChip,
-                    isSelected && careStyles.quickQtyChipActive,
-                  ]}
+                  style={[careStyles.quickQtyChip, isSelected && careStyles.quickQtyChipActive]}
                 >
                   <Text
                     style={[
@@ -1123,9 +1108,7 @@ function HorseCareTasksTab({ role, horseId }: { role: string; horseId: string })
           </Field>
           <Field
             label={
-              taskMode === "EXEMPT"
-                ? t("Lý do miễn việc chung (bắt buộc) *")
-                : t("Note")
+              taskMode === "EXEMPT" ? t("Reason for common task exemption (required) *") : t("Note")
             }
           >
             <NativeInput
@@ -1297,19 +1280,11 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
               >
                 <Ionicons
                   name={
-                    isCancelled
-                      ? "close-circle"
-                      : isCompleted
-                        ? "checkmark-circle"
-                        : "time-outline"
+                    isCancelled ? "close-circle" : isCompleted ? "checkmark-circle" : "time-outline"
                   }
                   size={13}
                   color={
-                    isCancelled
-                      ? colors.destructive
-                      : isCompleted
-                        ? colors.primary
-                        : colors.monitor
+                    isCancelled ? colors.destructive : isCompleted ? colors.primary : colors.monitor
                   }
                 />
                 <Text
@@ -1335,9 +1310,7 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
 
             {/* Checklist Items */}
             <View style={{ gap: space.xs, marginTop: space.xs }}>
-              {totalItems === 0 ? (
-                <Text style={ui.muted}>{t("No tasks assigned")}</Text>
-              ) : null}
+              {totalItems === 0 ? <Text style={ui.muted}>{t("No tasks assigned")}</Text> : null}
               {checklist.items.map((item) => (
                 <View key={item.id} style={careStyles.checklistItemRow}>
                   <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
@@ -1430,10 +1403,12 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
   }, [description, t]);
 
   const dateError = useMemo(() => {
-    if (startDate && !isDateOnly(startDate)) return t("Ngày bắt đầu không đúng định dạng YYYY-MM-DD.");
+    if (startDate && !isDateOnly(startDate))
+      return t("Ngày bắt đầu không đúng định dạng YYYY-MM-DD.");
     if (startDate && startDate < todayDate()) return t("Ngày bắt đầu không được ở quá khứ.");
     if (endDate && !isDateOnly(endDate)) return t("Ngày kết thúc không đúng định dạng YYYY-MM-DD.");
-    if (startDate && endDate && endDate < startDate) return t("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+    if (startDate && endDate && endDate < startDate)
+      return t("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
     return "";
   }, [startDate, endDate, t]);
   const create = async () => {
@@ -1639,7 +1614,14 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
                 placeholder={t("Reason for additional care cost")}
               />
               {descError ? (
-                <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                <Text
+                  style={{
+                    color: colors.destructive,
+                    fontSize: 12,
+                    marginTop: 4,
+                    fontWeight: "600",
+                  }}
+                >
                   {descError}
                 </Text>
               ) : null}
@@ -1652,11 +1634,20 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
                 placeholder="e.g. 250000"
               />
               {amountError ? (
-                <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                <Text
+                  style={{
+                    color: colors.destructive,
+                    fontSize: 12,
+                    marginTop: 4,
+                    fontWeight: "600",
+                  }}
+                >
                   {amountError}
                 </Text>
               ) : amount.trim() && Number(amount) > 0 ? (
-                <Text style={{ color: colors.primary, fontSize: 13, marginTop: 4, fontWeight: "600" }}>
+                <Text
+                  style={{ color: colors.primary, fontSize: 13, marginTop: 4, fontWeight: "600" }}
+                >
                   {formatVnd(Number(amount))} / {t("day")}
                 </Text>
               ) : null}
@@ -1667,7 +1658,14 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
             <Field label="End date · YYYY-MM-DD">
               <NativeInput value={endDate} onChangeText={setEndDate} placeholder="YYYY-MM-DD" />
               {dateError ? (
-                <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                <Text
+                  style={{
+                    color: colors.destructive,
+                    fontSize: 12,
+                    marginTop: 4,
+                    fontWeight: "600",
+                  }}
+                >
                   {dateError}
                 </Text>
               ) : null}
@@ -1694,16 +1692,16 @@ export function CareTaskTypesScreen() {
   const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"ALL" | "APPLIES_ALL" | "INDIVIDUAL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [filter, setFilter] = useState<
+    "ALL" | "APPLIES_ALL" | "INDIVIDUAL" | "ACTIVE" | "INACTIVE"
+  >("ALL");
 
   const rawItems = resource.data ?? [];
   const filteredItems = useMemo(() => {
     let list = rawItems;
     if (search.trim()) {
       const q = normalizeVietnamese(search.trim().toLowerCase());
-      list = list.filter((item) =>
-        normalizeVietnamese(item.name.toLowerCase()).includes(q),
-      );
+      list = list.filter((item) => normalizeVietnamese(item.name.toLowerCase()).includes(q));
     }
     if (filter === "APPLIES_ALL") {
       list = list.filter((item) => item.appliesToAll);
@@ -1958,7 +1956,9 @@ export function CareTaskTypesScreen() {
                     accessibilityLabel={isActive ? t("Tạm dừng") : t("Kích hoạt")}
                     style={[
                       careStyles.taskTypeActionBtn,
-                      isActive ? careStyles.taskTypeActionBtnDanger : careStyles.taskTypeActionBtnSuccess,
+                      isActive
+                        ? careStyles.taskTypeActionBtnDanger
+                        : careStyles.taskTypeActionBtnSuccess,
                     ]}
                     onPress={() => void patch(item, { active: !item.active })}
                   >

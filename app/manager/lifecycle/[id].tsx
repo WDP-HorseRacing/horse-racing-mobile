@@ -1,12 +1,14 @@
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { safeBack } from "@/utils/navigation";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { Chips, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
+import { useI18n } from "@/context/I18nContext";
+import { formatEnum } from "@/utils/formatters";
 import { space } from "@/config/theme";
 import { useApiResource } from "@/hooks/useApiResource";
 import {
@@ -29,6 +31,7 @@ const LIFECYCLE: HorseLifecycleStatusDto[] = ["ACTIVE", "RETIRED", "TRANSFERRED"
 
 export default function LifecycleManagement() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const uiStyles = getUiStyles(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { token } = useAuth();
@@ -215,7 +218,42 @@ export default function LifecycleManagement() {
         <Panel style={{ gap: space.sm }}>
           <SectionTitle>Chọn thao tác hệ thống</SectionTitle>
           <View style={{ gap: 14, marginTop: 12 }}>
-            <Chips options={actions} value={action} onChange={chooseAction} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.xs }}>
+              {actions.map((option) => {
+                const selected = action === option;
+                return (
+                  <Pressable
+                    key={option}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => chooseAction(option)}
+                    style={{
+                      flexBasis: actions.length === 1 ? "100%" : "48%",
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: selected ? colors.primary : colors.border,
+                      backgroundColor: selected ? colors.primary : colors.surface,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 10,
+                      paddingVertical: 10,
+                    }}
+                  >
+                    <Text
+                      numberOfLines={2}
+                      style={{
+                        color: selected ? "#FFFFFF" : colors.mutedForeground,
+                        fontSize: 12,
+                        fontWeight: "600",
+                        textAlign: "center",
+                      }}
+                    >
+                      {formatEnum(t(option))}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             {action === "DECEASED" ? (
               <Text style={[uiStyles.muted, { color: colors.mutedForeground, fontSize: 13 }]}>
                 Ngày mất sẽ được hệ thống tự động ghi nhận là ngày hôm nay theo lịch câu lạc bộ.

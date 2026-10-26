@@ -14,7 +14,7 @@ import { isRole } from "@/features/auth/roles";
 import { medicalService } from "@/services/medical.service";
 import { horseService } from "@/services/horse.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
-import { formatDate, formatDateTime, formatVnd } from "@/utils/formatters";
+import { formatDate, formatDateTime, formatEnum, formatVnd } from "@/utils/formatters";
 import { safeBack } from "@/utils/navigation";
 import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
 import type {
@@ -44,7 +44,9 @@ export default function MedicalVisitDetail() {
     const record = await medicalService.getRecord(token!, id);
     const [horse, examRequests] = await Promise.all([
       horseService.get(token!, record.horseId),
-      role === "vet" ? medicalService.listHorseExamRequests(token!, record.horseId) : Promise.resolve([]),
+      role === "vet"
+        ? medicalService.listHorseExamRequests(token!, record.horseId)
+        : Promise.resolve([]),
     ]);
     return { ...record, horse, examRequests };
   }, [id, role, token]);
@@ -121,8 +123,21 @@ export default function MedicalVisitDetail() {
 
   const submitCostAdjustment = async () => {
     const cost = Number(adjustCost);
-    if (!record || !token || !isAuthorVet || !/^[0-9]+$/.test(adjustCost.trim()) || !Number.isSafeInteger(cost) || cost < 0 || cost > 10_000_000_000 || !adjustReason.trim() || adjustReason.trim().length > 500) {
-      Alert.alert("Thông tin chi phí chưa hợp lệ", "Nhập số nguyên VND từ 0 đến 10.000.000.000 và lý do tối đa 500 ký tự.");
+    if (
+      !record ||
+      !token ||
+      !isAuthorVet ||
+      !/^[0-9]+$/.test(adjustCost.trim()) ||
+      !Number.isSafeInteger(cost) ||
+      cost < 0 ||
+      cost > 10_000_000_000 ||
+      !adjustReason.trim() ||
+      adjustReason.trim().length > 500
+    ) {
+      Alert.alert(
+        "Thông tin chi phí chưa hợp lệ",
+        "Nhập số nguyên VND từ 0 đến 10.000.000.000 và lý do tối đa 500 ký tự.",
+      );
       return;
     }
     setSaving(true);
@@ -131,23 +146,19 @@ export default function MedicalVisitDetail() {
       setAdjustCost("");
       setAdjustReason("");
       await resource.refresh();
-      Alert.alert(
-        "Đã cập nhật chi phí",
-        "Chi phí buổi khám đã được điều chỉnh thành công.",
-        [
-          {
-            text: "Quay về",
-            onPress: () => {
-              if (record.caseId) {
-                router.replace(`/${role}/medical/cases/${record.caseId}` as Href);
-              } else {
-                safeBack(`/${role}/medical/requests`);
-              }
-            },
+      Alert.alert("Đã cập nhật chi phí", "Chi phí buổi khám đã được điều chỉnh thành công.", [
+        {
+          text: "Quay về",
+          onPress: () => {
+            if (record.caseId) {
+              router.replace(`/${role}/medical/cases/${record.caseId}` as Href);
+            } else {
+              safeBack(`/${role}/medical/requests`);
+            }
           },
-          { text: "Ở lại", style: "cancel" },
-        ],
-      );
+        },
+        { text: "Ở lại", style: "cancel" },
+      ]);
     } catch (error) {
       Alert.alert("Không thể điều chỉnh chi phí", extractErrorMessage(error));
     } finally {
@@ -165,7 +176,9 @@ export default function MedicalVisitDetail() {
           : "Chi tiết buổi khám"
       }
       back
-      fallbackHref={record?.caseId ? `/${role}/medical/cases/${record.caseId}` : `/${role}/medical/requests`}
+      fallbackHref={
+        record?.caseId ? `/${role}/medical/cases/${record.caseId}` : `/${role}/medical/requests`
+      }
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -219,7 +232,7 @@ export default function MedicalVisitDetail() {
               <Text style={styles.healthStatusText}>
                 Trạng thái sức khỏe sau khám:{" "}
                 <Text style={{ fontWeight: "700", color: colors.foreground }}>
-                  {record.resultingStatus.replaceAll("_", " ")}
+                  {formatEnum(record.resultingStatus)}
                 </Text>
               </Text>
               <Text style={styles.dateText}>Thời điểm khám: {formatDateTime(record.examDate)}</Text>
@@ -313,12 +326,10 @@ export default function MedicalVisitDetail() {
                   }}
                 >
                   <Text style={styles.injuryTitle}>
-                    {inj.bodyRegion.replaceAll("_", " ")} · {inj.injuryType.replaceAll("_", " ")}
+                    {inj.bodyRegion} · {inj.injuryType}
                   </Text>
                   <View style={styles.recoveryBadge}>
-                    <Text style={styles.recoveryBadgeText}>
-                      {inj.recoveryStatus.replaceAll("_", " ")}
-                    </Text>
+                    <Text style={styles.recoveryBadgeText}>{inj.recoveryStatus}</Text>
                   </View>
                 </View>
                 {inj.notes ? <Text style={styles.injuryNotes}>{inj.notes}</Text> : null}
@@ -366,10 +377,19 @@ export default function MedicalVisitDetail() {
             <View style={uiStyles.section}>
               <SectionTitle>Điều chỉnh chi phí buổi khám</SectionTitle>
               <Field label="Chi phí mới · VND">
-                <NativeInput value={adjustCost} onChangeText={setAdjustCost} keyboardType="number-pad" />
+                <NativeInput
+                  value={adjustCost}
+                  onChangeText={setAdjustCost}
+                  keyboardType="number-pad"
+                />
               </Field>
               <Field label="Lý do điều chỉnh · bắt buộc">
-                <NativeInput value={adjustReason} onChangeText={setAdjustReason} multiline maxLength={500} />
+                <NativeInput
+                  value={adjustReason}
+                  onChangeText={setAdjustReason}
+                  multiline
+                  maxLength={500}
+                />
               </Field>
               <PrimaryButton
                 label={saving ? "Đang lưu…" : "Lưu chi phí"}
@@ -400,7 +420,7 @@ export default function MedicalVisitDetail() {
             <View style={uiStyles.section}>
               <SectionTitle>Hủy lần khám y tế</SectionTitle>
               <View style={styles.voidBox}>
-                <Field label="Lý do hủy (bắt buộc) *">
+                <Field label="Lý do hủy *">
                   <NativeInput
                     value={reason}
                     onChangeText={setReason}
@@ -421,7 +441,12 @@ export default function MedicalVisitDetail() {
             <PrimaryButton label="Ghi buổi khám thay thế" onPress={openReplacementVisit} />
           ) : null}
 
-          <View style={[uiStyles.section, { marginTop: space.sm, gap: space.sm, paddingBottom: space.lg }]}>
+          <View
+            style={[
+              uiStyles.section,
+              { marginTop: space.sm, gap: space.sm, paddingBottom: space.lg },
+            ]}
+          >
             {record.caseId ? (
               <SecondaryButton
                 label="Xem hồ sơ bệnh án"

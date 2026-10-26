@@ -148,10 +148,7 @@ export function BottomSheetModal({
           ]}
         >
           {/* Top drag handle indicator - drag down or tap to dismiss */}
-          <View
-            style={styles.handleContainer}
-            {...handlePanResponder.panHandlers}
-          >
+          <View style={styles.handleContainer} {...handlePanResponder.panHandlers}>
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
           </View>
 
@@ -162,7 +159,7 @@ export function BottomSheetModal({
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={cancelLabel ?? t("Cancel")}
+              accessibilityLabel={t(cancelLabel ?? "Cancel")}
               hitSlop={12}
               onPress={onClose}
               disabled={saveLoading}
@@ -173,17 +170,14 @@ export function BottomSheetModal({
               </Text>
             </Pressable>
 
-            <Text
-              style={[styles.headerTitle, { color: colors.foreground }]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
               {title}
             </Text>
 
             {onSave ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={saveLabel ?? t("Save")}
+                accessibilityLabel={t(saveLabel ?? "Save")}
                 hitSlop={12}
                 onPress={onSave}
                 disabled={saveDisabled || saveLoading}

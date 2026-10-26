@@ -1,0 +1,108 @@
+# Hướng dẫn kiểm thử 4 flow trên điện thoại
+
+Tài liệu này ghi lại các bước đã chạy trên Simulator và cách lặp lại trên thiết bị. Dữ liệu demo được tạo trên môi trường phát triển local; không dùng các thao tác nhập/xuất, sửa chi phí hoặc trạng thái vòng đời trên DB production. Đăng nhập bằng tài khoản seed đúng vai trò trong `scripts/seed/SYSTEM-ACCOUNTS.md`; không lưu mật khẩu trong tài liệu này.
+
+Tên tệp kịch bản thực tế trong source là `docs/kich-ban-demo-mobile-flow-1.md` đến `docs/kich-ban-demo-mobile-flow-4.md`.
+
+## Môi trường và dữ liệu đã dùng
+
+- Simulator đã dùng: iPhone 17, iOS 26.5; app kết nối API local và DB `racehorse`.
+- Đây là kiểm thử trên iOS Simulator với bản development hiện tại; chưa phải kiểm thử Expo Go trên máy thật, Android, hay API production.
+- Vai trò seed: Quản lý Trần Quang Minh, HLV khu Bắc Lê Quốc Bảo, Groom Bùi Văn Dũng, Vet Nguyễn Thị Lan, chủ ngựa Nguyễn Hải Đăng.
+- Các đối tượng demo đã tạo/đụng tới: ngựa Bình Minh (chip `940000000019925`), môn “Kiểm tra 1200 m demo 261026”, giáo án/lớp 1200 m ngày 26/10/2026, một ca y tế thử và phụ phí “Chăm sóc hồi phục tăng cường”. Trạng thái DB có thể đã khác sau lần chạy này.
+- Nếu ngày trên lịch hoặc seed đã đổi, dùng ngày/giờ hiện tại theo giờ CLB và thêm hậu tố mới vào tên/mã demo để tránh trùng.
+
+## Kết quả bao phủ sau khi chạy trên Simulator
+
+| Flow                | Đã chạy và xác minh                                                                                                                                                                                                                                                                   | Còn cần kiểm tra trên điện thoại hoặc DB kiểm thử riêng                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Hồ sơ ngựa      | Tạo/tra cứu bằng tên và chip, xem tab hồ sơ, ghi chỉ số; khôi phục rồi xóa mềm lại Bích Ngọc; chuyển chủ QA đi và chuyển lại.                                                                                                                                                         | Một số bộ lọc/lọc trang, sửa hồ sơ/ảnh, và xếp Bình Minh vào B05 chưa có bằng chứng hoàn tất trong lượt chạy này. Màn chuyển khu chỉ liệt kê khu hiện tại của ngựa QA nên chưa xác minh chuyển sang khu Bắc.          |
+| 2 — Huấn luyện      | Tạo môn, giáo án, lớp; điểm danh, sẵn sàng, bắt đầu; phát cảnh báo nghiêm trọng, lưu thành tích và đánh giá; Vet mở 6 điểm cảm biến; phiên live tự động đã dừng và lượt Mộc Lan hoàn tất.                                                                                             | Đính kèm video chưa thử do không có clip mẫu. Buổi `PM-TD-2026-01` còn `Đang diễn ra` vì các lượt seed khác vẫn chờ; không hủy để tránh đổi dữ liệu seed.                                                             |
+| 3 — Y tế            | Báo sự cố, lên lịch, mở ca, ghi chi phí, đặt ghim 3D, tái khám đánh dấu đã lành và đóng bệnh án; với lịch chăm sóc đã thử dời, hoàn tất, mở lại có lý do và hủy có lý do.                                                                                                             | Các nhánh sửa/hủy phiếu khám và xử lý mọi mã lỗi quyền chưa chạy lại toàn bộ trên Simulator.                                                                                                                          |
+| 4 — Chăm sóc/vật tư | Khẩu phần, checklist/miễn việc, giao việc riêng và hoàn tất; sự cố thường; nhập/xuất/hoàn tác; đề xuất Vet/Groom và sửa; duyệt, cấp, từ chối, hủy sau duyệt; phụ phí, chủ xem chi phí và báo cáo; thử sửa mức phí ngày `1.500.000 → 1.501.000 VND`, sau đó khôi phục `1.500.000 VND`. | Danh sách/phí hiện tại đã xác nhận trở về mức gốc. Thay đổi tạm thời có ghi lý do kiểm thử trên DB local; báo cáo lịch sử có thể phản ánh thay đổi trong lúc test. Các con số báo cáo/tồn thay đổi theo dữ liệu seed. |
+
+**Đánh giá:** **READY WITH LIMITATIONS** cho lần double-check bằng điện thoại. Đây là kết quả QA trên iOS Simulator và DB local; các mục ở cột cuối không được tính PASS.
+
+## Flow 1 — Hồ sơ, lý lịch và xếp chỗ ngựa
+
+**Vai trò:** Quản lý để tạo/tra cứu hồ sơ; HLV khu để xếp ô và giao Groom; Vet để ghi chỉ số; chủ ngựa để xem phần được phép.
+
+1. Đăng nhập Quản lý → **Ngựa**. Thử tìm `Vân Tiêu`, sau đó thử chip seed `940000000010001`. Mở **Bộ lọc**, xem lọc vòng đời/giới tính/sở trường/vị trí/khu; bật **Bao gồm hồ sơ đã xóa** để tìm Bích Ngọc.
+2. Chọn **Đăng ký**. Nhập tên `Bình Minh`, giới tính đực, chip 15 chữ số chưa dùng `940000000019925`, giống `Thoroughbred`, màu `Bay`, ngày sinh `2021-03-15`, chủ Nguyễn Hải Đăng và khu ban đầu Khu Huấn luyện Bắc. Lưu hồ sơ. Ảnh, cha và mẹ là tùy chọn.
+3. Mở **More/Thêm → Sơ đồ chuồng** để xem khu, sức chứa, ô trống và danh sách chờ xếp. Đăng xuất, vào HLV Lê Quốc Bảo → **More → Stable/Sơ đồ chuồng → Khu Huấn luyện Bắc → Chờ xếp ô**. Mở Bình Minh, chọn ô còn trống và Groom còn khả dụng, xác nhận; quay lại kiểm tra vị trí và người chăm.
+4. Quản lý → **Ngựa → Bình Minh**: kiểm tra Tổng quan, Sức khỏe, Thành tích, Thi đấu, Chi phí và Nhật ký (các tab tùy quyền/dữ liệu). Đăng nhập chủ Nguyễn Hải Đăng để xem cùng hồ sơ ở phạm vi quyền chủ.
+5. Vet → **Ngựa → Bình Minh → Sức khỏe/Chỉ số cơ thể**. Ghi cân nặng `450 kg`, chiều cao `160 cm`, thể trạng `5`, thân nhiệt `37.8 °C`; lưu và kiểm tra bản ghi mới trên biểu đồ.
+6. Quản lý → **Ngựa → Bình Minh → Vòng đời, xóa hoặc khôi phục**. Với hồ sơ thử riêng, xem trước thao tác chuyển chủ hoặc trạng thái vòng đời; xác nhận chỉ khi muốn thay đổi dữ liệu demo. Để thử khôi phục, bật bộ lọc hồ sơ đã xóa, chọn hồ sơ đã xóa, chọn **Khôi phục**, nhập lý do, xem trước rồi xác nhận.
+
+**Nếu seed khác:** B05 có thể đã kín; chọn ô trống trong khu mà tài khoản HLV được phép quản lý. Lần chạy này, Quản lý thấy Khu Huấn luyện Bắc còn 2 ô trống (B05 trống, B06 bảo trì), nhưng màn chuyển khu của Bình Minh chỉ liệt kê Khu tập trung — khu hiện tại của ngựa. Vì vậy chưa xác minh được chuyển Bình Minh sang Bắc/xếp B05; kiểm tra phạm vi khu được giao cho tài khoản và dùng ngựa thử thuộc khu HLV quản lý. Nếu không còn ô trống, tạo ô thử tiêu chuẩn trong khu được phép, không dùng ô cách ly/phục hồi. Nếu chip trùng, tạo chip 15 chữ số mới. Tránh đổi chủ ngựa seed có lịch sử; phần chuyển chủ đã được kiểm tra trên Bình Minh.
+
+**Đã xác minh lần chạy này:** tạo/tìm hồ sơ, tìm bằng chip, xem tab hồ sơ, ghi chỉ số sức khỏe; bật bộ lọc “Bao gồm hồ sơ đã xóa”, khôi phục Bích Ngọc, xác nhận hồ sơ trở lại danh sách hoạt động/chờ xếp khu, rồi xóa mềm lại để trả trạng thái seed ban đầu. Xem trước khôi phục nêu 4 ngày phí `3.550.000₫` sẽ tính vào “Chưa có chủ”. Trên hồ sơ QA Bình Minh, đã chuyển chủ Nguyễn Hải Đăng → Lê Tuấn Kiệt, xác nhận lịch sử đóng/mở kỳ sở hữu, rồi chuyển lại Nguyễn Hải Đăng. Cả hai thao tác được xác nhận trên Simulator; các bản ghi kiểm toán lifecycle/chuyển chủ vẫn được giữ trong DB local.
+
+## Flow 2 — Giáo án và buổi huấn luyện
+
+**Vai trò:** Quản lý tạo môn; HLV tạo giáo án/lớp và vận hành buổi; Groom điểm danh; Vet xem cảnh báo; chủ xem kết quả.
+
+1. Quản lý → **Huấn luyện → Môn học → Thêm môn**. Nhập `Kiểm tra 1200 m demo 261026`, loại `TIME_TRIAL`, cường độ `HEAVY`, cự ly `1200 m`, thời lượng `30 phút`, thành tích mục tiêu `78000 ms`; tạo môn.
+2. Đăng nhập HLV Lê Quốc Bảo → **Huấn luyện → Quản lý giáo án → Tạo giáo án**. Tạo “Giáo án thử chạy 1200 m 261026”, thêm giai đoạn 1 tuần, môn vừa tạo và tối thiểu `1` buổi/tuần; lưu.
+3. Trong Huấn luyện, tạo lớp `Lớp kiểm tra 1200 m 261026`, mã `PM-DEMO-261026-B`, chọn giáo án, ngày bắt đầu hiện tại, tối đa 4 ngựa. Ghi danh Bình Minh nếu đủ điều kiện. Vào **Buổi tập → Xếp buổi**, đặt ngày hiện tại, giờ bắt đầu khoảng 10 phút sau thời điểm thao tác, chọn môn, lặp mỗi tuần `1`, địa điểm sân Bắc; lưu. Luôn kiểm tra giờ chưa qua và cửa sổ điểm danh.
+4. Đăng nhập Groom được phân công → **Thêm → Huấn luyện/Nhiệm vụ huấn luyện**. Mở buổi và Bình Minh, chạm **Điểm danh**, sau đó **Báo sẵn sàng** khi đã vào cửa sổ 15 phút trước giờ tập. Chỉ thử báo vắng trên lượt khác nếu cần.
+5. Đăng nhập HLV → **Huấn luyện → Lớp → lớp vừa tạo → buổi**. Với lượt READY, bắt đầu tập khi nút **Bắt đầu huấn luyện** mở trong cửa sổ 15 phút trước giờ tập. Trong hộp giả lập cảm biến, chạy nhịp tự động; phát điểm cảnh báo nghiêm trọng (lần chạy dùng `248 bpm`, `16.8 m/s`), kiểm tra trạng thái cảnh báo và màn hiệu suất. Dừng giả lập trước khi rời màn. Nút cảm biến được xếp dọc; cuộn nội dung xuống để xem hết các điều khiển trên màn hình thấp.
+6. Hoàn tất lượt. Với TIME_TRIAL, nhập `01:17.5`; thêm đánh giá `8/10` và nhận xét ngắn bằng tiếng Việt. Mở hiệu suất kiểm tra trung bình/đỉnh nhịp tim, tốc độ và số cảnh báo. Nếu muốn thử video, chuẩn bị clip trong thư viện và chọn **Đính kèm video**; nhánh video chưa được xác minh trong lần chạy này.
+7. Chủ ngựa → **Ngựa → Bình Minh → Huấn luyện/Thành tích/Thi đấu** để xem phần được phép. Vet → **More → Cảnh báo → Xem dữ liệu cảm biến** để mở tổng hợp và các điểm nhịp tim/tốc độ. Đường dẫn Vet đã được xác minh trên Simulator: mở đúng dữ liệu buổi và 6 điểm cảm biến; nhãn mức cảnh báo hiện bằng tiếng Việt.
+
+**Nếu seed khác:** dùng một ngựa ACTIVE/ELIGIBLE thuộc khu HLV, đã có ô và Groom, không có khóa tập hay buổi trùng giờ. Nếu buổi hết cửa sổ điểm danh, tạo một buổi mới gần thời điểm kiểm thử. Mỗi lần chạy lại nên đổi mã lớp/tên môn.
+
+**Đã xác minh lần chạy này:** tạo môn, giáo án, lớp; điểm danh; bắt đầu buổi; phát cảnh báo cảm biến nghiêm trọng; lưu kết quả chạy thử `01:17.5`, đánh giá `8/10`; Vet mở được dữ liệu cảm biến từ cảnh báo. Video chưa được thử. Một lần thử lên lịch buổi Nặng thứ hai cùng ngày bị hệ thống từ chối đúng quy tắc giới hạn tải (“đã có buổi Nặng trong ngày”); form đã được hủy. Sau đó, để kiểm tra điều khiển live độc lập, đã tạo buổi QA ngày `26/10/2026`, `09:45–10:45`, trong lớp `PM-TD-2026-01`, giao Mộc Lan cho Groom Bùi Văn Dũng. Groom điểm danh lúc 09:27 và báo sẵn sàng lúc 09:32; HLV bắt đầu trong cửa sổ cho phép, gửi vọt nhịp tim `248 bpm / 16,8 m/s`, chạy giả lập tự động 5 điểm đo rồi dừng và hoàn tất lượt Mộc Lan. Tài khoản QA/session test này được tạo trên DB local; buổi vẫn ở trạng thái đang diễn ra do các lượt ngựa khác trong cùng buổi vẫn chờ, không hủy hoặc đổi các lượt seed đó.
+
+## Flow 3 — Sự cố, khám và bệnh án
+
+**Vai trò:** Groom báo sự cố; Vet tiếp nhận/lên lịch khám, ghi kết quả và điểm chấn thương; HLV/Groom xem chỉ dẫn; chủ xem nội dung thuộc quyền.
+
+1. Groom Bùi Văn Dũng → **Sự cố → Tạo báo cáo**. Chọn ngựa được giao, mô tả cụ thể sự việc và gửi. Dùng dữ liệu demo; không đính ảnh nhận diện cá nhân.
+2. Vet Nguyễn Thị Lan → **More → Yêu cầu khám/Sự cố**. Mở yêu cầu, kiểm tra ngựa và mô tả; có thể tạo lịch qua **More → Lịch chăm sóc** nếu cần minh họa lịch hẹn.
+3. Mở yêu cầu và bắt đầu ghi buổi khám. Chọn **Có vấn đề**; nhập chẩn đoán ban đầu và ghi chú bằng tiếng Việt, chọn trạng thái sức khỏe phù hợp. Trong **Chấn thương → Mở bản đồ 3D**, trước tiên bật chế độ **Đánh dấu chấn thương**, sau đó chạm trực tiếp lên mô hình để đặt ghim. Chọn vùng chân trước trái, loại **Căng cơ**, tình trạng **Cấp tính**, nhập ghi chú, xác nhận điểm ghim.
+4. Trong **Điều trị**, nhập chỉ dẫn chăm sóc; lịch tái khám đặt `+3 ngày`. Lưu kết quả khám. Mở bệnh án mới và kiểm tra lượt khám, vùng/loại chấn thương, tọa độ ghim và lịch tái khám.
+5. Tại lượt khám của chính Vet đã tạo, mở **Sửa chi phí**, nhập `350000` VND, lý do `Ghi nhận chi phí vật tư và thăm khám`, lưu. Mobile hiện không có trường chi phí lúc tạo lượt khám nên điều chỉnh sau khi lưu.
+6. Để đóng ca đầy đủ, mở **Ghi buổi tái khám**. Trong **Mở bản đồ chấn thương 3D**, chọn đúng vết cũ → **Cập nhật trong lần tái khám này** → **Đã lành**, ghi chú lâm sàng; không tạo ghim mới nếu không có tổn thương mới. Trên form, nhập kết luận khám, chọn **Đủ điều kiện** và nêu lý do chuyên môn, rồi lưu. Ở bệnh án, kiểm tra trước khi đóng phải báo tất cả vết đã lành, không còn yêu cầu chờ; nhập kết luận cuối và xác nhận **Đóng bệnh án**. Không chọn nhánh ghi nhận ngựa mất để thay cho bước lành.
+7. HLV/Groom xem cảnh báo/chỉ dẫn từ luồng của mình. Chủ mở hồ sơ → **Sức khỏe/Chi phí** để xem phần được phép.
+
+**Nếu seed khác:** chọn ngựa thử đủ điều kiện, không đang có lượt tập/xung đột khóa. Vết cũ từ seed có thể không có metadata tọa độ/mô hình của thiết bị; để kiểm tra ghim, tạo vết mới trên chính thiết bị. Nếu nút đóng ca bị khóa, đọc preview, không tìm cách bỏ qua điều kiện.
+
+**Đã xác minh lần chạy này:** lịch khám, báo sự cố, Vet mở ca, lưu chi phí `350000`, tạo vết mới trên mô hình 3D bằng thao tác chạm. Ghim lưu ở tọa độ X `0.059`, Y `0.402`, Z `0.376 m`, vùng chân trước trái. Trên hồ sơ QA Anh Anh, đã tạo lần tái khám thứ ba, cập nhật đúng vết chân trước trái từ **Đang hồi phục** sang **Đã lành**, chọn **Đủ điều kiện**, lưu, xác nhận preview không còn vết chưa lành/yêu cầu chờ và đóng bệnh án lúc `09:44 26/10/2026`. Tổng chi phí `350.000 VND` được giữ nguyên. Trạng thái đóng được xác nhận trên Simulator.
+
+**Bổ sung lịch chăm sóc:** với ngựa QA `QA Tia Chớp 261026`, Vet dời lịch, đánh dấu hoàn tất, mở lại với lý do, rồi hủy với lý do. Đã tạo lịch thứ hai hạn `27/10/2026 13:00`, đánh dấu hoàn tất và mở lại; lịch này đang ở trạng thái **Đã lên lịch** để người dùng có thể xem lại. Lịch đầu vẫn giữ trạng thái **Đã hủy**. Nhãn mở lại và form lý do hiển thị tiếng Việt, không tràn hoặc chồng chữ.
+
+## Flow 4 — Chăm sóc, kho và phụ phí
+
+**Vai trò:** Quản lý nhập kho/duyệt/cấp vật tư và tạo phụ phí; HLV tạo khẩu phần/việc và áp dụng phụ phí; Groom làm checklist/báo sự cố/xuất kho; chủ xem báo cáo.
+
+1. Quản lý → **More → Vật tư → Tồn kho**. Chọn Yến mạch cán → **Nhập hàng**, ví dụ `20 kg`, đơn giá `18000 VND`, ghi chú `Nhập bổ sung tuần demo`; kiểm tra tồn và sổ kho. Thực hiện trên DB local vì thao tác thay đổi tồn.
+2. HLV → **Ngựa → ngựa thử → Chăm sóc chuồng và dinh dưỡng → Khẩu phần**. Tạo nháp: bữa sáng sớm, Yến mạch cán `2.5 kg`; bữa tối, Cỏ khô Timothy theo đơn vị hiển thị. Lưu nháp, duyệt và kiểm tra trạng thái áp dụng.
+3. Tại **Việc chăm sóc**, giao một việc riêng trong 7 ngày (ví dụ “Ngâm chân sau vận động”). Nếu dùng miễn việc chung, chọn việc phù hợp, thời hạn 3 ngày và nhập lý do. Groom → **Việc hôm nay**, tải lại danh sách, kiểm tra việc riêng có mặt và việc miễn không còn trong checklist của ngày đó; đánh dấu việc riêng hoàn tất, thêm ghi chú tiếng Việt, rồi kiểm tra tiến độ.
+4. Groom → **Sự cố**, gửi báo cáo thường với mô tả. HLV mở sự cố, nhập kết quả xử lý và đóng. Với yêu cầu khám đang chờ, để Vet xử lý thay vì HLV đóng tay.
+5. Groom → **More → Vật tư → Tồn kho → Yến mạch cán → Ghi nhận xuất dùng**. Nhập `2 kg`, ghi chú `Cho ngựa demo bữa sáng`; kiểm tra tồn giảm. Trong sổ kho, chọn dòng xuất → **Hủy lần xuất này**, nhập lý do `Ghi trùng lần xuất`; kiểm tra dòng đảo và tồn được cộng lại.
+6. Groom hoặc Vet → **More → Vật tư → Tồn kho** → **Đề xuất nhập thêm**. Chọn vật tư, nhập ghi chú nhu cầu (không có ô số lượng đề xuất), gửi; vào tab **Yêu cầu** để sửa yêu cầu còn chờ. Quản lý → **More → Vật tư → Đề xuất**, lọc theo trạng thái, rồi **Duyệt**, **Từ chối** kèm lý do, hoặc hủy yêu cầu đã duyệt kèm lý do. Với yêu cầu đã duyệt, **Xác nhận cấp** và nhập số thực nhận/đơn giá; số ghi trong ghi chú không tự trở thành số lượng cấp.
+7. Quản lý → **Ngựa → ngựa thử → Phụ phí → Tạo phụ phí**. Đã chạy với mô tả `Chăm sóc hồi phục tăng cường`, `50000 VND/ngày`, từ `2026-10-26` đến `2026-11-02`. HLV mở phụ phí và chọn **Áp dụng**. Chủ Nguyễn Hải Đăng → hồ sơ ngựa → **Chi phí/Phụ phí** để kiểm tra báo cáo chỉ đọc.
+8. Quản lý → **More → Báo cáo**, chọn khoảng ngày chứa dữ liệu demo và tải báo cáo. Kiểm tra phí nuôi, y tế, phụ phí, nhập/xuất kho và tổng theo chủ.
+
+**Nếu seed khác:** không giả định tồn kho hoặc khẩu phần còn nguyên. Đọc số trên màn, chọn vật tư còn đủ tồn và lượng nhỏ; nếu một ngựa đã có khẩu phần ACTIVE, dùng ngựa thử khác. Không nhập hàng/cấp vật tư vào kho production trong khi QA.
+
+**Đã xác minh lần chạy này:** thử khẩu phần, checklist, tạo và xử lý sự cố thường, nhập/xuất kho, hoàn tác xuất kho, duyệt/cấp vật tư, mở báo cáo chủ ngựa; tạo phụ phí mới và HLV áp dụng, chủ nhìn thấy phụ phí. Với yêu cầu vật tư, đã sửa một yêu cầu đang chờ, duyệt và cấp `1 kg` Cỏ khô Timothy ở `85.000 VND/kg`, từ chối một yêu cầu Bột điện giải có lý do, rồi hủy một yêu cầu Cỏ khô đã duyệt vì nhà cung cấp không giao. Tồn Cỏ khô trên Simulator tăng từ `398` lên `399 kg` trong lần cấp này. Vet cũng gửi và sửa yêu cầu Povidone-Iodine; yêu cầu thử đang chờ duyệt và không làm thay đổi tồn kho. Theo cập nhật BE, Quản lý đã mở sửa mức đang áp dụng `1.500.000 VND/ngựa/ngày` lên `1.501.000`, nhập lý do, lưu và thấy thông báo thành công; sau đó khôi phục `1.500.000` với lý do QA và xác nhận lại danh sách hiện `1.500.000`. Đây là thao tác thử trên DB local, có thể làm thay đổi cách tính báo cáo lịch sử trong khoảng thời gian áp dụng; không chạy trên production.
+
+HLV đã giao việc riêng `Ngâm chân sau vận động QA 261026` cho Vân Tiêu từ `26/10` đến `01/11/2026`, ghi chú, rồi Groom Bùi Văn Dũng ghi chú chăm sóc và hoàn tất việc trên checklist. HLV cũng miễn việc chung `Tắm rửa` từ `26/10` đến `28/10`, có lý do. Checklist ngày `26/10` không còn dòng `Tắm rửa`, nhưng vẫn có việc riêng; Groom hoàn tất việc riêng, tiến độ Vân Tiêu tăng từ `0/8` lên `1/8`. Tên việc dài được hiển thị hai dòng, không đè lên nút hay badge. Nhãn lý do miễn đã sửa thành `Lý do miễn việc chung *` và được nhìn lại trên Simulator.
+
+Số ngày tính phí của record mẫu có thể khiến tổng hiển thị `100000 VND/ngày` cho hai ngựa trong báo cáo chủ; hãy đối chiếu số trên thiết bị thay vì đọc số cố định.
+
+## Các giới hạn cần biết khi tự kiểm tra
+
+- Trong lượt sửa này, đã sửa 31 mục locale bị đảo chiều (khóa tiếng Việt trỏ ngược về giá trị tiếng Anh), sửa các nhãn tiếng Anh còn sót ở lịch chăm sóc/y tế, và thêm assertion để không tái phát. Đã sửa nhãn lý do miễn việc chung bị lặp “bắt buộc”, chỉnh các lý do hủy về một dấu bắt buộc, và cho tên việc dài tối đa hai dòng. Form miễn việc và thẻ việc dài đã được nhìn lại trên Simulator; không thấy chữ chồng, nội dung quan trọng bị cắt hoặc nút tràn màn hình. Hàng chip lọc và chip gợi ý vẫn cuộn ngang theo thiết kế.
+- Khi mở nhiệm vụ Groom trước cửa sổ sẵn sàng, nút bị giữ disabled sau 09:30 dù thời gian trên thiết bị đã tới 09:31; rời tab rồi quay lại mới bật. Đã sửa Groom và màn HLV để cập nhật khung giờ theo đồng hồ mỗi 15 giây; nút bắt đầu cũng bị khóa ngoài cửa sổ 15 phút. Sau khi nạp lại, điểm danh, sẵn sàng và bắt đầu đã hoạt động trên Simulator.
+- Ở trạng thái `ONGOING`, hai nút “Phát nhịp tim tự động” và “Vọt nhịp tim” hiển thị theo cột, không tràn ngang; thao tác vọt nhịp tim và giả lập tự động chạy thành công, sau đó dừng. Nút đỏ nằm ở phần dưới của thẻ cuộn; dùng thao tác cuộn để xem trọn phần nội dung. Các màn hình/điều khiển đã xem không có chữ chồng lên nhau.
+- Đường dẫn từ cảnh báo huấn luyện của Vet trước đó quay về bảng điều khiển; đã thêm route chỉ đọc và xác nhận hiện mở đúng summary/6 điểm cảm biến. Flow 3 đã hoàn tất tái khám, xác nhận vết thương lành và đóng ca bình thường. Video buổi chạy vẫn chưa thử.
+- Tài khoản QA tạo thêm lịch sử chuyển chủ và lifecycle cho hồ sơ thử/seed trên DB local. Bình Minh hiện trở lại chủ Nguyễn Hải Đăng; Bích Ngọc được xóa mềm lại như trạng thái ban đầu. Không thể xóa các bản ghi audit đã sinh bởi thao tác QA.
+- Kiểm tra cuối: `pnpm check:i18n`, `pnpm typecheck`, `pnpm test` (56/56), Prettier cho file liên quan và `git diff --check` PASS. `pnpm exec expo export --platform ios --output-dir /tmp/stable-os-simulator-qa-export` PASS; Metro bundling Expo Router entry thành công với 1.525 modules. ESLint chưa PASS: targeted lint báo `react-hooks/set-state-in-effect` tại effect khởi tạo form trong `app/[role]/medical/visits/edit/[id].tsx:165`, cùng 4 warnings unused/dependency trong `HorseStableCareScreen.tsx`. Đây là lỗi/warning lint chưa xử lý; không tắt rule hoặc bỏ qua trong báo cáo. Các kiểm tra này không thay thế build/release trên thiết bị thật.
+- Flow 2 còn nhánh tải video chưa được thử. Buổi QA bổ sung trên `PM-TD-2026-01` còn trạng thái buổi “Đang diễn ra” vì các lượt seed khác vẫn chờ; Mộc Lan đã hoàn tất và dữ liệu cảm biến được giữ trên DB local. Không hủy buổi để tránh làm đổi trạng thái các lượt khác.
+- Flow 4 đã xác minh nhánh sửa mức phí ngày theo cập nhật BE. Giá hiện tại được khôi phục về `1.500.000 VND/ngựa/ngày`; lần cập nhật và hoàn nguyên vẫn để lại lý do kiểm thử/audit trên DB local. Đối chiếu báo cáo theo khoảng ngày nếu cần đánh giá ảnh hưởng tính lại lịch sử; không dùng số liệu DB local làm số production.
+- Chưa chạy iPhone thật/Expo Go, Android emulator/device, EAS development build, iOS Archive hoặc production build. Đây là giới hạn môi trường kiểm thử, không phải PASS ngầm.
+- Hướng dẫn này không có mật khẩu. Dùng thông tin seed local đã được cấp; không gửi token hoặc thông tin đăng nhập vào log/chụp màn hình.
+- Các tên seed, số tồn, ô chuồng và lịch hẹn thay đổi theo trạng thái DB. Khi gặp khác biệt, ưu tiên dữ liệu hiện trên máy và chọn đối tượng demo mới, không sửa/xóa lịch sử nghiệp vụ của ngựa seed.

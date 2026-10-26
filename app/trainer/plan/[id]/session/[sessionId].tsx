@@ -95,6 +95,12 @@ export default function TrainingSessionDetail() {
   const [trialTimeNotes, setTrialTimeNotes] = useState("");
   const [showTrialCompleteModal, setShowTrialCompleteModal] = useState(false);
   const hasFocusedRef = useRef(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setClockNow(Date.now()), 15_000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -201,6 +207,19 @@ export default function TrainingSessionDetail() {
     });
   }, [token, session?.id, session?.status]);
 
+  useEffect(() => {
+    if (!payload) return;
+    for (const row of payload.rows) {
+      if (row.participant.status !== "ONGOING") stopSimulation(row.participant.id);
+    }
+    if (
+      session?.status !== "IN_PROGRESS" ||
+      new Date(session.scheduledEndAt).getTime() <= clockNow
+    ) {
+      stopSimulation();
+    }
+  }, [payload, session?.status, session?.scheduledEndAt, clockNow]);
+
   const perform = async (key: string, action: () => Promise<unknown>) => {
     if (!token) return;
     setPending(key);
@@ -229,10 +248,21 @@ export default function TrainingSessionDetail() {
     }
   };
 
+  const stopParticipantSimulation = (participantId: string) => {
+    stopSimulation(participantId);
+    setSimulatingIds((current) =>
+      current[participantId] ? { ...current, [participantId]: false } : current,
+    );
+  };
+
+  const stopAllParticipantSimulations = () => {
+    stopSimulation();
+    setSimulatingIds({});
+  };
+
   const toggleSimulation = (participantId: string) => {
     if (isSimulating(participantId)) {
-      stopSimulation(participantId);
-      setSimulatingIds((prev) => ({ ...prev, [participantId]: false }));
+      stopParticipantSimulation(participantId);
     } else {
       startSimulation(participantId, token, {
         onTick: (point) => {
@@ -252,8 +282,8 @@ export default function TrainingSessionDetail() {
           }));
         },
         onError: (err) => {
+          stopParticipantSimulation(participantId);
           Alert.alert("Lỗi phát giả lập", extractErrorMessage(err));
-          setSimulatingIds((prev) => ({ ...prev, [participantId]: false }));
         },
       });
       setSimulatingIds((prev) => ({ ...prev, [participantId]: true }));
@@ -286,13 +316,12 @@ export default function TrainingSessionDetail() {
       Alert.alert("Lý do bắt buộc", "Vui lòng nhập lý do dừng sớm lượt tập (tối đa 500 ký tự).");
       return;
     }
+    stopParticipantSimulation(stopParticipantId);
     if (
       await perform(`stop:${stopParticipantId}`, () =>
         trainingService.stopParticipant(token!, stopParticipantId, stopReason.trim()),
       )
     ) {
-      stopSimulation(stopParticipantId);
-      setSimulatingIds((prev) => ({ ...prev, [stopParticipantId]: false }));
       setShowStopModal(false);
       setStopParticipantId("");
       setStopReason("");
@@ -308,6 +337,7 @@ export default function TrainingSessionDetail() {
         return;
       }
     }
+    stopParticipantSimulation(pId);
     setShowTrialCompleteModal(false);
     await perform(`complete:${pId}`, async () => {
       await trainingService.completeParticipant(token!, pId);
@@ -322,8 +352,6 @@ export default function TrainingSessionDetail() {
         });
       }
     });
-    stopSimulation(pId);
-    setSimulatingIds((prev) => ({ ...prev, [pId]: false }));
     setTrialTimeInput("");
     setTrialTimeNotes("");
     setTrialCompletionParticipantId("");
@@ -332,6 +360,7 @@ export default function TrainingSessionDetail() {
   const cancelSession = async () => {
     if (!cancelReason.trim())
       return Alert.alert("Reason required", "Enter a reason before cancelling the session.");
+    stopAllParticipantSimulations();
     if (
       await perform("cancel", () =>
         trainingService.cancelSession(token!, sessionKey, cancelReason.trim()),
@@ -423,10 +452,7 @@ export default function TrainingSessionDetail() {
                 ["Class", `${payload.trainingClass.code} · ${payload.trainingClass.name}`],
                 ["Start", formatDateTime(session!.scheduledStartAt)],
                 ["End", formatDateTime(session!.scheduledEndAt)],
-                [
-                  "Type",
-                  session!.sessionType === "TIME_TRIAL" ? t("Chạy thử") : t("Thông thường"),
-                ],
+                ["Type", session!.sessionType === "TIME_TRIAL" ? t("Chạy thử") : t("Thông thường")],
                 [
                   "Intensity",
                   session!.intensity === "LIGHT"
@@ -589,12 +615,19 @@ export default function TrainingSessionDetail() {
             {payload.rows.length ? (
               payload.rows.map(({ participant, evaluation, results, summary }) => {
                 const liveMetric = liveMetrics[participant.id];
+                const canStreamMetrics =
+                  participant.status === "ONGOING" &&
+                  session?.status === "IN_PROGRESS" &&
+                  new Date(session.scheduledEndAt).getTime() > clockNow;
+                const simulationActive =
+                  canStreamMetrics && simulatingIds[participant.id] && isSimulating(participant.id);
                 const canCheckIn =
                   (participant.status === "PLANNED" || participant.status === "ABSENT") &&
                   isParticipantWindowOpen(
                     session!.scheduledStartAt,
                     session!.scheduledEndAt,
                     "check-in",
+                    clockNow,
                   );
                 const canReady =
                   participant.status === "PRESENT" &&
@@ -602,11 +635,18 @@ export default function TrainingSessionDetail() {
                     session!.scheduledStartAt,
                     session!.scheduledEndAt,
                     "ready",
+                    clockNow,
                   );
                 const canStart =
                   participant.status === "READY" &&
                   session!.status !== "CANCELLED" &&
-                  payload.trainingClass.status === "ACTIVE";
+                  payload.trainingClass.status === "ACTIVE" &&
+                  isParticipantWindowOpen(
+                    session!.scheduledStartAt,
+                    session!.scheduledEndAt,
+                    "ready",
+                    clockNow,
+                  );
                 const canComplete = participant.status === "ONGOING";
                 return (
                   <Panel key={participant.id} style={{ gap: 9 }}>
@@ -635,22 +675,24 @@ export default function TrainingSessionDetail() {
                         </Text>
                       ) : null}
                     </View>
-                      {participant.status === "STOPPED" ? (
-                        <View
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                            borderRadius: radius.sm,
-                            backgroundColor: colors.injuredSoft,
-                            alignSelf: "flex-start",
-                            marginTop: 2,
-                          }}
+                    {participant.status === "STOPPED" ? (
+                      <View
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 2,
+                          borderRadius: radius.sm,
+                          backgroundColor: colors.injuredSoft,
+                          alignSelf: "flex-start",
+                          marginTop: 2,
+                        }}
+                      >
+                        <Text
+                          style={{ fontSize: 11, fontWeight: "700", color: colors.destructive }}
                         >
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.destructive }}>
-                            DỪNG SỚM
-                          </Text>
-                        </View>
-                      ) : null}
+                          DỪNG SỚM
+                        </Text>
+                      </View>
+                    ) : null}
                     {participant.ineligibilityReason ||
                     participant.cancelReason ||
                     participant.absenceReason ||
@@ -825,6 +867,7 @@ export default function TrainingSessionDetail() {
                                   setTrialTimeNotes("");
                                   setShowTrialCompleteModal(true);
                                 } else {
+                                  stopParticipantSimulation(participant.id);
                                   void perform(`complete:${participant.id}`, () =>
                                     trainingService.completeParticipant(token!, participant.id),
                                   );
@@ -901,34 +944,40 @@ export default function TrainingSessionDetail() {
                           }}
                         >
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            <Ionicons name="hardware-chip-outline" size={16} color={colors.primary} />
-                            <Text style={{ fontWeight: "700", fontSize: 13, color: colors.foreground }}>
+                            <Ionicons
+                              name="hardware-chip-outline"
+                              size={16}
+                              color={colors.primary}
+                            />
+                            <Text
+                              style={{ fontWeight: "700", fontSize: 13, color: colors.foreground }}
+                            >
                               Giả lập cảm biến IoT
                             </Text>
                           </View>
                           <Text
                             style={{
                               fontSize: 12,
-                              color: simulatingIds[participant.id]
-                                ? colors.primary
-                                : colors.mutedForeground,
+                              color: simulationActive ? colors.primary : colors.mutedForeground,
                               fontWeight: "600",
                             }}
                           >
-                            {simulatingIds[participant.id] ? "🟢 Đang phát tín hiệu" : "⚪ Tắt"}
+                            {simulationActive ? "🟢 Đang phát tín hiệu" : "⚪ Tắt"}
                           </Text>
                         </View>
-                        <View style={{ flexDirection: "row", gap: 8 }}>
+                        <View style={{ gap: 8 }}>
                           <SecondaryButton
-                            label={simulatingIds[participant.id] ? "Dừng phát" : "Phát nhịp tim tự động"}
-                            icon={simulatingIds[participant.id] ? "pause-outline" : "pulse-outline"}
-                            style={{ flexGrow: 1 }}
+                            label={simulationActive ? "Dừng phát" : "Phát nhịp tim tự động"}
+                            icon={simulationActive ? "pause-outline" : "pulse-outline"}
+                            style={{ width: "100%" }}
+                            disabled={!canStreamMetrics}
                             onPress={() => toggleSimulation(participant.id)}
                           />
                           <PrimaryButton
                             label="⚡ Vọt nhịp tim"
                             icon="flash"
-                            style={{ flexGrow: 1, backgroundColor: colors.destructive }}
+                            style={{ width: "100%", backgroundColor: colors.destructive }}
+                            disabled={!canStreamMetrics}
                             onPress={() => void handleHeartRateSpike(participant.id)}
                           />
                         </View>
@@ -951,10 +1000,13 @@ export default function TrainingSessionDetail() {
                             participantStatus: participant.status,
                             horseId: participant.horseId,
                           });
-                          router.push(`/trainer/participant/${participant.id}?${params.toString()}` as Href);
+                          router.push(
+                            `/trainer/participant/${participant.id}?${params.toString()}` as Href,
+                          );
                         }}
                       />
-                      {session && session.status !== "CANCELLED" &&
+                      {session &&
+                      session.status !== "CANCELLED" &&
                       ["COMPLETED", "STOPPED"].includes(participant.status) &&
                       !evaluation ? (
                         <SecondaryButton
@@ -983,7 +1035,8 @@ export default function TrainingSessionDetail() {
                           />
                         </View>
                       ) : null}
-                      {session && session.status !== "CANCELLED" &&
+                      {session &&
+                      session.status !== "CANCELLED" &&
                       session?.sessionType === "TIME_TRIAL" &&
                       ["ONGOING", "COMPLETED", "STOPPED"].includes(participant.status) ? (
                         <SecondaryButton
@@ -1047,7 +1100,8 @@ export default function TrainingSessionDetail() {
         cancelLabel="Hủy"
       >
         <Text style={ui.muted}>
-          Nhập thời gian chạy thử để hoàn thành và ghi nhận kết quả ngay, hoặc bấm tiếp tục để hoàn thành trước.
+          Nhập thời gian chạy thử để hoàn thành và ghi nhận kết quả ngay, hoặc bấm tiếp tục để hoàn
+          thành trước.
         </Text>
         <Field label="Thời gian chạy thử (mm:ss.s, ví dụ: 01:14.5)">
           <NativeInput

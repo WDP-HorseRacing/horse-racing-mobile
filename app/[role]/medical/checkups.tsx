@@ -1,11 +1,18 @@
 import { Redirect, router, type Href, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
-import { DatePickerField, Field, NativeInput, PrimaryButton, SecondaryButton } from "@/components/ui";
+import {
+  DatePickerField,
+  Field,
+  NativeInput,
+  PrimaryButton,
+  SecondaryButton,
+} from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
+import { showLocalizedAlert, useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
@@ -19,20 +26,21 @@ import {
   toClubDateTime,
 } from "@/features/medical/medical-validation";
 import { extractErrorMessage } from "@/utils/errorHandler";
-import { formatDate, formatDateTime } from "@/utils/formatters";
+import { formatDate, formatDateTime, formatEnum } from "@/utils/formatters";
 
 type FilterTab = "ALL" | "OVERDUE" | "DUE_SOON";
 
 const filterTabs: { key: FilterTab; label: string }[] = [
-  { key: "ALL", label: "Tất cả đến hạn" },
-  { key: "OVERDUE", label: "Quá hạn khám" },
-  { key: "DUE_SOON", label: "Sắp đến hạn" },
+  { key: "ALL", label: "All due" },
+  { key: "OVERDUE", label: "Overdue" },
+  { key: "DUE_SOON", label: "Due soon" },
 ];
 
 export default function PeriodicCheckups() {
   const { role: roleParam } = useLocalSearchParams<{ role: string }>();
   const role = isRole(roleParam) ? roleParam : null;
   const { token } = useAuth();
+  const { language } = useI18n();
   const { colors } = useTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -71,21 +79,27 @@ export default function PeriodicCheckups() {
     if (role !== "vet" || !selected || !token) return;
     const scheduledAt = toClubDateTime(scheduledDate, scheduledTime);
     if (!scheduledAt || !isNotPastDateTime(scheduledAt)) {
-      Alert.alert(
-        "Lịch hẹn không hợp lệ",
-        "Vui lòng chọn ngày giờ hợp lệ và không ở trong quá khứ.",
+      showLocalizedAlert(
+        language,
+        "Invalid appointment time",
+        "Choose a valid date and time that is not in the past.",
       );
       return;
     }
     if (selected.daysLeft >= 0 && scheduledDate > selected.dueDate) {
-      Alert.alert(
-        "Lịch hẹn vượt quá ngày đến hạn",
-        "Buổi khám chưa quá hạn phải được lên lịch trước hoặc đúng ngày đến hạn.",
+      showLocalizedAlert(
+        language,
+        "Appointment is after the due date",
+        "A checkup that is not overdue must be scheduled on or before its due date.",
       );
       return;
     }
     if (selected.appointment && !isValidRequiredText(reason, 500)) {
-      Alert.alert("Cần lý do dời lịch", "Vui lòng nhập lý do khi dời lịch hẹn khám đã có sẵn.");
+      showLocalizedAlert(
+        language,
+        "Reschedule reason required",
+        "Enter a reason to change an existing checkup appointment.",
+      );
       return;
     }
     setSaving(true);
@@ -97,9 +111,13 @@ export default function PeriodicCheckups() {
       setSelectedHorseId("");
       setReason("");
       await resource.refresh();
-      Alert.alert("Đã lưu lịch hẹn", "Lịch hẹn khám định kỳ đã được cập nhật thành công.");
+      showLocalizedAlert(
+        language,
+        "Appointment saved",
+        "The periodic checkup appointment was updated successfully.",
+      );
     } catch (error) {
-      Alert.alert("Không thể lưu lịch hẹn", extractErrorMessage(error));
+      showLocalizedAlert(language, "Could not save appointment", extractErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -108,16 +126,21 @@ export default function PeriodicCheckups() {
   const cancelAppointment = async () => {
     if (role !== "vet" || !selected?.appointment || !token) return;
     if (!isValidRequiredText(cancelReason, 500)) {
-      Alert.alert("Cần lý do hủy", "Nhập lý do hủy lịch hẹn (tối đa 500 ký tự).");
+      showLocalizedAlert(
+        language,
+        "Cancellation reason required",
+        "Enter a reason to cancel the appointment (up to 500 characters).",
+      );
       return;
     }
-    Alert.alert(
-      "Hủy lịch hẹn khám?",
-      "Lịch hẹn sẽ chuyển sang trạng thái đã hủy và không còn xuất hiện trong lịch hôm nay của Groom.",
+    showLocalizedAlert(
+      language,
+      "Cancel checkup appointment?",
+      "The appointment will be marked cancelled and will no longer appear in the Groom's schedule for today.",
       [
-        { text: "Giữ lịch", style: "cancel" },
+        { text: "Keep appointment", style: "cancel" },
         {
-          text: "Hủy lịch hẹn",
+          text: "Cancel appointment",
           style: "destructive",
           onPress: () => {
             setSaving(true);
@@ -127,10 +150,18 @@ export default function PeriodicCheckups() {
                 setSelectedHorseId("");
                 setCancelReason("");
                 await resource.refresh();
-                Alert.alert("Đã hủy lịch hẹn", "Lịch khám định kỳ đã được hủy.");
+                showLocalizedAlert(
+                  language,
+                  "Appointment cancelled",
+                  "The periodic checkup appointment was cancelled.",
+                );
               })
               .catch((error) =>
-                Alert.alert("Không thể hủy lịch hẹn", extractErrorMessage(error)),
+                showLocalizedAlert(
+                  language,
+                  "Could not cancel appointment",
+                  extractErrorMessage(error),
+                ),
               )
               .finally(() => setSaving(false));
           },
@@ -142,8 +173,8 @@ export default function PeriodicCheckups() {
   return (
     <Screen
       role={role}
-      title="Khám định kỳ"
-      subtitle="Chu kỳ kiểm tra sức khỏe tổng quát 30 ngày"
+      title="Periodic checkups"
+      subtitle="General health check cycle: 30 days"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -209,8 +240,8 @@ export default function PeriodicCheckups() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.horseNameText}>{item.horseName}</Text>
                     <Text style={styles.horseStatusText}>
-                      {item.healthStatus.replaceAll("_", " ")}
-                      {item.barnId ? " · Đã xếp khu" : " · Chưa xếp khu"}
+                      {formatEnum(item.healthStatus)}
+                      {item.barnId ? " · Assigned to barn" : " · Not assigned to barn"}
                     </Text>
                   </View>
                 </View>
@@ -234,8 +265,8 @@ export default function PeriodicCheckups() {
                     ]}
                   >
                     {isOverdue
-                      ? `Quá hạn ${Math.abs(item.daysLeft)} ngày`
-                      : `Còn ${item.daysLeft} ngày`}
+                      ? `${Math.abs(item.daysLeft)} days overdue`
+                      : `${item.daysLeft} days remaining`}
                   </Text>
                 </View>
               </View>
@@ -243,15 +274,15 @@ export default function PeriodicCheckups() {
               {/* Due Date & Last Exam Info */}
               <View style={styles.datesBox}>
                 <View style={styles.dateCol}>
-                  <Text style={styles.dateLabel}>Hạn khám:</Text>
+                  <Text style={styles.dateLabel}>Due date:</Text>
                   <Text style={[styles.dateVal, isOverdue && { color: colors.destructive }]}>
                     {formatDate(item.dueDate)}
                   </Text>
                 </View>
                 <View style={styles.dateCol}>
-                  <Text style={styles.dateLabel}>Lần khám trước:</Text>
+                  <Text style={styles.dateLabel}>Last visit:</Text>
                   <Text style={styles.dateVal}>
-                    {item.lastVisitDate ? formatDate(item.lastVisitDate) : "Chưa có"}
+                    {item.lastVisitDate ? formatDate(item.lastVisitDate) : "None yet"}
                   </Text>
                 </View>
               </View>
@@ -261,7 +292,7 @@ export default function PeriodicCheckups() {
                 <View style={styles.appointmentBox}>
                   <Ionicons name="calendar" size={15} color={colors.primary} />
                   <Text style={styles.appointmentText}>
-                    Đã hẹn: {formatDateTime(item.appointment.scheduledAt)}
+                    Scheduled: {formatDateTime(item.appointment.scheduledAt)}
                   </Text>
                 </View>
               ) : null}
@@ -270,7 +301,7 @@ export default function PeriodicCheckups() {
               {role === "vet" ? (
                 <View style={styles.cardActionsRow}>
                   <PrimaryButton
-                    label="Khám định kỳ ngay"
+                    label="Check now"
                     icon="medkit-outline"
                     style={{ flex: 1 }}
                     onPress={() =>
@@ -280,7 +311,7 @@ export default function PeriodicCheckups() {
                     }
                   />
                   <SecondaryButton
-                    label={item.appointment ? "Dời lịch hẹn" : "Đặt lịch"}
+                    label={item.appointment ? "Reschedule" : "Set appointment"}
                     icon="calendar-outline"
                     onPress={() => {
                       const parts = item.appointment
@@ -302,18 +333,18 @@ export default function PeriodicCheckups() {
               {isSelected ? (
                 <View style={styles.appointmentDrawer}>
                   <Text style={styles.drawerTitle}>
-                    {item.appointment ? "Dời lịch hẹn khám định kỳ" : "Đặt lịch hẹn khám định kỳ"}
+                    {item.appointment ? "Reschedule periodic checkup" : "Schedule periodic checkup"}
                   </Text>
-                  <Field label="Ngày hẹn (YYYY-MM-DD)">
+                  <Field label="Appointment date (YYYY-MM-DD)">
                     <DatePickerField
                       value={scheduledDate}
                       onChangeText={setScheduledDate}
                       placeholder="YYYY-MM-DD"
                       outputFormat="YYYY-MM-DD"
-                      title="Chọn ngày hẹn khám"
+                      title="Choose checkup date"
                     />
                   </Field>
-                  <Field label="Giờ hẹn (HH:mm)">
+                  <Field label="Appointment time (HH:mm)">
                     <NativeInput
                       value={scheduledTime}
                       onChangeText={setScheduledTime}
@@ -321,33 +352,33 @@ export default function PeriodicCheckups() {
                     />
                   </Field>
                   {item.appointment ? (
-                    <Field label="Lý do dời lịch hẹn *">
+                    <Field label="Reschedule reason *">
                       <NativeInput
                         value={reason}
                         onChangeText={setReason}
-                        placeholder="Nhập lý do thay đổi lịch hẹn"
+                        placeholder="Enter the reason for changing this appointment"
                         multiline
                       />
                     </Field>
                   ) : null}
                   <PrimaryButton
-                    label={saving ? "Đang lưu…" : "Xác nhận lịch hẹn"}
+                    label={saving ? "Saving…" : "Confirm appointment"}
                     disabled={saving}
                     onPress={() => void saveAppointment()}
                   />
                   {item.appointment ? (
                     <View style={{ gap: 8, marginTop: 8 }}>
-                      <Field label="Lý do hủy lịch hẹn *">
+                      <Field label="Cancellation reason *">
                         <NativeInput
                           value={cancelReason}
                           onChangeText={setCancelReason}
-                          placeholder="Nhập lý do hủy lịch hẹn"
+                          placeholder="Enter the reason for cancelling this appointment"
                           multiline
                           maxLength={500}
                         />
                       </Field>
                       <SecondaryButton
-                        label={saving ? "Đang hủy…" : "Hủy lịch hẹn"}
+                        label={saving ? "Cancelling…" : "Cancel appointment"}
                         icon="close-circle-outline"
                         disabled={saving || !cancelReason.trim()}
                         onPress={() => void cancelAppointment()}
@@ -363,9 +394,9 @@ export default function PeriodicCheckups() {
         {resource.data && !checkups.length ? (
           <View style={styles.emptyCard}>
             <Ionicons name="checkmark-done-circle-outline" size={44} color={colors.primary} />
-            <Text style={styles.emptyTitle}>Tất cả ngựa đã được khám</Text>
+            <Text style={styles.emptyTitle}>All horses are up to date</Text>
             <Text style={styles.emptySubtitle}>
-              Hiện không có ngựa nào đến hạn khám định kỳ trong chu kỳ này.
+              No horses are due for a periodic checkup in this cycle.
             </Text>
           </View>
         ) : null}
@@ -375,8 +406,8 @@ export default function PeriodicCheckups() {
       <View style={styles.infoNoteCard}>
         <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
         <Text style={styles.infoNoteText}>
-          Chu kỳ khám định kỳ được thiết lập 30 ngày/lần. Khi bác sĩ hoàn thành buổi khám định kỳ,
-          lịch hẹn tương ứng sẽ tự động hoàn tất.
+          Periodic checkups run every 30 days. When the veterinarian completes a routine visit, the
+          related appointment is marked complete automatically.
         </Text>
       </View>
     </Screen>

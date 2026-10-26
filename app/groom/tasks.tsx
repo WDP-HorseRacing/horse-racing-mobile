@@ -340,7 +340,7 @@ export default function GroomTasks() {
                                     style={[styles.todoTitle, { flexShrink: 1 }]}
                                     numberOfLines={2}
                                   >
-                                    {item.name}
+                                    {t(item.name)}
                                   </Text>
                                   {item.done ? (
                                     <View style={styles.todoDoneBadge}>

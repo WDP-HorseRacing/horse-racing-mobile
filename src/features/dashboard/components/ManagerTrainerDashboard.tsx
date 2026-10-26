@@ -515,17 +515,20 @@ export function ManagerTrainerDashboard({
 
       {/* Tình trạng ô chuồng (Occupancy Card) */}
       <View style={uiStyles.section}>
-        <View style={uiStyles.row}>
-          <SectionTitle>Tình trạng ô chuồng</SectionTitle>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push(`/${role}/stable` as Href)}
-            style={styles.headerActionLink}
-          >
-            <Text style={styles.headerActionLinkText}>{t("Stable map")}</Text>
-            <Ionicons name="arrow-forward" size={13} color={colors.primary} />
-          </Pressable>
-        </View>
+        <SectionTitle
+          action={
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push(`/${role}/stable` as Href)}
+              style={styles.headerActionLink}
+            >
+              <Text style={styles.headerActionLinkText}>{t("Stable map")}</Text>
+              <Ionicons name="arrow-forward" size={13} color={colors.primary} />
+            </Pressable>
+          }
+        >
+          Tình trạng ô chuồng
+        </SectionTitle>
 
         <Panel>
           <View style={[uiStyles.row, { alignItems: "center", marginBottom: space.sm }]}>

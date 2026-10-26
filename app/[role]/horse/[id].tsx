@@ -629,7 +629,7 @@ export default function HorseProfile() {
                     key={`training-${reason}`}
                     style={[uiStyles.muted, { color: colors.mutedForeground }]}
                   >
-                    • {formatEnum(reason)}
+                    • {formatEnum(t(reason))}
                   </Text>
                 ))}
                 <Text style={[uiStyles.value, { marginTop: space.xs }]}>
@@ -650,7 +650,7 @@ export default function HorseProfile() {
                     key={`racing-${reason}`}
                     style={[uiStyles.muted, { color: colors.mutedForeground }]}
                   >
-                    • {formatEnum(reason)}
+                    • {formatEnum(t(reason))}
                   </Text>
                 ))}
               </Panel>
@@ -934,7 +934,7 @@ export default function HorseProfile() {
                 horseResource.data.eligibility.trainingEligible
                   ? "Eligible"
                   : horseResource.data.eligibility.trainingReasons
-                      .map((reason) => formatEnum(reason))
+                      .map((reason) => formatEnum(t(reason)))
                       .join(", ") || "Restricted",
               ],
               ...horseResource.data.latestMeasurements.map(
@@ -1412,7 +1412,7 @@ export default function HorseProfile() {
               [
                 "Reasons",
                 horseResource.data.eligibility.racingReasons
-                  .map((reason) => formatEnum(reason))
+                  .map((reason) => formatEnum(t(reason)))
                   .join(", ") || "None returned",
               ],
             ]}

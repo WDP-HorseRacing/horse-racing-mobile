@@ -31,7 +31,7 @@ import {
   validateMeasurementField,
 } from "@/features/medical/medical-validation";
 import { extractErrorMessage } from "@/utils/errorHandler";
-import { formatDateTime } from "@/utils/formatters";
+import { formatDateTime, formatEnum } from "@/utils/formatters";
 import { Injury3DMapper } from "@/features/medical/injury-mapper/Injury3DMapper";
 import type {
   InjuryDraftMarker,
@@ -448,7 +448,7 @@ export default function MedicalVisitForm() {
                 </View>
                 <View style={styles.healthBadge}>
                   <Text style={styles.healthBadgeText}>
-                    {resource.data.horse.healthStatus.replaceAll("_", " ")}
+                    {formatEnum(resource.data.horse.healthStatus)}
                   </Text>
                 </View>
               </View>

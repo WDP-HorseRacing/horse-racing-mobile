@@ -10,7 +10,7 @@ import type { RoleId, Task } from "@/types/raceos";
 import type { GroomTodayDto } from "@/adapters/groom.adapter";
 import { mapGroomTodayToTasks } from "@/adapters/groom.adapter";
 import type { MedicalDashboardDto } from "@/adapters/medical.adapter";
-import { formatDate, formatDateTime, formatDistance } from "@/utils/formatters";
+import { formatDate, formatDateTime, formatDistance, formatEnum } from "@/utils/formatters";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
@@ -320,8 +320,7 @@ function VetWork({ dashboard }: { dashboard: MedicalDashboardDto }) {
                   {checkup.horseName} · checkup
                 </Text>
                 <Text style={uiStyles.muted} numberOfLines={1}>
-                  {checkup.healthStatus.replaceAll("_", " ")} ·{" "}
-                  {checkup.dueStatus.replaceAll("_", " ")}
+                  {formatEnum(checkup.healthStatus)} · {formatEnum(checkup.dueStatus)}
                 </Text>
               </View>
               <Text style={[uiStyles.label, { flexShrink: 0 }]}>

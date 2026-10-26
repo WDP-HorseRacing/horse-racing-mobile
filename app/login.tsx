@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, TextInput, View, Platform } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+  Platform,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -72,107 +80,120 @@ export default function Login() {
       <View style={styles.language}>
         <LanguageToggle />
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View>
-          <Text style={styles.brand} translatable={false}>
-            Horse
-            <Text style={styles.brandAccent} translatable={false}>
-              Racing
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={
+          Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined
+        }
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : Platform.OS === "android" ? "on-drag" : "none"
+          }
+          keyboardShouldPersistTaps="handled"
+        >
+          <View>
+            <Text style={styles.brand} translatable={false}>
+              Horse
+              <Text style={styles.brandAccent} translatable={false}>
+                Racing
+              </Text>
             </Text>
-          </Text>
-          <Text style={styles.kicker}>{t("Stable operations, in your hand")}</Text>
-        </View>
-        <View style={styles.hero}>
-          <Text style={styles.title}>{t("Sign in to your workspace")}</Text>
-          <Text style={styles.copy}>{t("Use your club account to continue.")}</Text>
-        </View>
+            <Text style={styles.kicker}>{t("Stable operations, in your hand")}</Text>
+          </View>
+          <View style={styles.hero}>
+            <Text style={styles.title}>{t("Sign in to your workspace")}</Text>
+            <Text style={styles.copy}>{t("Use your club account to continue.")}</Text>
+          </View>
 
-        {Platform.OS !== "web" ? (
-          <View style={styles.googleSection}>
+          {Platform.OS !== "web" ? (
+            <View style={styles.googleSection}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={googlePending || isLoading}
+                onPress={() => void signInWithGoogleProvider()}
+                style={({ pressed }) => [
+                  styles.googleButton,
+                  pressed && styles.pressed,
+                  (googlePending || isLoading) && styles.disabled,
+                ]}
+              >
+                {googlePending ? (
+                  <View style={styles.googleSpinner} />
+                ) : (
+                  <Ionicons name="logo-google" size={19} color="#4285F4" />
+                )}
+                <Text style={styles.googleButtonText}>
+                  {googlePending ? t("Connecting to Google…") : t("Continue with Google")}
+                </Text>
+              </Pressable>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>{t("Or use email and password")}</Text>
+                <View style={styles.dividerLine} />
+              </View>
+            </View>
+          ) : null}
+
+          {loginFeedback ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{extractErrorMessage(loginFeedback.error)}</Text>
+              {loginFeedback.showSessionRetry ? (
+                <Pressable onPress={retry} style={styles.retry}>
+                  <Text style={styles.retryText}>{t("Retry session check")}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={styles.form}>
+            <Text style={styles.inputLabel}>{t("Email")}</Text>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              autoCorrect={false}
+              editable={!isLoading && !googlePending}
+              placeholder="name@racehorse.com"
+              placeholderTextColor={colors.mutedForeground}
+              style={styles.input}
+            />
+            {fieldErrors.email ? <Text style={styles.fieldError}>{fieldErrors.email}</Text> : null}
+            <Text style={styles.inputLabel}>{t("Password")}</Text>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              autoComplete="password"
+              secureTextEntry
+              editable={!isLoading && !googlePending}
+              placeholder="••••••••"
+              placeholderTextColor={colors.mutedForeground}
+              style={styles.input}
+            />
+            {fieldErrors.password ? (
+              <Text style={styles.fieldError}>{fieldErrors.password}</Text>
+            ) : null}
             <Pressable
               accessibilityRole="button"
-              disabled={googlePending || isLoading}
-              onPress={() => void signInWithGoogleProvider()}
+              disabled={isLoading || googlePending || !email.trim() || !password}
+              onPress={() => void submit()}
               style={({ pressed }) => [
-                styles.googleButton,
+                styles.submit,
                 pressed && styles.pressed,
-                (googlePending || isLoading) && styles.disabled,
+                (isLoading || !email.trim() || !password) && styles.disabled,
               ]}
             >
-              {googlePending ? (
-                <View style={styles.googleSpinner} />
-              ) : (
-                <Ionicons name="logo-google" size={19} color="#4285F4" />
-              )}
-              <Text style={styles.googleButtonText}>
-                {googlePending ? t("Connecting to Google…") : t("Continue with Google")}
-              </Text>
+              <Text style={styles.submitText}>{isLoading ? t("Signing in…") : t("Sign in")}</Text>
             </Pressable>
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>{t("Or use email and password")}</Text>
-              <View style={styles.dividerLine} />
-            </View>
           </View>
-        ) : null}
-
-        {loginFeedback ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{extractErrorMessage(loginFeedback.error)}</Text>
-            {loginFeedback.showSessionRetry ? (
-              <Pressable onPress={retry} style={styles.retry}>
-                <Text style={styles.retryText}>{t("Retry session check")}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ) : null}
-
-        <View style={styles.form}>
-          <Text style={styles.inputLabel}>{t("Email")}</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            autoCorrect={false}
-            editable={!isLoading && !googlePending}
-            placeholder="name@racehorse.com"
-            placeholderTextColor={colors.mutedForeground}
-            style={styles.input}
-          />
-          {fieldErrors.email ? <Text style={styles.fieldError}>{fieldErrors.email}</Text> : null}
-          <Text style={styles.inputLabel}>{t("Password")}</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            autoComplete="password"
-            secureTextEntry
-            editable={!isLoading && !googlePending}
-            placeholder="••••••••"
-            placeholderTextColor={colors.mutedForeground}
-            style={styles.input}
-          />
-          {fieldErrors.password ? (
-            <Text style={styles.fieldError}>{fieldErrors.password}</Text>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            disabled={isLoading || googlePending || !email.trim() || !password}
-            onPress={() => void submit()}
-            style={({ pressed }) => [
-              styles.submit,
-              pressed && styles.pressed,
-              (isLoading || !email.trim() || !password) && styles.disabled,
-            ]}
-          >
-            <Text style={styles.submitText}>{isLoading ? t("Signing in…") : t("Sign in")}</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.footer}>
-          {t("Your access is determined by the role on your account.")}
-        </Text>
-      </ScrollView>
+          <Text style={styles.footer}>
+            {t("Your access is determined by the role on your account.")}
+          </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -180,6 +201,7 @@ export default function Login() {
 const getStyles = (colors: any) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
+    keyboardAvoidingView: { flex: 1 },
     language: { position: "absolute", right: 18, top: 54, zIndex: 10 },
     content: {
       flexGrow: 1,

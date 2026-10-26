@@ -210,7 +210,7 @@ export default function Horses() {
               <TextInput
                 value={searchInput}
                 onChangeText={setSearchInput}
-                placeholder="Search name, Horse ID or microchip"
+                placeholder={t("Search name, Horse ID or microchip")}
                 placeholderTextColor={colors.mutedForeground}
                 style={styles.search}
                 autoCapitalize="none"
@@ -218,7 +218,7 @@ export default function Horses() {
               />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Filters"
+                accessibilityLabel={t("Filters")}
                 onPress={openFilters}
                 style={[
                   styles.filterButton,

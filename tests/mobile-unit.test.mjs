@@ -61,6 +61,9 @@ const { ApiError, apiRequest, setUnauthorizedTokenRefreshHandler } = loadTypeScr
 );
 const { LatestRequestGuard } = loadTypeScript(join(root, "src/hooks/useApiResource.ts"));
 const { mapTrainingSessions } = loadTypeScript(join(root, "src/adapters/training.adapter.ts"));
+const { isSimulating, startSimulation, stopSimulation } = loadTypeScript(
+  join(root, "src/features/training/sensor-simulator.ts"),
+);
 const { mapHealthStatus, mapHorseSummary } = loadTypeScript(
   join(root, "src/adapters/horse.adapter.ts"),
 );
@@ -74,7 +77,6 @@ const {
   formatToDdMmYyyy,
   isValidDdMmYyyyDate,
   isValidIsoDate,
-  normalizeVietnamese,
   parseToIsoDate,
   validateHorseIdentity,
 } = loadTypeScript(join(root, "src/utils/horse-validation.ts"));
@@ -292,6 +294,91 @@ test("training mapper preserves backend status, distance, and elapsed duration",
   assert.equal(session.durationMin, 45);
   assert.equal(session.trials[0].elapsedMs, 72500);
   assert.ok(session.trials[0].elapsedLabel);
+});
+
+test("sensor simulation stops after one failed telemetry request", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const participantId = "sensor-simulator-failure-test";
+  let intervalCallback;
+  let intervalCleared = false;
+  let requestCount = 0;
+  let errorCount = 0;
+
+  globalThis.setInterval = (callback) => {
+    intervalCallback = callback;
+    return 12345;
+  };
+  globalThis.clearInterval = () => {
+    intervalCleared = true;
+  };
+  globalThis.fetch = async () => {
+    requestCount += 1;
+    return new Response(JSON.stringify({ message: "participant is not recording" }), {
+      status: 409,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  context.after(() => {
+    stopSimulation(participantId);
+    globalThis.fetch = originalFetch;
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  });
+
+  startSimulation(participantId, "test-token", {
+    intervalMs: 10,
+    onError: () => {
+      errorCount += 1;
+    },
+  });
+
+  await new Promise(setImmediate);
+  assert.equal(isSimulating(participantId), false);
+  assert.equal(intervalCleared, true);
+  assert.equal(requestCount, 1);
+  assert.equal(errorCount, 1);
+
+  intervalCallback();
+  await new Promise(setImmediate);
+  assert.equal(requestCount, 1);
+  assert.equal(errorCount, 1);
+});
+
+test("stopping sensor simulation ignores a later in-flight request error", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const participantId = "sensor-simulator-stop-test";
+  let rejectRequest;
+  let errorCount = 0;
+
+  globalThis.setInterval = () => 23456;
+  globalThis.clearInterval = () => {};
+  globalThis.fetch = () =>
+    new Promise((_resolve, reject) => {
+      rejectRequest = reject;
+    });
+  context.after(() => {
+    stopSimulation(participantId);
+    globalThis.fetch = originalFetch;
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  });
+
+  startSimulation(participantId, "test-token", {
+    onError: () => {
+      errorCount += 1;
+    },
+  });
+  await new Promise(setImmediate);
+  stopSimulation(participantId);
+  rejectRequest(new Error("late request failure"));
+  await new Promise(setImmediate);
+
+  assert.equal(isSimulating(participantId), false);
+  assert.equal(errorCount, 0);
 });
 
 test("training schedule timestamps use the club timezone and reject impossible dates", () => {

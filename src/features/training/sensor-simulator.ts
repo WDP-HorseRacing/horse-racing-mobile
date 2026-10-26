@@ -46,15 +46,12 @@ export async function sendTelemetryPoint(
  * This triggers domain event PERFORMANCE_METRIC_CRITICAL_EVENT, pushing an URGENT notification
  * to Veterinarians and Head Trainer, and emitting realtime metrics to the socket.
  */
-export async function sendHeartRateSpike(
-  participantId: string,
-  token?: string | null,
-) {
+export async function sendHeartRateSpike(participantId: string, token?: string | null) {
   const point: SimTelemetryPoint = {
     sourceId: "sim-device-01",
     recordedAt: new Date().toISOString(),
     heartRateBpm: 248, // Exceeds 240 bpm -> CRITICAL
-    speedMps: 16.8,   // High galloping speed
+    speedMps: 16.8, // High galloping speed
   };
 
   const result = await performanceService.ingestMetric(participantId, point, token);
@@ -76,19 +73,28 @@ export function startSimulation(
   stopSimulation(participantId);
 
   const intervalMs = options?.intervalMs ?? 3000;
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let requestInFlight = false;
 
-  // Immediately send the first point
-  void sendTelemetryPoint(participantId, undefined, token)
-    .then(({ point }) => options?.onTick?.(point))
-    .catch((err) => options?.onError?.(err));
+  const sendPoint = async () => {
+    if (requestInFlight || !timer || activeSimulators.get(participantId) !== timer) return;
+    requestInFlight = true;
 
-  const timer = setInterval(() => {
-    void sendTelemetryPoint(participantId, undefined, token)
-      .then(({ point }) => options?.onTick?.(point))
-      .catch((err) => options?.onError?.(err));
-  }, intervalMs);
+    try {
+      const { point } = await sendTelemetryPoint(participantId, undefined, token);
+      if (activeSimulators.get(participantId) === timer) options?.onTick?.(point);
+    } catch (error) {
+      if (activeSimulators.get(participantId) !== timer) return;
+      stopSimulation(participantId);
+      options?.onError?.(error);
+    } finally {
+      requestInFlight = false;
+    }
+  };
 
+  timer = setInterval(() => void sendPoint(), intervalMs);
   activeSimulators.set(participantId, timer);
+  void sendPoint();
 }
 
 /**

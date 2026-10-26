@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
@@ -36,6 +36,11 @@ export default function GroomTraining() {
   const [pending, setPending] = useState("");
   const [absentId, setAbsentId] = useState("");
   const [absenceReason, setAbsenceReason] = useState("");
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setClockNow(Date.now()), 15_000);
+    return () => clearInterval(interval);
+  }, []);
   const load = useCallback(async (): Promise<AssignedSession[]> => {
     const classes = await trainingService.listClasses(token!);
     const now = Date.now();
@@ -119,11 +124,13 @@ export default function GroomTraining() {
                 session.scheduledStartAt,
                 session.scheduledEndAt,
                 "check-in",
+                clockNow,
               );
               const readyOpen = isParticipantWindowOpen(
                 session.scheduledStartAt,
                 session.scheduledEndAt,
                 "ready",
+                clockNow,
               );
               return (
                 <Panel key={participant.id} style={{ gap: 8 }}>

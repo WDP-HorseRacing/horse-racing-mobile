@@ -62,18 +62,19 @@ export function validateMeasurementField(
   }
   const spec = MEDICAL_MEASUREMENT_RANGES[type];
   const label = MEASUREMENT_LABELS[type];
+  const unit = t(spec.unit);
   if (value < spec.min || value > spec.max) {
     return {
       isValid: false,
       isAbnormal: false,
-      error: `${t(label)} ${t("phải trong khoảng")} ${spec.min} - ${spec.max} ${spec.unit}.`,
+      error: `${t(label)} ${t("phải trong khoảng")} ${spec.min} - ${spec.max} ${unit}.`,
     };
   }
   if (value < spec.normalMin || value > spec.normalMax) {
     return {
       isValid: true,
       isAbnormal: true,
-      warning: `⚠️ ${t("Ngoài khoảng bình thường")} (${spec.normalMin} - ${spec.normalMax} ${spec.unit}).`,
+      warning: `⚠️ ${t("Ngoài khoảng bình thường")} (${spec.normalMin} - ${spec.normalMax} ${unit}).`,
     };
   }
   return { isValid: true, isAbnormal: false };
