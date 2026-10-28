@@ -3,35 +3,65 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import {
-  Chips,
-  Field,
-  MiniChart,
-  NativeInput,
-  Panel,
-  PrimaryButton,
-  getUiStyles,
-} from "@/components/ui";
+import { Field, NativeInput, Panel, PrimaryButton } from "@/components/ui";
+import { Ionicons } from "@expo/vector-icons";
+import { LineChart } from "react-native-gifted-charts";
+import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
-import {
-  validateMeasurementField,
-  type MedicalMeasurementType,
-} from "@/features/medical/medical-validation";
+import { validateMeasurementField } from "@/features/medical/medical-validation";
 import { horseService, type HorseMeasurementDto } from "@/services/horse.service";
 import { isRole } from "@/features/auth/roles";
 import { extractErrorMessage } from "@/utils/errorHandler";
-import { formatEnum } from "@/utils/formatters";
+import { formatDateTime } from "@/utils/formatters";
 
 const TYPES = ["WEIGHT", "HEIGHT", "BODY_CONDITION", "TEMPERATURE"] as const;
 type MeasurementType = (typeof TYPES)[number];
-const UNITS: Record<MeasurementType, string> = {
-  WEIGHT: "kg",
-  HEIGHT: "cm",
-  BODY_CONDITION: "score",
-  TEMPERATURE: "°C",
+
+interface MetricConfig {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  unit: string;
+  color: string;
+  bgTint: string;
+  normalRange: string;
+}
+
+const METRIC_CONFIGS: Record<MeasurementType, MetricConfig> = {
+  WEIGHT: {
+    label: "Cân nặng",
+    icon: "scale-outline",
+    unit: "kg",
+    color: "#10B981",
+    bgTint: "rgba(16, 185, 129, 0.12)",
+    normalRange: "400 – 600 kg",
+  },
+  HEIGHT: {
+    label: "Chiều cao",
+    icon: "resize-outline",
+    unit: "cm",
+    color: "#3B82F6",
+    bgTint: "rgba(59, 130, 246, 0.12)",
+    normalRange: "150 – 175 cm",
+  },
+  BODY_CONDITION: {
+    label: "Điểm thể trạng (BCS)",
+    icon: "fitness-outline",
+    unit: "điểm",
+    color: "#8B5CF6",
+    bgTint: "rgba(139, 92, 246, 0.12)",
+    normalRange: "4 – 6 điểm (thang 1-9)",
+  },
+  TEMPERATURE: {
+    label: "Thân nhiệt",
+    icon: "thermometer-outline",
+    unit: "°C",
+    color: "#F59E0B",
+    bgTint: "rgba(245, 158, 11, 0.12)",
+    normalRange: "37.2 – 38.3 °C",
+  },
 };
 
 function formatMeasurementUnit(unit: string): string {
@@ -41,10 +71,10 @@ function formatMeasurementUnit(unit: string): string {
 export default function BodyMeasurements() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  const uiStyles = getUiStyles(colors);
   const { t } = useI18n();
   const { role, id } = useLocalSearchParams<{ role: string; id: string }>();
   const { token } = useAuth();
+
   const [values, setValues] = useState<Record<MeasurementType, string>>({
     WEIGHT: "",
     HEIGHT: "",
@@ -55,34 +85,77 @@ export default function BodyMeasurements() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [chartType, setChartType] = useState<MeasurementType>("WEIGHT");
+  const [chartContainerWidth, setChartContainerWidth] = useState(0);
   const [deleteId, setDeleteId] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+
   const loadHorse = useCallback(() => horseService.get(token!, id), [id, token]);
   const horseResource = useApiResource(loadHorse, Boolean(token && id));
+
   const loadPermissions = useCallback(() => horseService.getPermissions(token!, id), [id, token]);
   const permissionsResource = useApiResource(loadPermissions, Boolean(token && id));
+
   const loadMeasurements = useCallback(
     () => horseService.listMeasurements(token!, id),
     [id, token],
   );
   const resource = useApiResource(loadMeasurements, Boolean(token && id));
-  const chartData = useMemo(
-    () =>
-      (resource.data ?? [])
-        .filter((item) => item.type === chartType)
-        .slice()
-        .reverse()
-        .map((item) => ({ value: item.value })),
-    [chartType, resource.data],
-  );
-  const latestByType = useMemo(() => {
-    const latest = new Map<MeasurementType, HorseMeasurementDto>();
-    for (const row of resource.data ?? []) if (!latest.has(row.type)) latest.set(row.type, row);
-    return latest;
+
+  // Phân loại số đo theo loại (mới nhất đầu tiên)
+  const measurementsByType = useMemo(() => {
+    const map = new Map<MeasurementType, HorseMeasurementDto[]>();
+    for (const type of TYPES) map.set(type, []);
+    for (const row of resource.data ?? []) {
+      if (map.has(row.type)) {
+        map.get(row.type)!.push(row);
+      }
+    }
+    return map;
   }, [resource.data]);
 
-  if (!isRole(role)) return <Redirect href="/" />;
+  // Chuẩn bị dữ liệu chuỗi thời gian (cũ -> mới) cho biểu đồ
+  const chronologicallySorted = useMemo(() => {
+    const list = measurementsByType.get(chartType) ?? [];
+    return list
+      .slice()
+      .sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime());
+  }, [measurementsByType, chartType]);
+
+  // Thống kê cho loại chỉ số được chọn
+  const chartStats = useMemo(() => {
+    if (!chronologicallySorted.length) return null;
+    const vals = chronologicallySorted.map((d) => d.value);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+    const latest = chronologicallySorted[chronologicallySorted.length - 1];
+    return { min, max, avg, latest, count: vals.length };
+  }, [chronologicallySorted]);
+
+  // Dữ liệu cho Gifted Charts LineChart
+  const chartPoints = useMemo(() => {
+    if (!chronologicallySorted.length) return [];
+    const len = chronologicallySorted.length;
+    return chronologicallySorted.map((item, index) => {
+      const date = new Date(item.measuredAt);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const showLabel =
+        len <= 6 || index === 0 || index === len - 1 || index % Math.ceil(len / 4) === 0;
+
+      return {
+        value: item.value,
+        label: showLabel ? `${day}/${month}` : "",
+        hideDataPoint: false,
+        dataPointColor: item.isAbnormal ? colors.destructive : METRIC_CONFIGS[chartType].color,
+        measuredAt: item.measuredAt,
+        measuredByName: item.measuredByName,
+        unit: formatMeasurementUnit(item.unit),
+        isAbnormal: item.isAbnormal,
+      };
+    });
+  }, [chronologicallySorted, chartType, colors.destructive]);
 
   const updateValue = (type: MeasurementType, value: string) =>
     setValues((current) => ({ ...current, [type]: value }));
@@ -151,14 +224,14 @@ export default function BodyMeasurements() {
     setFormError("");
     try {
       await horseService.deleteMeasurement(token, id, deleteId, deleteReason.trim());
-      Alert.alert("Measurement removed", "The history has been refreshed.");
+      Alert.alert(t("Measurement removed"), t("The history has been refreshed."));
       setDeleteId("");
       setDeleteReason("");
       await Promise.all([resource.refresh(), horseResource.refresh()]);
     } catch (error) {
       const message = extractErrorMessage(error);
       setFormError(message);
-      Alert.alert("Could not remove measurement", message);
+      Alert.alert(t("Could not remove measurement"), message);
     } finally {
       setDeleting(false);
     }
@@ -167,11 +240,30 @@ export default function BodyMeasurements() {
   const canRecord = permissionsResource.data?.canRecordMeasurement === true;
   const canDelete = permissionsResource.data?.canDeleteMeasurement === true;
 
+  // Tính miền giá trị Y cho biểu đồ
+  const chartYBounds = useMemo(() => {
+    if (!chartPoints.length) return { min: 0, max: 100, step: 25 };
+    const vals = chartPoints.map((p) => p.value);
+    const minVal = Math.min(...vals);
+    const maxVal = Math.max(...vals);
+    const padding = Math.max((maxVal - minVal) * 0.2, 2);
+    const chartMin = Math.max(0, Math.floor(minVal - padding));
+    const chartMax = Math.ceil(maxVal + padding);
+    const noOfSections = 4;
+    const step = Math.max(1, Math.ceil((chartMax - chartMin) / noOfSections));
+    return { min: chartMin, max: chartMin + step * noOfSections, step };
+  }, [chartPoints]);
+
+  const activeMetricConfig = METRIC_CONFIGS[chartType];
+  const chartWidth = Math.max(0, chartContainerWidth - 45);
+
+  if (!isRole(role)) return <Redirect href="/" />;
+
   return (
     <Screen
       role={role}
-      title="Body measurements"
-      subtitle={horseResource.data?.name ?? "Horse profile"}
+      title="Chỉ số cơ thể"
+      subtitle={horseResource.data?.name ?? t("Horse profile")}
       back
       fallbackHref={`/${role}/horse/${id}` as any}
       refreshing={
@@ -192,137 +284,484 @@ export default function BodyMeasurements() {
           void Promise.all([resource.retry(), horseResource.retry(), permissionsResource.retry()])
         }
       />
+
       {resource.data ? (
         <>
-          <View style={uiStyles.metricGrid}>
-            {TYPES.map((type) => {
-              const latest = latestByType.get(type);
-              return (
-                <Panel key={type}>
-                  <Text style={uiStyles.label}>{formatEnum(type)}</Text>
-                  <Text style={styles.metricValue}>
-                    {latest ? `${latest.value} ${formatMeasurementUnit(latest.unit)}` : "—"}
-                  </Text>
-                  <Text style={uiStyles.muted}>
-                    {latest ? new Date(latest.measuredAt).toLocaleDateString() : "No value yet"}
-                  </Text>
-                </Panel>
-              );
-            })}
-          </View>
-          <Panel>
-            <SectionTitle>Trend</SectionTitle>
-            <Chips
-              options={[...TYPES]}
-              value={chartType}
-              onChange={(value) => setChartType(value as MeasurementType)}
-            />
-            {chartData.length > 1 ? (
-              <MiniChart data={chartData} valueKey="value" color={colors.primary} />
-            ) : (
-              <Text style={uiStyles.muted}>
-                A trend appears after at least two measurements of the selected type.
+          {/* SECTION 1: THẺ SỐ ĐO MỚI NHẤT (LATEST MEASUREMENTS) */}
+          <View style={{ gap: space.sm }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <SectionTitle>Số đo mới nhất</SectionTitle>
+              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                Chạm thẻ để xem biểu đồ
               </Text>
-            )}
-          </Panel>
-          <View style={{ gap: 12 }}>
-            <SectionTitle>History</SectionTitle>
-            {resource.data.length ? (
-              resource.data.map((row) => (
-                <Panel key={row.id}>
-                  <View style={styles.recordHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.recordTitle}>
-                        {formatEnum(row.type)} · {row.value} {formatMeasurementUnit(row.unit)}
-                      </Text>
-                      <Text style={uiStyles.muted}>
-                        {new Date(row.measuredAt).toLocaleString()} · {row.measuredByName} ·{" "}
-                        {row.source.replaceAll("_", " ")}
-                      </Text>
+            </View>
+
+            <View style={styles.metricCardsGrid}>
+              {TYPES.map((type) => {
+                const config = METRIC_CONFIGS[type];
+                const typeRecords = measurementsByType.get(type) ?? [];
+                const latest = typeRecords[0];
+                const previous = typeRecords[1];
+                const delta =
+                  latest && previous ? Number((latest.value - previous.value).toFixed(1)) : null;
+                const isSelected = chartType === type;
+
+                return (
+                  <Pressable
+                    key={type}
+                    accessibilityRole="button"
+                    onPress={() => setChartType(type)}
+                    style={[
+                      styles.metricCard,
+                      isSelected && { borderColor: config.color, borderWidth: 1.5 },
+                    ]}
+                  >
+                    {/* Header: Icon + Title + Status Badge */}
+                    <View style={styles.metricCardHeader}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                        <View style={[styles.metricIconWrap, { backgroundColor: config.bgTint }]}>
+                          <Ionicons name={config.icon} size={15} color={config.color} />
+                        </View>
+                        <Text style={styles.metricCardLabel} numberOfLines={1}>
+                          {config.label}
+                        </Text>
+                      </View>
+
+                      {latest ? (
+                        latest.isAbnormal ? (
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: "rgba(239, 68, 68, 0.15)" },
+                            ]}
+                          >
+                            <Text style={[styles.statusBadgeText, { color: colors.destructive }]}>
+                              Cảnh báo
+                            </Text>
+                          </View>
+                        ) : (
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: "rgba(16, 185, 129, 0.15)" },
+                            ]}
+                          >
+                            <Text style={[styles.statusBadgeText, { color: colors.fit }]}>
+                              Chuẩn
+                            </Text>
+                          </View>
+                        )
+                      ) : (
+                        <View style={[styles.statusBadge, { backgroundColor: colors.surface }]}>
+                          <Text style={[styles.statusBadgeText, { color: colors.mutedForeground }]}>
+                            Chưa có
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                    {row.isAbnormal ? <Text style={styles.alertLabel}>Abnormal</Text> : null}
-                  </View>
-                  {canDelete && row.source === "MANUAL" ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => setDeleteId(deleteId === row.id ? "" : row.id)}
-                    >
-                      <Text style={styles.deleteLink}>
-                        {deleteId === row.id ? "Cancel remove" : "Remove incorrect record"}
+
+                    {/* Value + Unit + Delta */}
+                    <View style={styles.metricValueRow}>
+                      <Text style={styles.metricLargeValue}>{latest ? latest.value : "—"}</Text>
+                      <Text style={styles.metricUnitText}>
+                        {latest ? formatMeasurementUnit(latest.unit) : config.unit}
                       </Text>
-                    </Pressable>
-                  ) : null}
-                  {deleteId === row.id ? (
-                    <View style={{ gap: 10, marginTop: 12 }}>
-                      <Field label="Reason required">
-                        <NativeInput
-                          value={deleteReason}
-                          onChangeText={setDeleteReason}
-                          multiline
-                          placeholder="Explain why this measurement is incorrect"
-                        />
-                      </Field>
-                      <PrimaryButton
-                        label={deleting ? "Removing…" : "Confirm removal"}
-                        icon="trash"
-                        disabled={deleting || !deleteReason.trim()}
-                        onPress={() =>
-                          Alert.alert(
-                            "Remove measurement?",
-                            "This record will be hidden from history and its charts.",
-                            [
-                              { text: "Cancel", style: "cancel" },
+
+                      {delta !== null && delta !== 0 ? (
+                        <View
+                          style={[
+                            styles.deltaPill,
+                            {
+                              backgroundColor:
+                                delta > 0
+                                  ? type === "TEMPERATURE"
+                                    ? "rgba(239, 68, 68, 0.12)"
+                                    : "rgba(16, 185, 129, 0.12)"
+                                  : "rgba(59, 130, 246, 0.12)",
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={delta > 0 ? "arrow-up" : "arrow-down"}
+                            size={10}
+                            color={
+                              delta > 0
+                                ? type === "TEMPERATURE"
+                                  ? colors.destructive
+                                  : colors.fit
+                                : colors.primary
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.deltaText,
                               {
-                                text: "Remove",
-                                style: "destructive",
-                                onPress: () => void removeMeasurement(),
+                                color:
+                                  delta > 0
+                                    ? type === "TEMPERATURE"
+                                      ? colors.destructive
+                                      : colors.fit
+                                    : colors.primary,
                               },
-                            ],
-                          )
-                        }
-                      />
+                            ]}
+                          >
+                            {delta > 0 ? `+${delta}` : `${delta}`}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
-                  ) : null}
-                </Panel>
-              ))
+
+                    {/* Footer: Date & Recorded by */}
+                    <View style={styles.metricCardFooter}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name="time-outline" size={11} color={colors.mutedForeground} />
+                        <Text style={styles.metricFooterText} numberOfLines={1}>
+                          {latest ? formatDateTime(latest.measuredAt) : "Chưa có dữ liệu"}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name="person-outline" size={11} color={colors.mutedForeground} />
+                        <Text style={styles.metricFooterText} numberOfLines={1}>
+                          {latest ? latest.measuredByName || "Hệ thống" : config.normalRange}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* SECTION 2: BIỂU ĐỒ THEO THỜI GIAN (LINE CHART) */}
+          <Panel style={{ gap: space.md, paddingVertical: space.md }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <View>
+                <SectionTitle>Biểu đồ theo thời gian</SectionTitle>
+                <Text style={{ fontSize: 11, color: colors.mutedForeground, marginTop: 2 }}>
+                  {activeMetricConfig.label} ({activeMetricConfig.unit}) · Chuẩn:{" "}
+                  {activeMetricConfig.normalRange}
+                </Text>
+              </View>
+
+              {chartStats ? (
+                <View style={[styles.statsChip, { borderColor: activeMetricConfig.color }]}>
+                  <Text
+                    style={{ fontSize: 11, fontWeight: "700", color: activeMetricConfig.color }}
+                  >
+                    TB: {chartStats.avg} {activeMetricConfig.unit}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Type Selector Pills */}
+            <View style={styles.chartSelectorRow}>
+              {TYPES.map((type) => {
+                const cfg = METRIC_CONFIGS[type];
+                const active = chartType === type;
+                return (
+                  <Pressable
+                    key={type}
+                    accessibilityRole="button"
+                    onPress={() => setChartType(type)}
+                    style={[
+                      styles.chartSelectorPill,
+                      active && { backgroundColor: cfg.color, borderColor: cfg.color },
+                    ]}
+                  >
+                    <Ionicons
+                      name={cfg.icon}
+                      size={13}
+                      color={active ? "#FFFFFF" : colors.mutedForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.chartSelectorText,
+                        active && { color: "#FFFFFF", fontWeight: "700" },
+                      ]}
+                    >
+                      {cfg.label.split(" ")[0]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Stats Summary Bar */}
+            {chartStats ? (
+              <View style={styles.statsSummaryBar}>
+                <View style={styles.statsItem}>
+                  <Text style={styles.statsLabel}>Số lần đo</Text>
+                  <Text style={styles.statsValue}>{chartStats.count}</Text>
+                </View>
+                <View style={styles.statsDivider} />
+                <View style={styles.statsItem}>
+                  <Text style={styles.statsLabel}>Gần nhất</Text>
+                  <Text style={[styles.statsValue, { color: activeMetricConfig.color }]}>
+                    {chartStats.latest.value} {activeMetricConfig.unit}
+                  </Text>
+                </View>
+                <View style={styles.statsDivider} />
+                <View style={styles.statsItem}>
+                  <Text style={styles.statsLabel}>Thấp nhất</Text>
+                  <Text style={styles.statsValue}>{chartStats.min}</Text>
+                </View>
+                <View style={styles.statsDivider} />
+                <View style={styles.statsItem}>
+                  <Text style={styles.statsLabel}>Cao nhất</Text>
+                  <Text style={styles.statsValue}>{chartStats.max}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Gifted Charts LineChart */}
+            <View
+              style={styles.chartWrapper}
+              onLayout={(e) => setChartContainerWidth(e.nativeEvent.layout.width)}
+            >
+              {chartPoints.length > 1 && chartContainerWidth > 0 ? (
+                <LineChart
+                  areaChart
+                  data={chartPoints}
+                  width={chartWidth}
+                  height={150}
+                  startFillColor={activeMetricConfig.color}
+                  startOpacity={0.28}
+                  endFillColor={activeMetricConfig.color}
+                  endOpacity={0.02}
+                  color={activeMetricConfig.color}
+                  thickness={2.5}
+                  dataPointsColor={activeMetricConfig.color}
+                  dataPointsRadius={4}
+                  yAxisTextStyle={{ color: colors.mutedForeground, fontSize: 10 }}
+                  xAxisLabelTextStyle={{ color: colors.mutedForeground, fontSize: 10 }}
+                  yAxisColor="transparent"
+                  xAxisColor={colors.border}
+                  rulesColor={colors.border}
+                  rulesType="dashed"
+                  showXAxisIndices={false}
+                  yAxisOffset={chartYBounds.min}
+                  maxValue={chartYBounds.max - chartYBounds.min}
+                  noOfSections={4}
+                  stepValue={chartYBounds.step}
+                  isAnimated={false}
+                  disableScroll
+                  pointerConfig={{
+                    pointerStripUptoDataPoint: true,
+                    pointerStripColor: colors.borderStrong,
+                    pointerStripWidth: 1.5,
+                    strokeDashArray: [2, 4],
+                    pointerColor: activeMetricConfig.color,
+                    radius: 5,
+                    pointerLabelWidth: 140,
+                    pointerLabelHeight: 52,
+                    pointerLabelComponent: (items: any) => {
+                      const pt = items?.[0];
+                      if (!pt) return null;
+                      return (
+                        <View
+                          style={[styles.chartTooltip, { borderColor: activeMetricConfig.color }]}
+                        >
+                          <Text style={styles.tooltipValue}>
+                            {pt.value} {pt.unit}
+                            {pt.isAbnormal ? " (Cảnh báo)" : ""}
+                          </Text>
+                          <Text style={styles.tooltipDate}>{formatDateTime(pt.measuredAt)}</Text>
+                          <Text style={styles.tooltipAuthor} numberOfLines={1}>
+                            {pt.measuredByName || "Hệ thống"}
+                          </Text>
+                        </View>
+                      );
+                    },
+                  }}
+                />
+              ) : (
+                <View style={styles.chartEmptyContainer}>
+                  <Ionicons name="analytics-outline" size={32} color={colors.mutedForeground} />
+                  <Text style={styles.chartEmptyText}>
+                    Cần tối thiểu 2 lần ghi nhận chỉ số {activeMetricConfig.label.toLowerCase()} để
+                    hình thành biểu đồ tiến trình theo thời gian.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Panel>
+
+          {/* SECTION 3: LỊCH SỬ ĐO LƯỜNG (HISTORY) */}
+          <View style={{ gap: space.sm }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <SectionTitle>Lịch sử ghi nhận</SectionTitle>
+              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                {resource.data.length} bản ghi
+              </Text>
+            </View>
+
+            {resource.data.length ? (
+              resource.data.map((row) => {
+                const cfg = METRIC_CONFIGS[row.type] ?? METRIC_CONFIGS.WEIGHT;
+                const isDeletingThis = deleteId === row.id;
+
+                return (
+                  <Panel key={row.id} style={{ gap: space.sm }}>
+                    <View style={styles.recordHeader}>
+                      <View style={[styles.recordTypeIcon, { backgroundColor: cfg.bgTint }]}>
+                        <Ionicons name={cfg.icon} size={16} color={cfg.color} />
+                      </View>
+
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={styles.recordTitle}>
+                            {cfg.label}: {row.value} {formatMeasurementUnit(row.unit)}
+                          </Text>
+                          {row.isAbnormal ? (
+                            <View
+                              style={[
+                                styles.statusBadge,
+                                { backgroundColor: "rgba(239, 68, 68, 0.15)" },
+                              ]}
+                            >
+                              <Text style={[styles.statusBadgeText, { color: colors.destructive }]}>
+                                Bất thường
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+
+                        <Text style={styles.recordMeta}>
+                          {formatDateTime(row.measuredAt)} · Người ghi:{" "}
+                          {row.measuredByName || "Hệ thống"} ·{" "}
+                          {row.source === "MEDICAL_EXAM" ? "Khám thú y" : "Ghi thủ công"}
+                        </Text>
+                      </View>
+
+                      {canDelete && row.source === "MANUAL" ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => setDeleteId(isDeletingThis ? "" : row.id)}
+                          style={styles.deleteButton}
+                        >
+                          <Ionicons
+                            name={isDeletingThis ? "close-circle-outline" : "trash-outline"}
+                            size={18}
+                            color={colors.destructive}
+                          />
+                        </Pressable>
+                      ) : null}
+                    </View>
+
+                    {isDeletingThis ? (
+                      <View style={styles.deleteSection}>
+                        <Field label="Lý do xóa bản ghi sai (bắt buộc)">
+                          <NativeInput
+                            value={deleteReason}
+                            onChangeText={setDeleteReason}
+                            multiline
+                            placeholder="Giải thích lý do cần gỡ bỏ bản ghi số đo này"
+                          />
+                        </Field>
+                        <PrimaryButton
+                          label={deleting ? "Đang xóa…" : "Xác nhận xóa bản ghi"}
+                          icon="trash"
+                          disabled={deleting || !deleteReason.trim()}
+                          onPress={() =>
+                            Alert.alert(
+                              "Xóa bản ghi số đo?",
+                              "Bản ghi này sẽ bị ẩn khỏi lịch sử và không tính vào biểu đồ.",
+                              [
+                                { text: "Hủy", style: "cancel" },
+                                {
+                                  text: "Xóa vĩnh viễn",
+                                  style: "destructive",
+                                  onPress: () => void removeMeasurement(),
+                                },
+                              ],
+                            )
+                          }
+                        />
+                      </View>
+                    ) : null}
+                  </Panel>
+                );
+              })
             ) : (
               <AsyncStateView
                 isLoading={false}
                 error={null}
                 onRetry={() => undefined}
                 empty
-                emptyLabel="No body measurements are recorded."
+                emptyLabel="Chưa có bản ghi số đo cơ thể nào được ghi nhận."
               />
             )}
           </View>
         </>
       ) : null}
+
+      {/* SECTION 4: FORM GHI NHẬN SỐ ĐO MỚI */}
       {canRecord ? (
-        <Panel>
-          <SectionTitle>Add a measurement session</SectionTitle>
-          <View style={{ gap: 14, marginTop: 12 }}>
-            {TYPES.map((type) => {
-              const validation = fieldValidations[type];
-              return (
-                <Field key={type} label={`${formatEnum(type)} (${UNITS[type]})`}>
-                  <NativeInput
-                    value={values[type]}
-                    onChangeText={(value) => updateValue(type, value)}
-                    keyboardType="decimal-pad"
-                    placeholder={t("Optional · enter a value")}
-                  />
-                  {validation.error ? (
-                    <Text style={styles.fieldError}>{validation.error}</Text>
-                  ) : validation.warning ? (
-                    <Text style={styles.warningText}>{validation.warning}</Text>
-                  ) : null}
-                </Field>
-              );
-            })}
+        <Panel style={{ gap: space.md }}>
+          <View>
+            <SectionTitle>Ghi nhận chỉ số đo mới</SectionTitle>
+            <Text style={{ fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
+              Nhập ít nhất một chỉ số để cập nhật hồ sơ phát triển của ngựa
+            </Text>
+          </View>
+
+          <View style={{ gap: space.md }}>
+            <View style={styles.formGrid}>
+              {TYPES.map((type) => {
+                const cfg = METRIC_CONFIGS[type];
+                const validation = fieldValidations[type];
+
+                return (
+                  <View key={type} style={styles.formFieldCard}>
+                    <View style={styles.formFieldHeader}>
+                      <View style={[styles.formFieldIcon, { backgroundColor: cfg.bgTint }]}>
+                        <Ionicons name={cfg.icon} size={14} color={cfg.color} />
+                      </View>
+                      <Text style={styles.formFieldLabel}>
+                        {cfg.label} ({cfg.unit})
+                      </Text>
+                    </View>
+
+                    <NativeInput
+                      value={values[type]}
+                      onChangeText={(value) => updateValue(type, value)}
+                      keyboardType="decimal-pad"
+                      placeholder={`Chuẩn: ${cfg.normalRange}`}
+                    />
+
+                    {validation.error ? (
+                      <Text style={styles.fieldError}>{validation.error}</Text>
+                    ) : validation.warning ? (
+                      <Text style={styles.warningText}>{validation.warning}</Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Xác nhận chỉ số bất thường */}
             <View style={styles.confirmOptions}>
               {["Không xác nhận bất thường", "Xác nhận nếu có cảnh báo"].map((option) => {
-                const selected =
-                  (option === "Xác nhận nếu có cảnh báo") === confirmAbnormal;
+                const selected = (option === "Xác nhận nếu có cảnh báo") === confirmAbnormal;
                 return (
                   <Pressable
                     key={option}
@@ -331,29 +770,35 @@ export default function BodyMeasurements() {
                     onPress={() => setConfirmAbnormal(option === "Xác nhận nếu có cảnh báo")}
                     style={[styles.confirmOption, selected && styles.confirmOptionActive]}
                   >
+                    <Ionicons
+                      name={selected ? "checkmark-circle" : "ellipse-outline"}
+                      size={18}
+                      color={selected ? "#FFFFFF" : colors.mutedForeground}
+                    />
                     <Text
-                      style={[
-                        styles.confirmOptionText,
-                        selected && styles.confirmOptionTextActive,
-                      ]}
+                      style={[styles.confirmOptionText, selected && styles.confirmOptionTextActive]}
                     >
-                      {formatEnum(t(option))}
+                      {option}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
+
             {hasAnyAbnormalField && !confirmAbnormal ? (
-              <Text style={styles.warningNotice}>
-                ⚠️{" "}
-                {t(
-                  "Có giá trị ngoài khoảng bình thường. Vui lòng chọn 'Xác nhận nếu có cảnh báo' để hệ thống cho phép lưu.",
-                )}
-              </Text>
+              <View style={styles.warningBanner}>
+                <Ionicons name="warning-outline" size={18} color="#D97706" />
+                <Text style={styles.warningNotice}>
+                  Có chỉ số nằm ngoài khoảng bình thường. Vui lòng chọn &quot;Xác nhận nếu có cảnh
+                  báo&quot; để hệ thống chấp thuận lưu.
+                </Text>
+              </View>
             ) : null}
+
             {formError ? <Text style={styles.error}>{formError}</Text> : null}
+
             <PrimaryButton
-              label={saving ? t("Saving…") : t("Save measurements")}
+              label={saving ? "Đang lưu chỉ số…" : "Lưu phiên ghi nhận số đo"}
               icon="checkmark"
               disabled={
                 saving || hasAnyInvalidField || !TYPES.some((type) => values[type].trim() !== "")
@@ -364,7 +809,9 @@ export default function BodyMeasurements() {
         </Panel>
       ) : permissionsResource.data ? (
         <Panel>
-          <Text>Measurement entry is not available for this role on this horse.</Text>
+          <Text style={{ color: colors.mutedForeground, textAlign: "center" }}>
+            Vai trò của bạn không có quyền ghi nhận chỉ số cơ thể cho ngựa này.
+          </Text>
         </Panel>
       ) : null}
     </Screen>
@@ -373,37 +820,304 @@ export default function BodyMeasurements() {
 
 const getStyles = (colors: any) =>
   StyleSheet.create({
-    metricValue: { color: colors.foreground, fontSize: 19, fontWeight: "800", marginVertical: 5 },
-    recordHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-    recordTitle: { color: colors.foreground, fontSize: 15, fontWeight: "700" },
-    alertLabel: { color: colors.destructive, fontSize: 11, fontWeight: "800" },
-    deleteLink: { color: colors.destructive, fontSize: 13, fontWeight: "700", marginTop: 10 },
-    error: { color: colors.destructive, fontSize: 13 },
-    fieldError: { color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" },
+    metricCardsGrid: {
+      gap: space.sm,
+    },
+    metricCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: space.md,
+      gap: space.xs,
+    },
+    metricCardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    metricIconWrap: {
+      width: 26,
+      height: 26,
+      borderRadius: 7,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    metricCardLabel: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 999,
+    },
+    statusBadgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+    },
+    metricValueRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 6,
+      marginVertical: 2,
+    },
+    metricLargeValue: {
+      fontSize: 26,
+      fontWeight: "800",
+      color: colors.foreground,
+    },
+    metricUnitText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    deltaPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      marginLeft: 4,
+    },
+    deltaText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    metricCardFooter: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: 6,
+      marginTop: 2,
+    },
+    metricFooterText: {
+      fontSize: 10,
+      color: colors.mutedForeground,
+      maxWidth: 160,
+    },
+    chartSelectorRow: {
+      flexDirection: "row",
+      gap: 6,
+    },
+    chartSelectorPill: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    chartSelectorText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    statsChip: {
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+    },
+    statsSummaryBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-around",
+      backgroundColor: colors.elevated,
+      borderRadius: radius.sm,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+    },
+    statsItem: {
+      alignItems: "center",
+      gap: 2,
+    },
+    statsDivider: {
+      width: 1,
+      height: 20,
+      backgroundColor: colors.border,
+    },
+    statsLabel: {
+      fontSize: 10,
+      color: colors.mutedForeground,
+    },
+    statsValue: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    chartWrapper: {
+      width: "100%",
+      height: 160,
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: 4,
+    },
+    chartTooltip: {
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      borderWidth: 1.5,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    tooltipValue: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.foreground,
+    },
+    tooltipDate: {
+      fontSize: 9,
+      color: colors.mutedForeground,
+      marginTop: 1,
+    },
+    tooltipAuthor: {
+      fontSize: 9,
+      color: colors.primary,
+      fontWeight: "600",
+      marginTop: 1,
+    },
+    chartEmptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      paddingHorizontal: space.lg,
+    },
+    chartEmptyText: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      textAlign: "center",
+      lineHeight: 18,
+    },
+    recordHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+    },
+    recordTypeIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: 2,
+    },
+    recordTitle: {
+      color: colors.foreground,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+    recordMeta: {
+      color: colors.mutedForeground,
+      fontSize: 11,
+      marginTop: 3,
+      lineHeight: 16,
+    },
+    deleteButton: {
+      padding: 4,
+    },
+    deleteSection: {
+      gap: 10,
+      marginTop: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: 10,
+    },
+    formGrid: {
+      gap: space.sm,
+    },
+    formFieldCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: space.sm,
+      gap: 6,
+    },
+    formFieldHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    formFieldIcon: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    formFieldLabel: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    fieldError: {
+      color: colors.destructive,
+      fontSize: 11,
+      fontWeight: "600",
+    },
     warningText: {
       color: colors.warning ?? "#d97706",
-      fontSize: 12,
-      marginTop: 4,
+      fontSize: 11,
       fontWeight: "600",
+    },
+    warningBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: "rgba(217, 119, 6, 0.12)",
+      borderRadius: radius.sm,
+      padding: space.sm,
     },
     warningNotice: {
+      flex: 1,
       color: colors.warning ?? "#d97706",
-      fontSize: 13,
-      lineHeight: 18,
+      fontSize: 12,
+      lineHeight: 16,
       fontWeight: "600",
     },
-    confirmOptions: { gap: 8 },
+    confirmOptions: {
+      gap: 8,
+    },
     confirmOption: {
       minHeight: 44,
-      justifyContent: "center",
-      borderRadius: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
       paddingHorizontal: 14,
       paddingVertical: 10,
     },
-    confirmOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    confirmOptionText: { color: colors.mutedForeground, fontSize: 13, fontWeight: "600" },
-    confirmOptionTextActive: { color: "#FFFFFF" },
+    confirmOptionActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    confirmOptionText: {
+      color: colors.mutedForeground,
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    confirmOptionTextActive: {
+      color: "#FFFFFF",
+      fontWeight: "700",
+    },
+    error: {
+      color: colors.destructive,
+      fontSize: 13,
+    },
   });

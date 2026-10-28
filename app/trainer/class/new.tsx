@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
-import { AsyncStateView, Screen } from "@/components/common";
+import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
-  Chips,
   DatePickerField,
   Field,
   NativeInput,
@@ -14,6 +14,7 @@ import {
   getUiStyles,
 } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
 import { trainingService } from "@/services/training.service";
@@ -24,10 +25,13 @@ import {
   defaultClubDateTime,
 } from "@/features/training/training-utils";
 import { extractErrorMessage } from "@/utils/errorHandler";
+import { radius, space } from "@/config/theme";
 
 export default function CreateTrainingClass() {
   const { colors } = useTheme();
+  const { t } = useI18n();
   const ui = getUiStyles(colors);
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { token } = useAuth();
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -58,15 +62,15 @@ export default function CreateTrainingClass() {
       !clubDateTimeToIso(startDate, "12:00")
     ) {
       return Alert.alert(
-        "Check the class details",
-        "Add a class code (up to 32 characters), a name, a valid start date and a training plan.",
+        t("Check the class details"),
+        t("Vui lòng nhập mã lớp (tối đa 32 ký tự), tên lớp, ngày bắt đầu và chọn giáo án."),
       );
     }
     const capacity = Number(maxHorses);
     if (!Number.isInteger(capacity) || capacity < 1 || capacity > 2_147_483_647)
       return Alert.alert(
-        "Check capacity",
-        "Maximum horses must be a whole number from 1 to 2,147,483,647.",
+        t("Check capacity"),
+        t("Sĩ số tối đa phải là số nguyên từ 1 đến 2,147,483,647."),
       );
     setSaving(true);
     try {
@@ -81,7 +85,7 @@ export default function CreateTrainingClass() {
       });
       router.replace(`/trainer/plan/${created.id}`);
     } catch (error) {
-      Alert.alert("Could not create class", extractErrorMessage(error));
+      Alert.alert(t("Could not create class"), extractErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -90,8 +94,8 @@ export default function CreateTrainingClass() {
   return (
     <Screen
       role="trainer"
-      title="Create training class"
-      subtitle="A class starts active; schedule sessions after creation"
+      title="Tạo lớp huấn luyện"
+      subtitle="Lớp bắt đầu ở trạng thái hoạt động; sau khi tạo có thể xếp lịch các buổi tập"
       back
       fallbackHref="/trainer/training"
     >
@@ -100,111 +104,194 @@ export default function CreateTrainingClass() {
         error={plansResource.error}
         onRetry={() => void plansResource.retry()}
       />
-      <Panel style={{ gap: 12 }}>
-        <Field label="Class code">
+      <Panel style={{ gap: space.sm }}>
+        <Field label={t("Class code")}>
           <NativeInput value={code} onChangeText={setCode} placeholder="e.g. HT-2026-01" />
         </Field>
-        <Field label="Class name">
-          <NativeInput value={name} onChangeText={setName} placeholder="Name this class" />
+        <Field label={t("Class name")}>
+          <NativeInput value={name} onChangeText={setName} placeholder={t("Name this class")} />
         </Field>
-        <Field label="Description">
+        <Field label={t("Description")}>
           <NativeInput
             value={description}
             onChangeText={setDescription}
             multiline
-            placeholder="Optional class notes"
+            placeholder={t("Optional class notes")}
           />
         </Field>
-        <Field label="Start date (club calendar, YYYY-MM-DD)">
+        <Field label={t("Ngày bắt đầu lớp (theo lịch CLB)")}>
           <DatePickerField
             value={startDate}
             onChangeText={setStartDate}
             placeholder="YYYY-MM-DD"
             outputFormat="YYYY-MM-DD"
-            title="Chọn ngày bắt đầu lớp"
+            title={t("Chọn ngày bắt đầu lớp")}
           />
         </Field>
-        <Field label="Maximum horses">
+        <Field label={t("Sĩ số tối đa (ngựa)")}>
           <NativeInput value={maxHorses} onChangeText={setMaxHorses} keyboardType="number-pad" />
         </Field>
-        <Field label="Race aptitude (optional)">
-          <Chips
-            options={["Any", "SPRINTER", "MILER", "STAYER"]}
-            value={raceAptitude || "Any"}
-            onChange={(value) => setRaceAptitude(value === "Any" ? "" : value)}
-          />
+
+        {/* Wrapped Race Aptitude Options - Never Cut Off */}
+        <Field label={t("Sở trường cự ly (tùy chọn)")}>
+          <View style={styles.aptitudeGrid}>
+            {[
+              { id: "", label: t("Tất cả cự ly") },
+              { id: "SPRINTER", label: t("Cự ly ngắn") },
+              { id: "MILER", label: t("Cự ly trung bình") },
+              { id: "STAYER", label: t("Cự ly dài") },
+            ].map((item) => {
+              const isSelected = (raceAptitude || "") === item.id;
+              return (
+                <Pressable
+                  key={item.id || "all"}
+                  onPress={() => setRaceAptitude(item.id)}
+                  style={[
+                    styles.aptitudePill,
+                    isSelected && styles.aptitudePillActive,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <Text
+                    style={[
+                      styles.aptitudePillText,
+                      isSelected && styles.aptitudePillTextActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </Field>
       </Panel>
 
       <View style={ui.section}>
-        <Text style={ui.label}>Choose one of your plans</Text>
+        <SectionTitle>{t("Choose one of your plans")}</SectionTitle>
         {plansResource.data?.length
-          ? plansResource.data.map((plan) => (
-              <Pressable key={plan.id} onPress={() => setPlanId(plan.id)}>
-                <Panel
-                  style={{
-                    gap: 5,
-                    borderColor: planId === plan.id ? colors.primary : colors.border,
-                    backgroundColor: planId === plan.id ? colors.fitSoft : colors.surface,
-                  }}
-                >
-                  <Text style={ui.value}>
-                    {plan.name}
-                    {planId === plan.id ? "  ✓" : ""}
-                  </Text>
-                  <Text style={ui.muted}>
-                    {plan.totalWeeks} weeks · {plan.phases.length} phases · {plan.minTotalMinutes}{" "}
-                    minimum minutes
-                  </Text>
-                </Panel>
-              </Pressable>
-            ))
+          ? plansResource.data.map((plan) => {
+              const isSelected = planId === plan.id;
+              return (
+                <Pressable key={plan.id} onPress={() => setPlanId(plan.id)}>
+                  <Panel
+                    style={{
+                      gap: 4,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      backgroundColor: isSelected ? colors.fitSoft : colors.surface,
+                      borderWidth: isSelected ? 1.5 : 1,
+                    }}
+                  >
+                    <View style={ui.row}>
+                      <Text
+                        style={[
+                          ui.value,
+                          { flex: 1, fontWeight: "700" },
+                          isSelected && { color: colors.primary },
+                        ]}
+                      >
+                        {plan.name}
+                      </Text>
+                      {isSelected ? (
+                        <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                      ) : null}
+                    </View>
+                    <Text style={ui.muted}>
+                      {plan.totalWeeks} {t("tuần")} · {plan.phases.length} {t("giai đoạn")} ·{" "}
+                      {plan.minTotalMinutes} {t("phút tối thiểu")}
+                    </Text>
+                  </Panel>
+                </Pressable>
+              );
+            })
           : null}
         {selectedPlan && endDate ? (
-          <Panel>
-            <Text style={ui.value}>Class dates</Text>
-            <Text style={ui.muted}>
+          <Panel style={{ gap: 4, backgroundColor: colors.accent }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="calendar-outline" size={14} color={colors.primary} />
+              <Text style={{ ...ui.value, fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                {t("Thời gian diễn ra lớp:")}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
               {startDate} → {endDate}
             </Text>
-            <Text style={ui.label}>
-              No sessions are created here. The class plan is copied from the selected plan.
+            <Text style={ui.muted}>
+              {t("Sau khi tạo lớp, HLV có thể xếp lịch các buổi tập theo giáo án đã chọn.")}
             </Text>
           </Panel>
         ) : null}
         {plansResource.data && plansResource.data.length === 0 ? (
-          <Panel>
-            <Text style={ui.muted}>Create a training plan before creating a class.</Text>
+          <Panel style={{ gap: space.sm, alignItems: "center" }}>
+            <Ionicons name="reader-outline" size={32} color={colors.mutedForeground} />
+            <Text style={ui.muted}>{t("Create a training plan before creating a class.")}</Text>
             <SecondaryButton
-              label="Manage plans"
+              label={t("Quản lý giáo án")}
               icon="reader-outline"
               onPress={() => router.push("/trainer/plans")}
             />
           </Panel>
         ) : null}
       </View>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "stretch",
-          gap: 10,
-          width: "100%",
-          marginTop: 8,
-        }}
-      >
+
+      {/* Prominent Bottom CTA Bar */}
+      <View style={styles.bottomCtaBar}>
         <SecondaryButton
-          label="Cancel"
+          label={t("Cancel")}
           icon="close"
           style={{ minWidth: 90, minHeight: 48, paddingHorizontal: 16 }}
           onPress={() => safeBack("/trainer/training")}
         />
         <PrimaryButton
-          label={saving ? "Creating…" : "Create active class"}
+          label={saving ? t("Creating…") : t("Tạo lớp huấn luyện")}
           icon="checkmark"
           style={{ flex: 1, minHeight: 48 }}
-          disabled={saving || !plansResource.data?.length}
+          disabled={saving || !plansResource.data?.length || !planId}
           onPress={() => void save()}
         />
       </View>
     </Screen>
   );
 }
+
+const getStyles = (colors: any) =>
+  StyleSheet.create({
+    aptitudeGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 2,
+    },
+    aptitudePill: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    aptitudePillActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    aptitudePillText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+    },
+    aptitudePillTextActive: {
+      color: "#FFFFFF",
+      fontWeight: "700",
+    },
+    bottomCtaBar: {
+      flexDirection: "row",
+      alignItems: "stretch",
+      gap: 10,
+      width: "100%",
+      marginTop: space.sm,
+      paddingTop: space.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+  });

@@ -395,6 +395,24 @@ export function Injury3DMapper({
             {t("Saved markers")}: {mappedExisting.length}
           </Text>
         </View>
+        {mappedExisting.length === 0 && existingInjuries.length > 0 ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              backgroundColor: colors.muted,
+              padding: space.xs,
+              borderRadius: radius.sm,
+              marginTop: 4,
+            }}
+          >
+            <Ionicons name="information-circle-outline" size={15} color={colors.primary} />
+            <Text style={{ fontSize: 11, color: colors.mutedForeground, flex: 1, lineHeight: 15 }}>
+              Hồ sơ ghi nhận {existingInjuries.length} chẩn đoán tổn thương nhưng chưa được định vị tọa độ 3D trên mô hình.
+            </Text>
+          </View>
+        ) : null}
         {historyUnavailable ? (
           <Text style={[uiStyles.muted, { color: colors.destructive }]}>
             {t(
@@ -506,6 +524,30 @@ export function Injury3DMapper({
                   {t("Mark injuries")}
                 </Text>
               </Pressable>
+            ) : null}
+          </View>
+
+          {/* Marker Count & Status Badges */}
+          <View style={styles.modalMarkerBadgeRow}>
+            <View style={styles.savedMarkerBadge}>
+              <Ionicons name="checkmark-circle" size={13} color={colors.primary} />
+              <Text style={styles.savedMarkerBadgeText}>
+                {mappedExisting.length} đã lưu
+              </Text>
+            </View>
+            <View style={styles.draftMarkerBadge}>
+              <Ionicons name="flag" size={13} color={colors.monitor ?? "#d97706"} />
+              <Text style={styles.draftMarkerBadgeText}>
+                {drafts.length} bản nháp
+              </Text>
+            </View>
+            {selectedMarkerId ? (
+              <View style={styles.activeMarkerBadge}>
+                <Ionicons name="location" size={13} color={colors.primary} />
+                <Text style={styles.activeMarkerBadgeText} numberOfLines={1}>
+                  Đang chọn: {selectedDraft ? formatEnum(t(selectedDraft.bodyRegion)) : "Điểm đã lưu"}
+                </Text>
+              </View>
             ) : null}
           </View>
 
@@ -919,6 +961,63 @@ const getStyles = (colors: any) =>
     modeButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     modeButtonText: { color: colors.foreground, fontSize: 12, fontWeight: "700" },
     modeButtonTextActive: { color: "#fff" },
+    modalMarkerBadgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      paddingHorizontal: space.md,
+      paddingVertical: 4,
+      flexWrap: "wrap",
+    },
+    savedMarkerBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      backgroundColor: colors.fitSoft,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    savedMarkerBadgeText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    draftMarkerBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.monitor ?? "#d97706",
+    },
+    draftMarkerBadgeText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.monitor ?? "#d97706",
+    },
+    activeMarkerBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      maxWidth: 180,
+    },
+    activeMarkerBadgeText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
     viewerFrame: {
       flex: 1,
       minHeight: 250,

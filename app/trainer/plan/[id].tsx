@@ -377,8 +377,8 @@ export default function TrainingClassDetail() {
   return (
     <Screen
       role="trainer"
-      title={payload?.trainingClass.name ?? "Training class"}
-      subtitle={payload?.trainingClass.code ?? "Class details"}
+      title={payload?.trainingClass.name ?? t("Lớp huấn luyện")}
+      subtitle={payload ? `${payload.trainingClass.code} · ${formatDate(payload.trainingClass.startDate)}` : t("Chi tiết lớp")}
       back
       fallbackHref="/trainer/training"
       refreshing={resource.isRefreshing}
@@ -463,30 +463,30 @@ export default function TrainingClassDetail() {
               {/* Bottom Sheet Modal: Sửa lớp học */}
               <BottomSheetModal
                 visible={editClass}
-                title="Edit class"
+                title={t("Sửa lớp huấn luyện")}
                 onClose={() => setEditClass(false)}
                 onSave={() => void saveClass()}
                 saveLoading={pending === "class"}
                 saveDisabled={pending !== ""}
                 saveLabel={t("Lưu")}
-                cancelLabel="Cancel"
+                cancelLabel={t("Hủy")}
               >
-                <Field label="Class code">
+                <Field label={t("Mã lớp")}>
                   <NativeInput value={editCode} onChangeText={setEditCode} />
                 </Field>
-                <Field label="Class name">
+                <Field label={t("Tên lớp")}>
                   <NativeInput value={editName} onChangeText={setEditName} />
                 </Field>
-                <Field label="Start date (YYYY-MM-DD)">
+                <Field label={t("Ngày bắt đầu (YYYY-MM-DD)")}>
                   <DatePickerField
                     value={editStartDate}
                     onChangeText={setEditStartDate}
                     placeholder="YYYY-MM-DD"
                     outputFormat="YYYY-MM-DD"
-                    title="Chọn ngày bắt đầu lớp"
+                    title={t("Chọn ngày bắt đầu lớp")}
                   />
                 </Field>
-                <Field label="Maximum horses">
+                <Field label={t("Số ngựa tối đa")}>
                   <NativeInput
                     value={editCapacity}
                     onChangeText={setEditCapacity}
@@ -498,27 +498,27 @@ export default function TrainingClassDetail() {
               {payload.trainingClass.status === "ACTIVE" ? (
                 <>
                   <SecondaryButton
-                    label="Cancel class"
+                    label={t("Hủy lớp")}
                     icon="close-circle-outline"
                     onPress={() => setShowCancelForm(true)}
                   />
                   {/* Bottom Sheet Modal: Hủy lớp học */}
                   <BottomSheetModal
                     visible={showCancelForm}
-                    title="Cancel class"
+                    title={t("Hủy lớp huấn luyện")}
                     onClose={() => setShowCancelForm(false)}
                     onSave={() => void cancelClass()}
                     saveLoading={pending === "cancel"}
                     saveDisabled={pending !== "" || !cancelReason.trim()}
-                    saveLabel="Confirm cancellation"
-                    cancelLabel="Cancel"
+                    saveLabel={t("Xác nhận hủy")}
+                    cancelLabel={t("Hủy")}
                   >
-                    <Field label="Cancellation reason (required)">
+                    <Field label={t("Lý do hủy (bắt buộc)")}>
                       <NativeInput
                         value={cancelReason}
                         onChangeText={setCancelReason}
                         multiline
-                        placeholder="Why is this class being cancelled?"
+                        placeholder={t("Nhập lý do hủy lớp...")}
                       />
                     </Field>
                   </BottomSheetModal>
@@ -797,10 +797,10 @@ export default function TrainingClassDetail() {
 
           {tab === "Sessions" ? (
             <View style={ui.section}>
-              <SectionTitle>Sessions ({payload.sessions.length})</SectionTitle>
+              <SectionTitle>{t("Buổi tập")} ({payload.sessions.length})</SectionTitle>
               {payload.trainingClass.status === "ACTIVE" ? (
                 <PrimaryButton
-                  label="Schedule session"
+                  label={t("Lên lịch buổi tập")}
                   icon="calendar-outline"
                   onPress={() => setShowSessionForm(true)}
                 />
@@ -809,32 +809,64 @@ export default function TrainingClassDetail() {
               {/* Bottom Sheet Modal: Lên lịch buổi tập */}
               <BottomSheetModal
                 visible={showSessionForm && payload.trainingClass.status === "ACTIVE"}
-                title="Schedule session"
+                title={t("Lên lịch buổi tập")}
                 onClose={() => setShowSessionForm(false)}
                 onSave={() => void addSessions()}
                 saveLoading={pending === "sessions"}
                 saveDisabled={pending !== "" || !allowedSubjects.length}
                 saveLabel={t("Lưu")}
-                cancelLabel="Cancel"
+                cancelLabel={t("Hủy")}
               >
-                <Text style={ui.value}>Add a session from this class phase</Text>
-                <Field label="Session date (club calendar, YYYY-MM-DD)">
+                <Text style={ui.value}>{t("Thêm buổi tập từ giai đoạn hiện tại")}</Text>
+                <Field label={t("Ngày buổi tập (YYYY-MM-DD)")}>
                   <DatePickerField
                     value={currentDate}
                     onChangeText={setSessionDate}
                     placeholder="YYYY-MM-DD"
                     outputFormat="YYYY-MM-DD"
-                    title="Chọn ngày buổi tập"
+                    title={t("Chọn ngày buổi tập")}
                   />
                 </Field>
-                <Field label="Start time (club time, HH:mm)">
+                <Field label={t("Giờ bắt đầu (HH:mm)")}>
                   <NativeInput
                     value={sessionTime}
                     onChangeText={setSessionTime}
                     placeholder="06:00"
                   />
+                  {/* Google Calendar Quick Time Presets */}
+                  <View style={{ flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {[
+                      { label: "06:00 (Sáng sớm)", value: "06:00" },
+                      { label: "08:00 (Buổi sáng)", value: "08:00" },
+                      { label: "15:30 (Buổi chiều)", value: "15:30" },
+                      { label: "17:00 (Chiều muộn)", value: "17:00" },
+                    ].map((pt) => (
+                      <Pressable
+                        key={pt.value}
+                        onPress={() => setSessionTime(pt.value)}
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: radius.pill,
+                          backgroundColor: sessionTime === pt.value ? colors.fitSoft : colors.muted,
+                          borderWidth: 1,
+                          borderColor: sessionTime === pt.value ? colors.primary : colors.border,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: sessionTime === pt.value ? "700" : "500",
+                            color: sessionTime === pt.value ? colors.primary : colors.foreground,
+                          }}
+                        >
+                          {pt.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </Field>
-                <Field label="Subject in this phase">
+                <Field label={t("Môn học trong giai đoạn này")}>
                   <View style={{ gap: 8 }}>
                     {allowedSubjects.map((item) => (
                       <Pressable
@@ -868,17 +900,17 @@ export default function TrainingClassDetail() {
                     No plan phase covers this date.
                   </Text>
                 ) : null}
-                <Field label="Repeat every week (1–100 sessions)">
+                <Field label={t("Lặp lại hàng tuần (1–100 buổi)")}>
                   <NativeInput
                     value={repeatWeeks}
                     onChangeText={setRepeatWeeks}
                     keyboardType="number-pad"
                   />
                 </Field>
-                <Field label="Location (optional)">
+                <Field label={t("Địa điểm (không bắt buộc)")}>
                   <NativeInput value={location} onChangeText={setLocation} />
                 </Field>
-                <Field label="Notes (optional)">
+                <Field label={t("Ghi chú (không bắt buộc)")}>
                   <NativeInput value={sessionNotes} onChangeText={setSessionNotes} multiline />
                 </Field>
                 {selectedSubject?.sessionType === "TIME_TRIAL" ? (
@@ -898,38 +930,75 @@ export default function TrainingClassDetail() {
                     key={session.id}
                     onPress={() => router.push(`/trainer/plan/${classId}/session/${session.id}`)}
                   >
-                    <Panel style={{ gap: 5 }}>
+                    <Panel
+                      style={{
+                        gap: 6,
+                        borderLeftWidth: 4,
+                        borderLeftColor:
+                          session.status === "IN_PROGRESS"
+                            ? colors.destructive
+                            : session.status === "COMPLETED"
+                              ? colors.fit
+                              : colors.primary,
+                      }}
+                    >
                       <View style={ui.row}>
-                        <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                        <Text style={[ui.value, { flex: 1, minWidth: 0, fontSize: 15, fontWeight: "800" }]} numberOfLines={1}>
                           {session.name}
                         </Text>
-                        <Text
-                          style={[
-                            ui.label,
-                            {
-                              flexShrink: 0,
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: radius.pill,
+                            backgroundColor:
+                              session.status === "IN_PROGRESS"
+                                ? colors.injuredSoft
+                                : session.status === "COMPLETED"
+                                  ? colors.muted
+                                  : colors.fitSoft,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: "700",
                               color:
                                 session.status === "IN_PROGRESS"
-                                  ? colors.monitor
-                                  : colors.mutedForeground,
-                              fontWeight: "600",
-                            },
-                          ]}
-                        >
-                          {formatTrainingStatus(session.status)}
+                                  ? colors.destructive
+                                  : session.status === "COMPLETED"
+                                    ? colors.mutedForeground
+                                    : colors.primary,
+                            }}
+                          >
+                            {formatTrainingStatus(session.status)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Ionicons name="time-outline" size={13} color={colors.primary} />
+                        <Text style={ui.muted}>
+                          {formatDateTime(session.scheduledStartAt)} →{" "}
+                          {formatDateTime(session.scheduledEndAt)}
                         </Text>
                       </View>
-                      <Text style={ui.muted}>
-                        {formatDateTime(session.scheduledStartAt)} →{" "}
-                        {formatDateTime(session.scheduledEndAt)}
-                      </Text>
-                      <Text style={ui.label}>
-                        {formatSessionType(session.sessionType, t)} · {formatIntensity(session.intensity, t)} ·{" "}
-                        {session.plannedDistanceM} m
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 2 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Ionicons name="school-outline" size={13} color={colors.mutedForeground} />
+                          <Text style={ui.label}>{formatSessionType(session.sessionType, t)}</Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Ionicons name="flame-outline" size={13} color="#f59e0b" />
+                          <Text style={ui.label}>{formatIntensity(session.intensity, t)}</Text>
+                        </View>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Ionicons name="flag-outline" size={13} color={colors.primary} />
+                          <Text style={ui.label}>{session.plannedDistanceM.toLocaleString()} m</Text>
+                        </View>
+                      </View>
                       {session.cancelReason ? (
                         <Text style={{ ...ui.muted, color: colors.destructive }}>
-                          Cancelled: {session.cancelReason}
+                          Đã hủy: {session.cancelReason}
                         </Text>
                       ) : null}
                     </Panel>
@@ -941,7 +1010,7 @@ export default function TrainingClassDetail() {
                   error={null}
                   onRetry={() => void resource.refresh()}
                   empty
-                  emptyLabel="No sessions yet. Add a session after creating the class."
+                  emptyLabel="Chưa có buổi tập nào. Hãy lên lịch buổi tập cho lớp này."
                 />
               )}
             </View>

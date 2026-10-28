@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   TextInput,
   View,
@@ -129,7 +130,11 @@ export function DateRangeBar({ from, to, onApply, isLoading }: DateRangeBarProps
   return (
     <View style={[styles.dateBarContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       {/* Preset Chips */}
-      <View style={styles.presetsRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.presetsRow}
+      >
         {PERIOD_PRESETS.map((p) => {
           const isActive = activePreset === p.key;
           return (
@@ -158,7 +163,7 @@ export function DateRangeBar({ from, to, onApply, isLoading }: DateRangeBarProps
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* Inline Date Inputs + Filter Button */}
       <View style={styles.inputsRow}>
@@ -427,8 +432,8 @@ const styles = StyleSheet.create({
   },
   presetsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: space.xs,
+    paddingRight: space.sm,
   },
   presetChip: {
     paddingHorizontal: 12,
@@ -450,9 +455,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: radius.sm,
     borderWidth: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 4,
-    height: 38,
+    height: 40,
   },
   inputIcon: {
     marginRight: 4,
@@ -460,11 +465,11 @@ const styles = StyleSheet.create({
   inputPrefix: {
     fontSize: 11,
     fontWeight: "600",
-    marginRight: 4,
+    marginRight: 2,
   },
   dateInput: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: "600",
     padding: 0,
     fontVariant: ["tabular-nums"],

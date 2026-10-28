@@ -53,19 +53,31 @@ const measurementInputs: {
 }[] = [
   {
     type: "TEMPERATURE",
-    label: "Temperature",
-    placeholder: "38.0",
+    label: "Nhiệt độ cơ thể",
+    placeholder: "Nhập nhiệt độ...",
     unit: "°C",
-    reference: "37.5 – 38.5 °C",
+    reference: "Chuẩn: 37.5 – 38.5 °C",
   },
-  { type: "WEIGHT", label: "Weight", placeholder: "450", unit: "kg", reference: "300 – 700 kg" },
-  { type: "HEIGHT", label: "Height", placeholder: "165", unit: "cm", reference: "140 – 185 cm" },
+  {
+    type: "WEIGHT",
+    label: "Cân nặng",
+    placeholder: "Nhập cân nặng...",
+    unit: "kg",
+    reference: "Chuẩn: 300 – 700 kg",
+  },
+  {
+    type: "HEIGHT",
+    label: "Chiều cao vai",
+    placeholder: "Nhập chiều cao...",
+    unit: "cm",
+    reference: "Chuẩn: 140 – 185 cm",
+  },
   {
     type: "BODY_CONDITION",
-    label: "Body condition score",
-    placeholder: "5",
+    label: "Điểm thể trạng (BCS)",
+    placeholder: "Nhập điểm (1–9)...",
     unit: "1–9",
-    reference: "Scale 1 to 9",
+    reference: "Chuẩn: 4 – 6 (thang Henneke 1–9)",
   },
 ];
 
@@ -168,6 +180,36 @@ export default function MedicalVisitForm() {
 
   if (!role) return <Redirect href="/" />;
   if (role !== "vet") return <Redirect href={`/${role}` as Href} />;
+
+  const opensCase = Boolean(caseId) || conclusion === "ISSUE";
+
+  const onSelectConclusion = (selected: "NORMAL" | "ISSUE") => {
+    if (selected === "NORMAL" && injuryDrafts.length > 0) {
+      Alert.alert(
+        t("Clear injury markers?"),
+        t(
+          "Normal examinations do not open a medical case and cannot save new injuries. Switching to Normal will clear your injury markers.",
+        ),
+        [
+          { text: t("Keep Issue"), style: "cancel" },
+          {
+            text: t("Clear and select Normal"),
+            style: "destructive",
+            onPress: () => {
+              setConclusion("NORMAL");
+              setInjuryDrafts([]);
+              setRecordInjury(false);
+            },
+          },
+        ],
+      );
+      return;
+    }
+    setConclusion(selected);
+    if (selected === "NORMAL") {
+      setRecordInjury(false);
+    }
+  };
 
   const toggleRequest = (id: string) =>
     setSelectedRequests((current) =>
@@ -292,6 +334,25 @@ export default function MedicalVisitForm() {
       );
       return;
     }
+    if (hasPrescription && !opensCase && !prescriptionEnd.trim()) {
+      Alert.alert(
+        t("Prescription end date required"),
+        t(
+          "A visit that does not open a case must have an end date for every prescription.",
+        ),
+      );
+      return;
+    }
+
+    if (!opensCase && nextVisitDate) {
+      Alert.alert(
+        t("Follow-up appointment not allowed"),
+        t(
+          "Follow-up appointments can only be scheduled when opening or following up a medical case.",
+        ),
+      );
+      return;
+    }
 
     if (injuryDrafts.length + injuryUpdates.length > 20) {
       Alert.alert(
@@ -309,7 +370,7 @@ export default function MedicalVisitForm() {
       );
       return;
     }
-    if (!caseId && injuryDrafts.length > 0 && conclusion !== "ISSUE") {
+    if (!opensCase && injuryDrafts.length > 0) {
       Alert.alert(
         t("Injury requires a treatment case"),
         t(
@@ -334,7 +395,7 @@ export default function MedicalVisitForm() {
         ? { healthStatus: healthStatus as HealthStatusDto, healthReason: healthReason.trim() }
         : {}),
       ...(finalCareInstructions ? { careInstructions: finalCareInstructions } : {}),
-      ...(nextVisitDate && (conclusion === "ISSUE" || Boolean(caseId))
+      ...(opensCase && nextVisitDate
         ? { nextVisitAt: toClubDateTime(nextVisitDate, nextVisitTime)! }
         : {}),
       ...(measurements.length ? { measurements } : {}),
@@ -352,7 +413,7 @@ export default function MedicalVisitForm() {
             ],
           }
         : {}),
-      ...(injuryDrafts.length
+      ...(opensCase && injuryDrafts.length
         ? {
             newInjuries: toNewInjuryApiInputs(injuryDrafts),
           }
@@ -426,6 +487,27 @@ export default function MedicalVisitForm() {
 
       {resource.data ? (
         <>
+          {/* Step Progress Indicator */}
+          <View style={styles.stepProgressContainer}>
+            {[
+              { num: "1", label: "Lý do khám" },
+              { num: "2", label: "Sinh hiệu" },
+              { num: "3", label: "Chẩn đoán" },
+              { num: "4", label: "Bản đồ 3D" },
+              { num: "5", label: "Điều trị" },
+            ].map((step, idx) => (
+              <View key={step.num} style={styles.stepProgressItem}>
+                <View style={styles.stepCircle}>
+                  <Text style={styles.stepCircleText}>{step.num}</Text>
+                </View>
+                <Text style={styles.stepLabel} numberOfLines={1}>
+                  {step.label}
+                </Text>
+                {idx < 4 ? <View style={styles.stepLine} /> : null}
+              </View>
+            ))}
+          </View>
+
           {/* SECTION A: Patient Clinical Profile Header */}
           <View style={uiStyles.section}>
             <SectionTitle>{t("Patient profile")}</SectionTitle>
@@ -587,7 +669,9 @@ export default function MedicalVisitForm() {
                             </View>
                             <Text style={uiStyles.muted}>
                               {formatDateTime(request.createdAt)}
-                              {request.requestedBy ? ` · ${request.requestedBy}` : ""}
+                              {request.requestedBy
+                                ? ` · Người yêu cầu: Nhân sự #${request.requestedBy.slice(0, 8)}`
+                                : " · Hệ thống tự động"}
                             </Text>
                           </View>
                           <Ionicons
@@ -615,6 +699,13 @@ export default function MedicalVisitForm() {
           {/* SECTION C: Vital Signs & Measurements */}
           <View style={uiStyles.section}>
             <SectionTitle>{t("2. Clinical vital signs")}</SectionTitle>
+
+            <View style={styles.vitalNoticeBox}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+              <Text style={styles.vitalNoticeText}>
+                Các trường dưới đây là số đo mới của buổi khám này. Để trống nếu chưa đo kiểm tra tại chuồng.
+              </Text>
+            </View>
 
             <View style={styles.measurementGrid}>
               {measurementInputs.map((item) => {
@@ -684,7 +775,7 @@ export default function MedicalVisitForm() {
               <View style={styles.segmentedSelectorRow}>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setConclusion("NORMAL")}
+                  onPress={() => onSelectConclusion("NORMAL")}
                   style={[
                     styles.segmentedOptionCard,
                     conclusion === "NORMAL" && styles.segmentedOptionCardActive,
@@ -715,7 +806,7 @@ export default function MedicalVisitForm() {
 
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setConclusion("ISSUE")}
+                  onPress={() => onSelectConclusion("ISSUE")}
                   style={[
                     styles.segmentedOptionCard,
                     conclusion === "ISSUE" && styles.segmentedOptionCardActiveIssue,
@@ -798,49 +889,80 @@ export default function MedicalVisitForm() {
 
             {/* Collapsible Injury Marker Section */}
             <View style={{ marginTop: space.sm }}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setRecordInjury(!recordInjury)}
-                style={styles.injuryToggleCard}
-              >
-                <Ionicons
-                  name={recordInjury ? "bandage" : "bandage-outline"}
-                  size={20}
-                  color={recordInjury ? colors.destructive : colors.primary}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={[uiStyles.value, { fontSize: 15 }]}>
-                    {t("5. Injury documentation (optional)")}
+              {!opensCase ? (
+                <Panel style={styles.normalNoticeBox}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+                    <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
+                    <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "600", flex: 1 }]}>
+                      {t("5. Injury documentation (optional)")}
+                    </Text>
+                  </View>
+                  <Text style={[uiStyles.muted, { fontSize: 13, marginTop: 4 }]}>
+                    {t(
+                      "Examinations concluded as Normal do not open a medical case and cannot record new injuries.",
+                    )}
                   </Text>
-                  <Text style={uiStyles.muted}>
-                    {recordInjury
-                      ? t("Document anatomical position")
-                      : t("Tap to mark injury location")}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={recordInjury ? "chevron-up" : "chevron-down"}
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setConclusion("ISSUE");
+                      setRecordInjury(true);
+                    }}
+                    style={styles.switchIssueButton}
+                  >
+                    <Ionicons name="warning-outline" size={16} color={colors.destructive} />
+                    <Text style={styles.switchIssueButtonText}>
+                      {t("Switch to 'Issue' to document injuries & open case")}
+                    </Text>
+                  </Pressable>
+                </Panel>
+              ) : (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setRecordInjury(!recordInjury)}
+                    style={styles.injuryToggleCard}
+                  >
+                    <Ionicons
+                      name={recordInjury ? "bandage" : "bandage-outline"}
+                      size={20}
+                      color={recordInjury ? colors.destructive : colors.primary}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[uiStyles.value, { fontSize: 15 }]}>
+                        {t("5. Injury documentation (optional)")}
+                      </Text>
+                      <Text style={uiStyles.muted}>
+                        {recordInjury
+                          ? t("Document anatomical position")
+                          : t("Tap to mark injury location")}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name={recordInjury ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color={colors.mutedForeground}
+                    />
+                  </Pressable>
 
-              {recordInjury ? (
-                <Injury3DMapper
-                  horseId={resource.data.resolvedHorseId}
-                  existingInjuries={resource.data.injuries}
-                  drafts={injuryDrafts}
-                  onDraftsChange={(markers) => {
-                    setInjuryDrafts(markers);
-                    if (markers.length && !caseId) setConclusion("ISSUE");
-                  }}
-                  updates={injuryUpdates}
-                  onUpdatesChange={setInjuryUpdates}
-                  allowNew
-                  allowFollowUpUpdates={Boolean(caseId)}
-                  historyUnavailable={resource.data.injuryHistoryUnavailable}
-                />
-              ) : null}
+                  {recordInjury ? (
+                    <Injury3DMapper
+                      horseId={resource.data.resolvedHorseId}
+                      existingInjuries={resource.data.injuries}
+                      drafts={injuryDrafts}
+                      onDraftsChange={(markers) => {
+                        setInjuryDrafts(markers);
+                        if (markers.length && !caseId) setConclusion("ISSUE");
+                      }}
+                      updates={injuryUpdates}
+                      onUpdatesChange={setInjuryUpdates}
+                      allowNew
+                      allowFollowUpUpdates={Boolean(caseId)}
+                      historyUnavailable={resource.data.injuryHistoryUnavailable}
+                    />
+                  ) : null}
+                </>
+              )}
             </View>
           </View>
 
@@ -890,15 +1012,33 @@ export default function MedicalVisitForm() {
                   </Field>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Field label="End date (optional)">
-                    <NativeInput value={prescriptionEnd} onChangeText={setPrescriptionEnd} />
+                  <Field
+                    label={
+                      !opensCase
+                        ? t("End date (required for Normal visit)")
+                        : t("End date (optional)")
+                    }
+                  >
+                    <NativeInput
+                      value={prescriptionEnd}
+                      onChangeText={setPrescriptionEnd}
+                      placeholder="YYYY-MM-DD"
+                    />
                   </Field>
                 </View>
               </View>
+              {!opensCase && (medicine.trim() || dosage.trim() || frequency.trim()) && !prescriptionEnd.trim() ? (
+                <View style={styles.prescriptionNoticeBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color={colors.monitor} />
+                  <Text style={styles.prescriptionNoticeText}>
+                    {t("A visit that does not open a case must have an end date for every prescription.")}
+                  </Text>
+                </View>
+              ) : null}
             </Panel>
 
             {/* Follow-up appointment scheduling (for case or issues) */}
-            {conclusion === "ISSUE" || caseId ? (
+            {opensCase ? (
               <Panel style={{ marginTop: space.xs, gap: space.sm }}>
                 <Text style={[uiStyles.value, { fontSize: 15 }]}>{t("Follow-up appointment")}</Text>
                 <View style={uiStyles.row}>
@@ -1129,6 +1269,106 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     bottomBar: {
       marginTop: space.lg,
       marginBottom: space.xl,
+    },
+    stepProgressContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: space.sm,
+      paddingHorizontal: space.xs,
+      marginBottom: space.md,
+      backgroundColor: colors.card,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    stepProgressItem: {
+      flex: 1,
+      alignItems: "center",
+      position: "relative",
+    },
+    stepCircle: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 4,
+    },
+    stepCircleText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: "#ffffff",
+    },
+    stepLabel: {
+      fontSize: 10,
+      fontWeight: "600",
+      color: colors.foreground,
+      textAlign: "center",
+    },
+    stepLine: {
+      position: "absolute",
+      top: 13,
+      right: "-50%",
+      width: "100%",
+      height: 1,
+      backgroundColor: colors.border,
+      zIndex: -1,
+    },
+    vitalNoticeBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      padding: space.sm,
+      borderRadius: radius.sm,
+      backgroundColor: colors.muted,
+      marginBottom: space.sm,
+    },
+    vitalNoticeText: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.mutedForeground,
+      lineHeight: 16,
+    },
+    normalNoticeBox: {
+      padding: space.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: space.xs,
+    },
+    switchIssueButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: space.xs,
+      paddingVertical: space.xs,
+      paddingHorizontal: space.sm,
+      borderRadius: radius.sm,
+      backgroundColor: colors.injuredSoft ?? "#fee2e2",
+      alignSelf: "flex-start",
+    },
+    switchIssueButtonText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.destructive,
+    },
+    prescriptionNoticeBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      padding: space.sm,
+      borderRadius: radius.sm,
+      backgroundColor: colors.muted,
+      marginTop: space.xs,
+    },
+    prescriptionNoticeText: {
+      flex: 1,
+      fontSize: 12,
+      color: colors.mutedForeground,
+      lineHeight: 16,
     },
   });
 }

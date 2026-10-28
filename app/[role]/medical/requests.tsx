@@ -4,7 +4,7 @@ import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from "re
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
-import { Chips, Field, NativeInput, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
+import { BottomSheetModal, Chips, Field, NativeInput, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
@@ -19,6 +19,7 @@ import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime } from "@/utils/formatters";
 import { isValidRequiredText } from "@/features/medical/medical-validation";
 import { radius, space } from "@/config/theme";
+import { formatIncidentSource, isQaTestContent } from "@/utils/textCleaner";
 
 type RequestStatus = "PENDING" | "EXAMINED" | "DISMISSED";
 
@@ -41,6 +42,8 @@ export default function ExaminationRequests() {
   const [filterUrgent, setFilterUrgent] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ExamRequestDto | null>(null);
+  const [modalAction, setModalAction] = useState<"urgency" | "dismiss" | null>(null);
+  const [actionTarget, setActionTarget] = useState<ExamRequestDto | null>(null);
 
   // Attached incident photo viewer states
   const [incidentPhotos, setIncidentPhotos] = useState<Record<string, string | null>>({});
@@ -242,9 +245,43 @@ export default function ExaminationRequests() {
     }
   };
 
+  const submitDismiss = async () => {
+    if (!token || !actionTarget || !isValidRequiredText(dismissReason, 500)) {
+      Alert.alert("Vui lòng nhập lý do", "Lý do bỏ qua không được để trống (tối đa 500 ký tự).");
+      return;
+    }
+    await runMutation(async () => {
+      await medicalService.dismissExamRequest(token, actionTarget.id, dismissReason.trim());
+      setModalAction(null);
+      setActionTarget(null);
+    }, "Đã bỏ qua yêu cầu khám.");
+  };
+
+  const submitChangeUrgency = async () => {
+    if (!token || !actionTarget || !isValidRequiredText(urgencyReason, 500)) {
+      Alert.alert(
+        "Vui lòng nhập lý do",
+        "Lý do thay đổi mức độ không được để trống (tối đa 500 ký tự).",
+      );
+      return;
+    }
+    const newUrgent = !actionTarget.urgent;
+    await runMutation(async () => {
+      await medicalService.changeExamRequestUrgency(token, actionTarget.id, {
+        urgent: newUrgent,
+        reason: urgencyReason.trim(),
+      });
+      setModalAction(null);
+      setActionTarget(null);
+    }, newUrgent ? "Đã nâng cấp yêu cầu thành CẤP CỨU." : "Đã hạ cấp yêu cầu về mức THƯỜNG.");
+  };
+
   const currentKey = `${status}_${filterUrgent ? "urgent" : "all"}`;
   const currentData = cache[currentKey] ?? cache[status];
-  const items = currentData?.items ?? [];
+  const items = useMemo(() => {
+    const raw = currentData?.items ?? [];
+    return raw.filter((item) => !isQaTestContent(item.description));
+  }, [currentData]);
   const totalPages = currentData?.totalPages ?? 1;
   const hasMore = totalPages > page;
   const hasPrevious = page > 1;
@@ -418,7 +455,7 @@ export default function ExaminationRequests() {
                         {request.horseName}
                       </Text>
                       <Text style={styles.sourceText}>
-                        Nguồn: {request.source.replaceAll("_", " ")} ·{" "}
+                        Nguồn: {formatIncidentSource(request.source)} ·{" "}
                         {formatDateTime(request.createdAt)}
                       </Text>
                     </View>
@@ -504,26 +541,12 @@ export default function ExaminationRequests() {
                   </View>
                 ) : null}
 
-                {/* Toggle details chevron */}
-                <View style={styles.expandRow}>
-                  <Text style={styles.expandText}>
-                    {isSelected ? "Thu gọn thao tác" : "Nhấn để xem thao tác xử lý"}
-                  </Text>
-                  <Ionicons
-                    name={isSelected ? "chevron-up" : "chevron-down"}
-                    size={16}
-                    color={colors.primary}
-                  />
-                </View>
-              </Pressable>
-
-              {/* Action Drawer */}
-              {isSelected ? (
-                <View style={styles.actionDrawer}>
-                  {isVet && isPending ? (
-                    <>
+                {/* Compact Action Buttons */}
+                {isVet && isPending ? (
+                  <View style={{ flexDirection: "row", gap: space.xs, marginTop: space.sm, paddingTop: space.xs, borderTopWidth: 1, borderTopColor: colors.border }}>
+                    <View style={{ flex: 1 }}>
                       <PrimaryButton
-                        label="Bắt đầu ghi nhận khám"
+                        label="Khám bệnh"
                         icon="medkit-outline"
                         onPress={() =>
                           router.push(
@@ -531,87 +554,40 @@ export default function ExaminationRequests() {
                           )
                         }
                       />
+                    </View>
+                    <SecondaryButton
+                      label="Bỏ qua"
+                      icon="close-circle-outline"
+                      onPress={() => {
+                        setActionTarget(request);
+                        setDismissReason("");
+                        setModalAction("dismiss");
+                      }}
+                    />
+                    <SecondaryButton
+                      label={isUrgent ? "Hạ cấp" : "Cấp cứu"}
+                      icon={isUrgent ? "arrow-down-circle-outline" : "warning-outline"}
+                      onPress={() => {
+                        setActionTarget(request);
+                        setUrgencyReason("");
+                        setModalAction("urgency");
+                      }}
+                    />
+                  </View>
+                ) : null}
 
-                      {/* Urgency modification */}
-                      <View style={styles.inlineActionBox}>
-                        <Text style={styles.inlineActionTitle}>
-                          {isUrgent ? "Hạ mức độ khẩn cấp" : "Đánh dấu khẩn cấp (Cấp cứu)"}
-                        </Text>
-                        <Field label="Lý do thay đổi mức độ ưu tiên">
-                          <NativeInput
-                            value={urgencyReason}
-                            onChangeText={setUrgencyReason}
-                            placeholder="Nhập lý do thay đổi mức độ ưu tiên"
-                            multiline
-                          />
-                        </Field>
-                        <SecondaryButton
-                          label={isUrgent ? "Bỏ đánh dấu cấp cứu" : "Nâng lên cấp cứu"}
-                          disabled={saving || !isValidRequiredText(urgencyReason, 500)}
-                          onPress={() =>
-                            void runMutation(
-                              () =>
-                                medicalService.changeExamRequestUrgency(token!, request.id, {
-                                  urgent: !request.urgent,
-                                  reason: urgencyReason.trim(),
-                                }),
-                              "Đã cập nhật mức độ ưu tiên.",
-                            )
-                          }
-                        />
-                      </View>
-
-                      {/* Dismiss request */}
-                      <View style={styles.inlineActionBox}>
-                        <Text style={styles.inlineActionTitle}>Bỏ qua yêu cầu khám</Text>
-                        <Field label="Lý do bỏ qua">
-                          <NativeInput
-                            value={dismissReason}
-                            onChangeText={setDismissReason}
-                            placeholder="Nhập lý do không tiếp nhận khám"
-                            multiline
-                          />
-                        </Field>
-                        <SecondaryButton
-                          label="Xác nhận bỏ qua yêu cầu"
-                          disabled={saving || !isValidRequiredText(dismissReason, 500)}
-                          onPress={() =>
-                            Alert.alert(
-                              "Bỏ qua yêu cầu khám?",
-                              "Yêu cầu này sẽ được đưa vào danh sách bỏ qua.",
-                              [
-                                { text: "Hủy", style: "cancel" },
-                                {
-                                  text: "Xác nhận",
-                                  style: "destructive",
-                                  onPress: () =>
-                                    void runMutation(
-                                      () =>
-                                        medicalService.dismissExamRequest(
-                                          token!,
-                                          request.id,
-                                          dismissReason.trim(),
-                                        ),
-                                      "Yêu cầu đã được bỏ qua.",
-                                    ),
-                                },
-                              ],
-                            )
-                          }
-                        />
-                      </View>
-                    </>
-                  ) : null}
-
-                  {role === "manager" || role === "trainer" ? (
+                {(role === "manager" || role === "trainer") ? (
+                  <View style={{ marginTop: space.sm }}>
                     <SecondaryButton
                       label="Xem hồ sơ ngựa"
                       icon="document-text-outline"
                       onPress={() => router.push(`/${role}/horse/${request.horseId}` as Href)}
                     />
-                  ) : null}
+                  </View>
+                ) : null}
 
-                  {request.medicalRecordId ? (
+                {request.medicalRecordId ? (
+                  <View style={{ marginTop: space.sm }}>
                     <PrimaryButton
                       label="Xem biên bản khám đã lưu"
                       icon="clipboard-outline"
@@ -619,9 +595,9 @@ export default function ExaminationRequests() {
                         router.push(`/${role}/medical/visits/${request.medicalRecordId}` as Href)
                       }
                     />
-                  ) : null}
-                </View>
-              ) : null}
+                  </View>
+                ) : null}
+              </Pressable>
             </View>
           );
         })}
@@ -904,6 +880,96 @@ export default function ExaminationRequests() {
               icon="close-outline"
               onPress={() => setEnlargedPhotoUrl(null)}
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ACTION MODAL (Dismiss or Urgency) */}
+      <Modal
+        visible={Boolean(modalAction && actionTarget)}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setModalAction(null);
+          setActionTarget(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>
+                  {modalAction === "dismiss"
+                    ? "Bỏ qua yêu cầu khám"
+                    : actionTarget?.urgent
+                      ? "Hạ cấp mức độ yêu cầu"
+                      : "Nâng lên mức CẤP CỨU"}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  Ngựa: {actionTarget?.horseName}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setModalAction(null);
+                  setActionTarget(null);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={20} color={colors.foreground} />
+              </Pressable>
+            </View>
+
+            <Field
+              label={
+                modalAction === "dismiss"
+                  ? "Lý do bỏ qua yêu cầu *"
+                  : "Lý do thay đổi mức độ khẩn cấp *"
+              }
+            >
+              <NativeInput
+                value={modalAction === "dismiss" ? dismissReason : urgencyReason}
+                onChangeText={modalAction === "dismiss" ? setDismissReason : setUrgencyReason}
+                multiline
+                placeholder={
+                  modalAction === "dismiss"
+                    ? "Nhập lý do bỏ qua (ví dụ: đã khám tại chuồng, trùng lặp...)"
+                    : "Nhập lý do thay đổi mức độ khẩn cấp..."
+                }
+                style={{ minHeight: 80 }}
+                autoFocus
+              />
+            </Field>
+
+            <View style={{ gap: space.sm, marginTop: space.sm }}>
+              <PrimaryButton
+                label={
+                  saving
+                    ? "Đang lưu…"
+                    : modalAction === "dismiss"
+                      ? "Xác nhận bỏ qua"
+                      : "Xác nhận đổi mức độ"
+                }
+                disabled={
+                  saving ||
+                  !(modalAction === "dismiss" ? dismissReason.trim() : urgencyReason.trim())
+                }
+                onPress={() => {
+                  if (modalAction === "dismiss") {
+                    void submitDismiss();
+                  } else {
+                    void submitChangeUrgency();
+                  }
+                }}
+              />
+              <SecondaryButton
+                label="Đóng"
+                onPress={() => {
+                  setModalAction(null);
+                  setActionTarget(null);
+                }}
+              />
+            </View>
           </View>
         </View>
       </Modal>

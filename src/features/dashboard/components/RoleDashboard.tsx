@@ -79,17 +79,21 @@ export function RoleDashboard({
     return (
       <>
         <View style={uiStyles.metricGrid}>
-          <Metric label="Visible horses" value={horses.length} hint="toàn câu lạc bộ" />
           <Metric
-            label="Need attention"
+            label={role === "owner" ? t("Ngựa của tôi") : t("Ngựa theo dõi")}
+            value={horses.length}
+            hint={role === "owner" ? t("thuộc sở hữu của bạn") : t("toàn câu lạc bộ")}
+          />
+          <Metric
+            label={t("Cần chú ý")}
             value={attention.length}
-            hint="monitor or injured"
+            hint={t("theo dõi hoặc chấn thương")}
             tone={attention.length ? "warning" : "good"}
           />
           <Metric
-            label="Eligible"
+            label={t("Đủ điều kiện")}
             value={horses.filter((horse) => horse.status === "FIT").length}
-            hint="health status"
+            hint={t("trạng thái sức khỏe")}
             tone="good"
           />
         </View>

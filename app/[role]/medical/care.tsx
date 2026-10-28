@@ -22,6 +22,8 @@ import { isRole } from "@/features/auth/roles";
 import { horseService } from "@/services/horse.service";
 import { medicalService, type CareTaskTypeDto } from "@/services/medical.service";
 import { stableService, type GroomWorkloadDto } from "@/services/stable.service";
+import { usersService } from "@/services/users.service";
+import type { StaffDto } from "@/adapters/staff.adapter";
 import type { CareScheduleDto } from "@/adapters/medical.adapter";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
 import {
@@ -81,9 +83,13 @@ export default function CareSchedules() {
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  const [initialDueParts] = useState(() =>
-    clubDateTimeParts(new Date(Date.now() + 60 * 60 * 1000)),
-  );
+  const [initialDueParts] = useState(() => {
+    const parts = clubDateTimeParts(new Date(Date.now() + 24 * 60 * 60 * 1000));
+    return {
+      date: parts.date,
+      time: "09:00",
+    };
+  });
   const [selectedHorseId, setSelectedHorseId] = useState(initialHorseId);
   const [selectedHorse, setSelectedHorse] = useState<HorseListItemDto | null>(null);
   const [type, setType] = useState<CareTaskTypeDto>("VACCINATION");
@@ -109,6 +115,7 @@ export default function CareSchedules() {
 
   // Staff and groom lists
   const [grooms, setGrooms] = useState<GroomWorkloadDto[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffDto[]>([]);
 
   const [notes, setNotes] = useState("");
   const [editDate, setEditDate] = useState("");
@@ -139,7 +146,7 @@ export default function CareSchedules() {
   const resource = useApiResource(loadSchedule, Boolean(token && selectedHorseId && canView));
   useRefreshOnFocus(resource.revalidate);
 
-  // Load horses and grooms
+  // Load horses, staff and grooms
   useEffect(() => {
     if (token && canView) {
       void horseService
@@ -156,6 +163,11 @@ export default function CareSchedules() {
         .listGroomWorkload(token)
         .then((res) => setGrooms(res))
         .catch(() => setGrooms([]));
+
+      void usersService
+        .list(token)
+        .then((res) => setStaffUsers(res))
+        .catch(() => setStaffUsers([]));
     }
   }, [canView, selectedHorseId, token]);
 
@@ -201,6 +213,18 @@ export default function CareSchedules() {
         });
       }
 
+      // Other Vets in the club
+      for (const u of staffUsers) {
+        if (u.role === "VETERINARIAN" && u.id !== user?.userId) {
+          list.push({
+            id: u.id,
+            name: u.fullName,
+            roleTitle: "Bác sĩ thú y",
+            assigneeType: "VET",
+          });
+        }
+      }
+
       // Grooms are only allowed for FARRIER (Chăm sóc móng)
       if (taskType === "FARRIER") {
         list.push({
@@ -224,7 +248,7 @@ export default function CareSchedules() {
 
       return list;
     },
-    [grooms, user],
+    [grooms, staffUsers, user],
   );
 
   const resolvePersonnelOption = useCallback(
@@ -653,10 +677,11 @@ export default function CareSchedules() {
                         Phân công:{" "}
                         <Text style={{ fontWeight: "700", color: colors.foreground }}>
                           {schedule.assignedTo
-                            ? (grooms.find((g) => g.groomId === schedule.assignedTo)?.fullName ??
+                            ? (staffUsers.find((u) => u.id === schedule.assignedTo)?.fullName ??
+                              grooms.find((g) => g.groomId === schedule.assignedTo)?.fullName ??
                               (user?.userId === schedule.assignedTo
                                 ? `${user.fullName} (Tôi)`
-                                : `Nhân sự ${schedule.assignedTo.slice(0, 8)}`))
+                                : `Nhân sự #${schedule.assignedTo.slice(0, 8)}`))
                             : schedule.assigneeType === "GROOM"
                               ? "Groom phụ trách ngựa"
                               : "Chưa phân công"}
@@ -1299,6 +1324,8 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     },
     statusBadgeCompleted: {
       backgroundColor: colors.fitSoft,
+      borderWidth: 1,
+      borderColor: colors.primary,
     },
     statusBadgeCancelled: {
       backgroundColor: colors.injuredSoft,
@@ -1311,7 +1338,8 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       color: colors.primary,
     },
     statusBadgeTextCompleted: {
-      color: colors.monitor,
+      color: colors.primary,
+      fontWeight: "800",
     },
     statusBadgeTextCancelled: {
       color: colors.destructive,

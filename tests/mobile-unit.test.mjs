@@ -675,8 +675,22 @@ test("medical issue visits and follow-ups send injury data using the Backend DTO
       },
     ],
   };
+  const normalInput = {
+    kind: "ROUTINE",
+    conclusion: "NORMAL",
+    prescriptions: [
+      {
+        medicine: "Vitamin B Complex",
+        dosage: "10ml",
+        frequency: "Once daily",
+        startDate: "2026-10-28",
+        endDate: "2026-11-04",
+      },
+    ],
+  };
   await medicalService.createStandaloneVisit("token", "horse-1", issueInput);
   await medicalService.createFollowUpVisit("token", "case-1", followUpInput);
+  await medicalService.createStandaloneVisit("token", "horse-2", normalInput);
 
   assert.equal(observed[0].url, "http://127.0.0.1:9876/api/v1/horses/horse-1/medical-records");
   assert.equal(observed[0].options.method, "POST");
@@ -685,6 +699,10 @@ test("medical issue visits and follow-ups send injury data using the Backend DTO
   assert.equal(observed[0].options.headers.get("Authorization"), "Bearer token");
   assert.equal(observed[1].url, "http://127.0.0.1:9876/api/v1/medical-cases/case-1/visits");
   assert.deepEqual(JSON.parse(observed[1].options.body), followUpInput);
+  assert.equal(observed[2].url, "http://127.0.0.1:9876/api/v1/horses/horse-2/medical-records");
+  assert.deepEqual(JSON.parse(observed[2].options.body), normalInput);
+  assert.equal("newInjuries" in JSON.parse(observed[2].options.body), false);
+  assert.equal("nextVisitAt" in JSON.parse(observed[2].options.body), false);
 });
 
 test("care completion sends the next occurrence to the Backend, without client-side recurrence", async (context) => {

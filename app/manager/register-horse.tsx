@@ -18,6 +18,8 @@ import { AsyncStateView, Screen } from "@/components/common";
 import { useTheme } from "@/hooks/useTheme";
 import { useApiResource } from "@/hooks/useApiResource";
 import { usersService } from "@/services/users.service";
+import { Ionicons } from "@expo/vector-icons";
+import { radius, space } from "@/config/theme";
 import { horseService } from "@/services/horse.service";
 import { stableService } from "@/services/stable.service";
 import { mediaService, type LocalMediaAsset } from "@/services/media.service";
@@ -143,7 +145,8 @@ export default function RegisterHorse() {
     const val = microchipId.trim();
     if (!val) return "";
     if (!/^\d+$/.test(val)) return t("Mã microchip chỉ được chứa các chữ số.");
-    if (val.length !== 15) return `${t("Mã microchip phải gồm đúng 15 chữ số")} (${val.length}/15).`;
+    if (val.length !== 15)
+      return `${t("Mã microchip phải gồm đúng 15 chữ số")} (${val.length}/15).`;
     return "";
   }, [microchipId, t]);
 
@@ -161,7 +164,8 @@ export default function RegisterHorse() {
     const val = dateOfBirth.trim();
     if (!val) return "";
     const iso = parseToIsoDate(val);
-    if (!iso || !isValidIsoDate(iso)) return t("Date of birth must be a valid date in DD-MM-YYYY format.");
+    if (!iso || !isValidIsoDate(iso))
+      return t("Date of birth must be a valid date in DD-MM-YYYY format.");
     const today = clubDate();
     const [year, month, day] = iso.split("-").map(Number);
     const birth = new Date(Date.UTC(year, month - 1, day));
@@ -370,28 +374,74 @@ export default function RegisterHorse() {
         </Panel>
       ) : (
         <>
-          <Panel>
-            <View style={{ gap: 18 }}>
-              <Field label="Horse name">
-                <NativeInput value={name} onChangeText={setName} placeholder="Horse name" />
+          {/* Group 1: Nhận dạng & Ngoại hình */}
+          <Panel style={{ gap: space.md }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                paddingBottom: space.sm,
+              }}
+            >
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.fitSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="finger-print-outline" size={18} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
+                  1. Nhận dạng & Ngoại hình
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                  Tên ngựa, vi mạch, giới tính, màu lông và ngày sinh
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 14 }}>
+              <Field label="Tên ngựa *">
+                <NativeInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Ví dụ: Red Rum, Secretariat..."
+                />
                 {nameError ? (
-                  <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: colors.destructive,
+                      fontSize: 12,
+                      marginTop: 4,
+                      fontWeight: "600",
+                    }}
+                  >
                     {nameError}
                   </Text>
                 ) : null}
               </Field>
-              <Field label="Gender">
+
+              <Field label="Giới tính *">
                 <Chips
                   options={["MALE", "FEMALE", "GELDING"]}
                   value={gender}
                   onChange={(value) => setGender(value as HorseGenderDto)}
                 />
               </Field>
-              <Field label="Microchip ID *">
+
+              <Field label="Mã vi mạch (Microchip ID) *">
                 <NativeInput
                   value={microchipId}
                   onChangeText={setMicrochipId}
-                  placeholder="15 digits (required)"
+                  placeholder="15 chữ số tiêu chuẩn ISO (bắt buộc)"
                   keyboardType="number-pad"
                 />
                 {duplicateChipHorse ? (
@@ -430,33 +480,117 @@ export default function RegisterHorse() {
                   </Text>
                 ) : null}
               </Field>
-              <Field label="Breed">
-                <NativeInput value={breed} onChangeText={setBreed} placeholder="Breed (optional)" />
+
+              <Field label="Giống ngựa">
+                <NativeInput
+                  value={breed}
+                  onChangeText={setBreed}
+                  placeholder="Ví dụ: Thoroughbred, Arabian..."
+                />
               </Field>
-              <Field label="Color">
+
+              <Field label="Màu lông">
                 <NativeInput
                   value={color}
                   onChangeText={setColor}
-                  placeholder="Coat color (optional)"
+                  placeholder="Ví dụ: Bay, Chestnut, Grey..."
                 />
               </Field>
-              <Field label="Date of birth (DD-MM-YYYY)">
+
+              <Field label="Ngày sinh (DD-MM-YYYY)">
                 <DatePickerField
                   value={dateOfBirth}
                   onChangeText={setDateOfBirth}
-                  placeholder="DD-MM-YYYY (e.g. 20-05-2021)"
+                  placeholder="DD-MM-YYYY (ví dụ: 20-05-2021)"
                 />
                 {dobError ? (
-                  <Text style={{ color: colors.destructive, fontSize: 12, marginTop: 4, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: colors.destructive,
+                      fontSize: 12,
+                      marginTop: 4,
+                      fontWeight: "600",
+                    }}
+                  >
                     {dobError}
                   </Text>
                 ) : null}
               </Field>
-              <Field label="Sire (optional)">
+
+              <View style={uiStyles.section}>
+                <Text style={uiStyles.value}>Ảnh đại diện hồ sơ</Text>
+                {photo ? (
+                  <View style={{ gap: 8, alignItems: "flex-start" }}>
+                    <Image
+                      source={{ uri: photo.uri }}
+                      style={{ width: "100%", height: 160, borderRadius: radius.md }}
+                      resizeMode="cover"
+                    />
+                    <Text style={uiStyles.muted} numberOfLines={1} ellipsizeMode="middle">
+                      {photo.name}
+                    </Text>
+                    <SecondaryButton
+                      label="Xóa ảnh"
+                      icon="trash-outline"
+                      onPress={() => {
+                        setPhoto(null);
+                        setUploadedPhotoId(null);
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <SecondaryButton
+                    label="Tải ảnh chân dung ngựa lên"
+                    icon="image-outline"
+                    onPress={() => void choosePhoto()}
+                    disabled={saving}
+                  />
+                )}
+                <Text style={uiStyles.muted}>Hỗ trợ JPEG, PNG hoặc WebP · Tối đa 10 MB</Text>
+              </View>
+            </View>
+          </Panel>
+
+          {/* Group 2: Nguồn gốc & Phả hệ */}
+          <Panel style={{ gap: space.md }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                paddingBottom: space.sm,
+              }}
+            >
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.trainingSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="git-network-outline" size={18} color={colors.training} />
+              </View>
+              <View>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
+                  2. Nguồn gốc & Phả hệ
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                  Liên kết hồ sơ ngựa cha (Sire) và ngựa mẹ (Dam) trong câu lạc bộ
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 14 }}>
+              <Field label="Ngựa Cha - Sire (Tùy chọn)">
                 <NativeInput
                   value={sireSearch}
                   onChangeText={setSireSearch}
-                  placeholder="Search by name or Horse ID"
+                  placeholder="Tìm theo tên hoặc mã ngựa cha"
                 />
                 <SelectionChips
                   loading={horsesResource.isLoading}
@@ -477,14 +611,15 @@ export default function RegisterHorse() {
                       setSireSearch(selected?.name ?? "");
                     }
                   }}
-                  emptyLabel="No sire profiles are available."
+                  emptyLabel="Chưa có hồ sơ ngựa cha phù hợp."
                 />
               </Field>
-              <Field label="Dam (optional)">
+
+              <Field label="Ngựa Mẹ - Dam (Tùy chọn)">
                 <NativeInput
                   value={damSearch}
                   onChangeText={setDamSearch}
-                  placeholder="Search by name or Horse ID"
+                  placeholder="Tìm theo tên hoặc mã ngựa mẹ"
                 />
                 <SelectionChips
                   loading={horsesResource.isLoading}
@@ -505,14 +640,52 @@ export default function RegisterHorse() {
                       setDamSearch(selected?.name ?? "");
                     }
                   }}
-                  emptyLabel="No dam profiles are available."
+                  emptyLabel="Chưa có hồ sơ ngựa mẹ phù hợp."
                 />
               </Field>
-              <Field label="Primary owner *">
+            </View>
+          </Panel>
+
+          {/* Group 3: Chủ sở hữu */}
+          <Panel style={{ gap: space.md }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                paddingBottom: space.sm,
+              }}
+            >
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.accent,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="person-circle-outline" size={18} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
+                  3. Chủ sở hữu & Hồ sơ pháp trị
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                  Chủ sở hữu hợp pháp đăng ký chịu trách nhiệm về ngựa
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 14 }}>
+              <Field label="Chủ sở hữu chính *">
                 <NativeInput
                   value={ownerSearch}
                   onChangeText={setOwnerSearch}
-                  placeholder="Search active horse owners"
+                  placeholder="Tìm kiếm chủ sở hữu đang hoạt động"
                 />
                 <SelectionChips
                   loading={ownersResource.isLoading}
@@ -533,14 +706,52 @@ export default function RegisterHorse() {
                       setOwnerSearch(selected?.fullName ?? "");
                     }
                   }}
-                  emptyLabel="No active horse owners found."
+                  emptyLabel="Không tìm thấy chủ sở hữu nào đang hoạt động."
                 />
               </Field>
-              <Field label="Initial barn (optional)">
+            </View>
+          </Panel>
+
+          {/* Group 4: Khu nuôi ban đầu */}
+          <Panel style={{ gap: space.md }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: space.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                paddingBottom: space.sm,
+              }}
+            >
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.fitSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="home-outline" size={18} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
+                  4. Khu nuôi & Chuồng trại ban đầu
+                </Text>
+                <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                  Chỉ định Barn có ô chuồng trống và Head Trainer phụ trách
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ gap: 14 }}>
+              <Field label="Khu chuồng ban đầu (Tùy chọn)">
                 <NativeInput
                   value={barnSearch}
                   onChangeText={setBarnSearch}
-                  placeholder="Search active barns"
+                  placeholder="Tìm chuồng đang mở và có ô trống"
                 />
                 <SelectionChips
                   loading={barnsResource.isLoading}
@@ -548,69 +759,57 @@ export default function RegisterHorse() {
                   onRetry={() => void barnsResource.retry()}
                   options={filterByQuery(availableBarns, barnSearch).map((barn) => ({
                     id: barn.id,
-                    label: `${barn.name} · ${barn.availableStallCount} available`,
+                    label: `${barn.name} · Còn ${barn.availableStallCount} ô trống`,
                   }))}
                   value={barnId}
                   onChange={(value) => {
                     setBarnId(value);
                     setBarnSearch("");
                   }}
-                  emptyLabel="No active barn with an available stall and Head Trainer. Horse will remain pending barn assignment."
+                  emptyLabel="Không có khu chuồng nào đang mở có ô trống và HLV trưởng. Ngựa sẽ ở trạng thái chờ xếp chuồng."
                 />
               </Field>
-              <View style={uiStyles.section}>
-                <Text style={uiStyles.value}>Horse photo (optional)</Text>
-                {photo ? (
-                  <>
-                    <Text style={uiStyles.muted} numberOfLines={1} ellipsizeMode="middle">
-                      {photo.name}
-                    </Text>
-                    <Image
-                      source={{ uri: photo.uri }}
-                      style={{ width: 200, height: 150, borderRadius: 12 }}
-                      resizeMode="cover"
-                    />
-                    <SecondaryButton
-                      label="Remove photo"
-                      onPress={() => {
-                        setPhoto(null);
-                        setUploadedPhotoId(null);
-                      }}
-                    />
-                  </>
-                ) : null}
-                <SecondaryButton
-                  label="Choose photo"
-                  onPress={() => void choosePhoto()}
-                  disabled={saving || Boolean(photo)}
-                />
-                <Text style={uiStyles.muted}>JPEG, PNG, or WebP · up to 10 MB</Text>
-              </View>
             </View>
           </Panel>
-          {formError ? (
-            <Panel style={uiStyles.alert}>
-              <Text style={{ color: colors.destructive, fontWeight: "600", fontSize: 13 }}>
-                {formError}
-              </Text>
-            </Panel>
-          ) : null}
-          <PrimaryButton
-            label={
-              uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save and open profile"
-            }
-            icon="checkmark"
-            disabled={saving || Boolean(nameError || microchipError || dobError)}
-            onPress={() => void submit("open")}
-          />
-          <SecondaryButton
-            label={
-              uploadingPhoto ? "Uploading photo…" : saving ? "Saving…" : "Save and add another"
-            }
-            icon="add"
-            disabled={saving || Boolean(nameError || microchipError || dobError)}
-            onPress={() => void submit("another")}
-          />
+
+          {/* Prominent Action Bar */}
+          <Panel
+            style={{
+              gap: space.sm,
+              borderColor: colors.borderStrong,
+              backgroundColor: colors.surface,
+              shadowColor: "#000",
+              shadowOpacity: 0.08,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+          >
+            {formError ? (
+              <View style={[uiStyles.alert, { marginBottom: 4 }]}>
+                <Text style={{ color: colors.destructive, fontWeight: "700", fontSize: 13 }}>
+                  ⚠️ {formError}
+                </Text>
+              </View>
+            ) : null}
+
+            <PrimaryButton
+              label={
+                uploadingPhoto ? "Đang tải ảnh lên…" : saving ? "Đang lưu…" : "Lưu và mở hồ sơ ngựa"
+              }
+              icon="checkmark-circle"
+              disabled={saving || Boolean(nameError || microchipError || dobError)}
+              onPress={() => void submit("open")}
+            />
+
+            <SecondaryButton
+              label={
+                uploadingPhoto ? "Đang tải ảnh lên…" : saving ? "Đang lưu…" : "Lưu và đăng ký tiếp"
+              }
+              icon="add-circle-outline"
+              disabled={saving || Boolean(nameError || microchipError || dobError)}
+              onPress={() => void submit("another")}
+            />
+          </Panel>
         </>
       )}
     </Screen>

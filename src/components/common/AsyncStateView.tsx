@@ -17,9 +17,9 @@ export function AsyncStateView({
   isLoading,
   error,
   onRetry,
-  loadingLabel = "Loading…",
+  loadingLabel = "Đang tải…",
   empty = false,
-  emptyLabel = "No records yet.",
+  emptyLabel = "Chưa có dữ liệu.",
 }: Props) {
   const { colors } = useTheme();
   if (isLoading) {
@@ -37,7 +37,7 @@ export function AsyncStateView({
           {extractErrorMessage(error)}
         </Text>
         <Pressable onPress={onRetry} style={[styles.retry, { backgroundColor: colors.fitSoft }]}>
-          <Text style={[styles.retryText, { color: colors.primary }]}>Try again</Text>
+          <Text style={[styles.retryText, { color: colors.primary }]}>Thử lại</Text>
         </Pressable>
       </View>
     );

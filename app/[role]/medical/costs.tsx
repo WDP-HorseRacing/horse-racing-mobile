@@ -1,15 +1,17 @@
 import { Redirect, router, type Href, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
+  BottomSheetModal,
   Chips,
   DateRangeBar,
   Field,
   NativeInput,
   Panel,
+  PrimaryButton,
   SecondaryButton,
   StatTile,
   formatVnd,
@@ -24,6 +26,10 @@ import { isRole } from "@/features/auth/roles";
 import { medicalService } from "@/services/medical.service";
 import { clubDateTimeParts, isUuid, isValidDateOnly } from "@/features/medical/medical-validation";
 import { stableService } from "@/services/stable.service";
+import { usersService } from "@/services/users.service";
+import type { StaffDto } from "@/adapters/staff.adapter";
+import type { MedicalRecordDto } from "@/adapters/medical.adapter";
+import { formatDate, formatDateTime, formatEnum } from "@/utils/formatters";
 import { radius, space } from "@/config/theme";
 
 const MEDICAL_COLOR = "#f59e0b";
@@ -44,6 +50,59 @@ export default function MedicalCostReport() {
   const [barnId, setBarnId] = useState("");
   const [ownerId, setOwnerId] = useState("");
   const [query, setQuery] = useState({ from: initialFrom, to: today, barnId: "", ownerId: "" });
+
+  // Owner picker state
+  const [owners, setOwners] = useState<StaffDto[]>([]);
+  const [ownerSearch, setOwnerSearch] = useState("");
+  const [selectedOwner, setSelectedOwner] = useState<StaffDto | null>(null);
+  const [ownerPickerVisible, setOwnerPickerVisible] = useState(false);
+
+  // Horse visits breakdown state
+  const [selectedHorseBreakdown, setSelectedHorseBreakdown] = useState<{
+    horseId: string;
+    horseName: string;
+    totalCost: number;
+    visitCount: number;
+  } | null>(null);
+  const [horseRecords, setHorseRecords] = useState<MedicalRecordDto[]>([]);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+
+  useEffect(() => {
+    if (token && role === "manager") {
+      void usersService
+        .list(token)
+        .then((users) => {
+          setOwners(users.filter((u) => u.role === "HORSE_OWNER" || !u.role));
+        })
+        .catch(() => setOwners([]));
+    }
+  }, [token, role]);
+
+  const filteredOwners = useMemo(() => {
+    if (!ownerSearch.trim()) return owners;
+    const q = ownerSearch.toLowerCase();
+    return owners.filter(
+      (o) => o.fullName.toLowerCase().includes(q) || (o.email && o.email.toLowerCase().includes(q)),
+    );
+  }, [ownerSearch, owners]);
+
+  const openHorseBreakdown = async (item: {
+    horseId: string;
+    horseName: string;
+    totalCost: number;
+    visitCount: number;
+  }) => {
+    setSelectedHorseBreakdown(item);
+    setLoadingRecords(true);
+    try {
+      const records = await medicalService.listHorseRecords(token!, item.horseId);
+      setHorseRecords(records);
+    } catch {
+      setHorseRecords([]);
+    } finally {
+      setLoadingRecords(false);
+    }
+  };
 
   const load = useCallback(
     () =>
@@ -78,11 +137,12 @@ export default function MedicalCostReport() {
       );
       return;
     }
-    if (ownerId.trim() && !isUuid(ownerId.trim())) {
-      Alert.alert(t("Mã chủ ngựa không hợp lệ"), t("Vui lòng nhập mã UUID hợp lệ hoặc để trống."));
+    const targetOwnerId = selectedOwner ? selectedOwner.id : ownerId.trim();
+    if (targetOwnerId && !isUuid(targetOwnerId)) {
+      Alert.alert(t("Mã chủ ngựa không hợp lệ"), t("Vui lòng chọn chủ ngựa hợp lệ hoặc để trống."));
       return;
     }
-    setQuery({ from, to, barnId, ownerId: ownerId.trim() });
+    setQuery({ from, to, barnId, ownerId: targetOwnerId });
   };
 
   const totalCost = resource.data?.totalCost ?? 0;
@@ -128,9 +188,42 @@ export default function MedicalCostReport() {
             setBarnId(barns.find((barn) => barn.name === value)?.id ?? "")
           }
         />
-        <Field label={`${t("Mã chủ ngựa")} (${t("tùy chọn")})`}>
-          <NativeInput value={ownerId} onChangeText={setOwnerId} placeholder="UUID chủ ngựa" />
-        </Field>
+        <Text style={[uiStyles.label, { marginTop: space.xs }]}>{t("Chủ sở hữu ngựa")}</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setOwnerPickerVisible(true)}
+          style={[styles.ownerPickerBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+        >
+          <Ionicons
+            name="person-circle-outline"
+            size={18}
+            color={selectedOwner ? colors.primary : colors.mutedForeground}
+          />
+          <Text
+            style={{
+              flex: 1,
+              fontSize: 13,
+              fontWeight: selectedOwner ? "700" : "400",
+              color: selectedOwner ? colors.foreground : colors.mutedForeground,
+            }}
+            numberOfLines={1}
+          >
+            {selectedOwner ? selectedOwner.fullName : t("Tất cả chủ ngựa (bấm để chọn)")}
+          </Text>
+          {selectedOwner ? (
+            <Pressable
+              onPress={() => {
+                setSelectedOwner(null);
+                setOwnerId("");
+              }}
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          ) : (
+            <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+          )}
+        </Pressable>
         <SecondaryButton
           label={t("Áp dụng lọc khu & chủ ngựa")}
           icon="funnel-outline"
@@ -188,7 +281,7 @@ export default function MedicalCostReport() {
               return (
                 <Pressable
                   key={item.horseId}
-                  onPress={() => router.push(`/manager/horse/${item.horseId}` as Href)}
+                  onPress={() => void openHorseBreakdown(item)}
                 >
                   <Panel>
                     <View style={uiStyles.row}>
@@ -201,11 +294,16 @@ export default function MedicalCostReport() {
                           {totalCost > 0 ? ` · ${sharePct.toFixed(1)}% ${t("tổng chi phí")}` : ""}
                         </Text>
                       </View>
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={[styles.horseCost, { color: colors.foreground }]}>
-                          {formatVnd(item.totalCost)}
+                      <View style={{ alignItems: "flex-end", gap: 2 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Text style={[styles.horseCost, { color: colors.foreground }]}>
+                            {formatVnd(item.totalCost)}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+                        </View>
+                        <Text style={{ fontSize: 10, color: colors.primary, fontWeight: "600" }}>
+                          Xem chi tiết khám →
                         </Text>
-                        <Ionicons name="chevron-forward" size={14} color={colors.mutedForeground} />
                       </View>
                     </View>
 
@@ -237,6 +335,152 @@ export default function MedicalCostReport() {
           </View>
         </>
       ) : null}
+
+      {/* Modal: Chọn chủ sở hữu ngựa */}
+      <BottomSheetModal
+        visible={ownerPickerVisible}
+        title="Chọn chủ sở hữu ngựa"
+        onClose={() => {
+          setOwnerPickerVisible(false);
+          setOwnerSearch("");
+        }}
+        cancelLabel="Đóng"
+      >
+        <Field label="Tìm kiếm theo tên hoặc email">
+          <NativeInput
+            value={ownerSearch}
+            onChangeText={setOwnerSearch}
+            placeholder="Nhập tên chủ sở hữu..."
+          />
+        </Field>
+        <ScrollView style={{ maxHeight: 360 }}>
+          <Pressable
+            onPress={() => {
+              setSelectedOwner(null);
+              setOwnerId("");
+              setOwnerPickerVisible(false);
+              setOwnerSearch("");
+            }}
+            style={[styles.ownerItem, !selectedOwner && styles.ownerItemActive]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.ownerName, !selectedOwner && { color: colors.primary }]}>
+                Tất cả chủ ngựa (Không lọc)
+              </Text>
+              <Text style={styles.ownerEmail}>Hiển thị chi phí cho toàn câu lạc bộ</Text>
+            </View>
+            {!selectedOwner ? (
+              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+            ) : null}
+          </Pressable>
+
+          {filteredOwners.map((owner) => {
+            const isSelected = selectedOwner?.id === owner.id;
+            return (
+              <Pressable
+                key={owner.id}
+                onPress={() => {
+                  setSelectedOwner(owner);
+                  setOwnerId(owner.id);
+                  setOwnerPickerVisible(false);
+                  setOwnerSearch("");
+                }}
+                style={[styles.ownerItem, isSelected && styles.ownerItemActive]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.ownerName, isSelected && { color: colors.primary }]}>
+                    {owner.fullName}
+                  </Text>
+                  {owner.email ? <Text style={styles.ownerEmail}>{owner.email}</Text> : null}
+                </View>
+                {isSelected ? (
+                  <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </BottomSheetModal>
+
+      {/* Modal: Chi tiết các lượt khám của ngựa */}
+      <BottomSheetModal
+        visible={Boolean(selectedHorseBreakdown)}
+        title={selectedHorseBreakdown ? `Lượt khám — ${selectedHorseBreakdown.horseName}` : ""}
+        onClose={() => {
+          setSelectedHorseBreakdown(null);
+          setHorseRecords([]);
+        }}
+        cancelLabel="Đóng"
+      >
+        {selectedHorseBreakdown ? (
+          <View style={{ gap: space.sm }}>
+            {/* Breakdown Cost Summary */}
+            <View style={styles.breakdownHeaderCard}>
+              <View>
+                <Text style={styles.breakdownSubtitle}>Tổng chi phí các lượt khám</Text>
+                <Text style={styles.breakdownTotal}>
+                  {formatVnd(selectedHorseBreakdown.totalCost)}
+                </Text>
+              </View>
+              <View style={styles.breakdownCountBadge}>
+                <Text style={styles.breakdownCountText}>
+                  {selectedHorseBreakdown.visitCount} lượt khám
+                </Text>
+              </View>
+            </View>
+
+            {loadingRecords ? (
+              <View style={{ padding: space.xl, alignItems: "center" }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[uiStyles.muted, { marginTop: 8 }]}>Đang tải chi tiết các lượt khám…</Text>
+              </View>
+            ) : horseRecords.length ? (
+              <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                {horseRecords.map((rec) => (
+                  <Pressable
+                    key={rec.id}
+                    onPress={() => {
+                      setSelectedHorseBreakdown(null);
+                      router.push(`/manager/medical/visits/${rec.id}` as Href);
+                    }}
+                    style={styles.breakdownVisitCard}
+                  >
+                    <View style={uiStyles.row}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.breakdownVisitTitle} numberOfLines={1}>
+                          {rec.conclusion === "NORMAL"
+                            ? "Khám sức khỏe bình thường"
+                            : rec.conclusion === "ISSUE"
+                              ? "Phát hiện bất thường"
+                              : rec.conclusion ?? rec.diagnosis ?? formatEnum(rec.kind)}
+                        </Text>
+                        <Text style={styles.breakdownVisitMeta}>
+                          {formatDateTime(rec.examDate)} · {formatEnum(rec.resultingStatus)}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={[uiStyles.muted, { textAlign: "center", paddingVertical: space.md }]}>
+                Chưa có dữ liệu biên bản khám chi tiết.
+              </Text>
+            )}
+
+            <PrimaryButton
+              label="Mở hồ sơ đầy đủ của ngựa"
+              icon="open-outline"
+              onPress={() => {
+                const horseId = selectedHorseBreakdown.horseId;
+                setSelectedHorseBreakdown(null);
+                router.push(`/manager/horse/${horseId}` as Href);
+              }}
+            />
+          </View>
+        ) : null}
+      </BottomSheetModal>
     </Screen>
   );
 }
@@ -309,5 +553,87 @@ const getStyles = (colors: any) =>
     horseBarFill: {
       height: "100%",
       borderRadius: 3,
+    },
+    ownerPickerBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      paddingHorizontal: space.sm,
+      paddingVertical: 10,
+      borderRadius: radius.md,
+      borderWidth: 1,
+    },
+    ownerItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: radius.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    ownerItemActive: {
+      backgroundColor: colors.fitSoft,
+    },
+    ownerName: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    ownerEmail: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      marginTop: 2,
+    },
+    breakdownHeaderCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: space.md,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    breakdownSubtitle: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      fontWeight: "600",
+    },
+    breakdownTotal: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: colors.foreground,
+      marginTop: 2,
+    },
+    breakdownCountBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      backgroundColor: `${MEDICAL_COLOR}18`,
+    },
+    breakdownCountText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: MEDICAL_COLOR,
+    },
+    breakdownVisitCard: {
+      padding: space.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 6,
+    },
+    breakdownVisitTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    breakdownVisitMeta: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      marginTop: 2,
     },
   });

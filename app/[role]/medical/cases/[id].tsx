@@ -62,6 +62,7 @@ export default function MedicalCaseDetail() {
   const [voidReason, setVoidReason] = useState("");
   const [replacementRequestIds, setReplacementRequestIds] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<"ALL" | "VISITS" | "3D" | "ACTIONS">("ALL");
 
   const load = useCallback(async () => {
     const medicalCase = await medicalService.getCase(token!, id);
@@ -304,7 +305,7 @@ export default function MedicalCaseDetail() {
             <View style={styles.patientRow}>
               <View style={[styles.avatarBox, isOpen && styles.avatarBoxActive]}>
                 <Ionicons
-                  name="paw"
+                  name="pulse"
                   size={22}
                   color={isOpen ? colors.primary : colors.mutedForeground}
                 />
@@ -337,6 +338,26 @@ export default function MedicalCaseDetail() {
                 </Text>
               </View>
             </View>
+
+            {/* Latest Visit Summary Banner if visits exist */}
+            {visits.length > 0 ? (
+              <View style={styles.latestVisitBanner}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="time" size={14} color={colors.primary} />
+                  <Text style={styles.latestVisitTitle}>
+                    Lần khám gần nhất: {formatDateTime(visits[0].examDate)}
+                  </Text>
+                </View>
+                <Text style={styles.latestVisitSubtitle}>
+                  {visits[0].conclusion === "NORMAL"
+                    ? "Bình thường"
+                    : visits[0].conclusion === "ISSUE"
+                      ? "Phát hiện bất thường"
+                      : visits[0].conclusion ?? visits[0].diagnosis ?? "Đã kiểm tra lâm sàng"}
+                  {visits[0].vetId ? ` · Bác sĩ #${visits[0].vetId.slice(0, 8)}` : ""}
+                </Text>
+              </View>
+            ) : null}
 
             {/* Diagnosis & Summary Row */}
             <View style={styles.diagnosisSection}>
@@ -437,8 +458,38 @@ export default function MedicalCaseDetail() {
             </View>
           </View>
 
+          {/* Quick Navigation Tabs */}
+          <View style={styles.tabNavRow}>
+            {[
+              { key: "ALL", label: "Tất cả" },
+              { key: "VISITS", label: `Lịch sử khám (${visits.length})` },
+              { key: "3D", label: "Bản đồ 3D" },
+              { key: "ACTIONS", label: isOpen ? "Xử lý & Đóng ca" : "Thao tác" },
+            ].map((tabItem) => (
+              <Pressable
+                key={tabItem.key}
+                onPress={() => setActiveTab(tabItem.key as typeof activeTab)}
+                style={[
+                  styles.tabNavItem,
+                  activeTab === tabItem.key && styles.tabNavItemActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tabNavText,
+                    activeTab === tabItem.key && styles.tabNavTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tabItem.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
           {/* 3D Injury Mapper if horse has injuries */}
-          {resource.data.injuries.length || resource.data.injuryHistoryUnavailable ? (
+          {(activeTab === "ALL" || activeTab === "3D") &&
+          (resource.data.injuries.length || resource.data.injuryHistoryUnavailable) ? (
             <Injury3DMapper
               horseId={medicalCase.horseId}
               existingInjuries={resource.data.injuries}
@@ -453,7 +504,7 @@ export default function MedicalCaseDetail() {
           ) : null}
 
           {/* Quick Action: Follow-up Examination for Vet */}
-          {isVet && isOpen ? (
+          {isVet && isOpen && (activeTab === "ALL" || activeTab === "VISITS") ? (
             <View style={{ marginBottom: space.xs }}>
               <PrimaryButton
                 label="Ghi buổi tái khám"
@@ -468,6 +519,7 @@ export default function MedicalCaseDetail() {
           ) : null}
 
           {/* Visits Timeline */}
+          {(activeTab === "ALL" || activeTab === "VISITS") ? (
           <View style={uiStyles.section}>
             <SectionTitle
               action={
@@ -657,6 +709,7 @@ export default function MedicalCaseDetail() {
               </View>
             ) : null}
           </View>
+          ) : null}
 
           {/* Modal Bottom Sheet: Sửa chi phí lần khám */}
           <BottomSheetModal
@@ -729,7 +782,7 @@ export default function MedicalCaseDetail() {
           </BottomSheetModal>
 
           {/* Close Case Section for Vet */}
-          {isVet && isOpen ? (
+          {(activeTab === "ALL" || activeTab === "ACTIONS") && isVet && isOpen ? (
             <View style={uiStyles.section}>
               <SectionTitle>Đóng bệnh án điều trị</SectionTitle>
               <View style={styles.closeCard}>
@@ -1278,6 +1331,58 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     deathPreviewText: {
       fontSize: 12,
       color: colors.foreground,
+    },
+    latestVisitBanner: {
+      backgroundColor: colors.fitSoft,
+      padding: space.sm,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      gap: 2,
+    },
+    latestVisitTitle: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    latestVisitSubtitle: {
+      fontSize: 12,
+      color: colors.foreground,
+      fontWeight: "500",
+    },
+    tabNavRow: {
+      flexDirection: "row",
+      backgroundColor: colors.muted,
+      borderRadius: radius.md,
+      padding: 3,
+      gap: 4,
+      marginBottom: space.sm,
+    },
+    tabNavItem: {
+      flex: 1,
+      paddingVertical: 7,
+      paddingHorizontal: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.sm,
+    },
+    tabNavItemActive: {
+      backgroundColor: colors.surface,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    tabNavText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.mutedForeground,
+      textAlign: "center",
+    },
+    tabNavTextActive: {
+      color: colors.primary,
+      fontWeight: "700",
     },
   });
 }

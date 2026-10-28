@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   KeyboardAvoidingView,
   Pressable,
@@ -7,6 +8,7 @@ import {
   TextInput,
   View,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
@@ -25,6 +27,8 @@ import { authService } from "@/services/auth.service";
 
 WebBrowser.maybeCompleteAuthSession();
 
+const LAST_LOGIN_EMAIL_KEY = "@last_login_email";
+
 export default function Login() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -32,21 +36,43 @@ export default function Login() {
   const { signIn, signInWithGoogle, isLoading, authError, retrySession, token } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [googlePending, setGooglePending] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [initialChecked, setInitialChecked] = useState(false);
   const loginFeedback = getLoginFeedback(authError, formError, Boolean(token));
 
-  if (isLoading && !token) return <LoadingScreen label={t("Signing in…")} />;
+  // Load last remembered email on initial mount
+  useEffect(() => {
+    void AsyncStorage.getItem(LAST_LOGIN_EMAIL_KEY).then((saved) => {
+      if (saved) {
+        setEmail((prev) => prev || saved);
+      }
+      setInitialChecked(true);
+    });
+  }, []);
+
+  // Show full loading screen only during initial app launch session check (not during form submit)
+  if (isLoading && !token && !submitting && !initialChecked) {
+    return <LoadingScreen label={t("Signing in…")} />;
+  }
 
   const submit = async () => {
+    if (!email.trim() || !password || submitting) return;
     setFormError("");
     setFieldErrors({});
+    setSubmitting(true);
     try {
-      await signIn(email, password);
+      // Save email for next attempts
+      await AsyncStorage.setItem(LAST_LOGIN_EMAIL_KEY, email.trim()).catch(() => undefined);
+      await signIn(email.trim(), password);
     } catch (error) {
       setFormError(extractErrorMessage(error, t("Unable to sign in.")));
       setFieldErrors(extractFieldErrors(error));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -163,30 +189,51 @@ export default function Login() {
             />
             {fieldErrors.email ? <Text style={styles.fieldError}>{fieldErrors.email}</Text> : null}
             <Text style={styles.inputLabel}>{t("Password")}</Text>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              autoComplete="password"
-              secureTextEntry
-              editable={!isLoading && !googlePending}
-              placeholder="••••••••"
-              placeholderTextColor={colors.mutedForeground}
-              style={styles.input}
-            />
+            <View style={styles.passwordWrapper}>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                autoComplete="password"
+                secureTextEntry={!showPassword}
+                editable={!submitting && !googlePending}
+                placeholder="••••••••"
+                placeholderTextColor={colors.mutedForeground}
+                style={[styles.input, { paddingRight: 48 }]}
+              />
+              <Pressable
+                onPress={() => setShowPassword((v) => !v)}
+                style={styles.eyeButton}
+                hitSlop={8}
+                accessibilityLabel={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+            </View>
             {fieldErrors.password ? (
               <Text style={styles.fieldError}>{fieldErrors.password}</Text>
             ) : null}
             <Pressable
               accessibilityRole="button"
-              disabled={isLoading || googlePending || !email.trim() || !password}
+              disabled={submitting || googlePending || !email.trim() || !password}
               onPress={() => void submit()}
               style={({ pressed }) => [
                 styles.submit,
                 pressed && styles.pressed,
-                (isLoading || !email.trim() || !password) && styles.disabled,
+                (submitting || !email.trim() || !password) && styles.disabled,
               ]}
             >
-              <Text style={styles.submitText}>{isLoading ? t("Signing in…") : t("Sign in")}</Text>
+              {submitting ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.submitText}>{t("Signing in…")}</Text>
+                </View>
+              ) : (
+                <Text style={styles.submitText}>{t("Sign in")}</Text>
+              )}
             </Pressable>
           </View>
           <Text style={styles.footer}>
@@ -253,6 +300,18 @@ const getStyles = (colors: any) =>
       backgroundColor: colors.surface,
       color: colors.foreground,
       paddingHorizontal: space.md,
+    },
+    passwordWrapper: {
+      position: "relative",
+      justifyContent: "center",
+    },
+    eyeButton: {
+      position: "absolute",
+      right: 14,
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 4,
     },
     fieldError: { color: colors.destructive, fontSize: 12 },
     submit: {

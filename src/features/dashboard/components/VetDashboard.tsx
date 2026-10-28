@@ -208,7 +208,7 @@ export function VetDashboard({
               </Pressable>
             }
           >
-            {t("Live training telemetry & alerts")}
+            {t("Buổi tập & Cảnh báo live")}
           </SectionTitle>
 
           {performanceNotifications.slice(0, 2).map((notif) => (

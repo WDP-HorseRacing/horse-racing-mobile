@@ -189,8 +189,8 @@ function frameHorse(): void {
   // Fit width along X (frontal / rear view)
   const distX = size.x / 2 / Math.tan(fovX / 2);
 
-  // Generous padding (1.30) ensuring head, withers, tail, and hooves are never cut off
-  const fitDistance = Math.max(distY, distZ, distX) * 1.3;
+  // Closer anatomical fit (1.05) so the horse fills the viewport prominence without clipping
+  const fitDistance = Math.max(distY, distZ, distX) * 1.05;
 
   controls.target.copy(center);
 
@@ -321,11 +321,11 @@ function drawMarkers(): void {
 
     if (marker.id === selectedMarkerId) {
       const highlight = new THREE.Mesh(
-        new THREE.SphereGeometry(0.08, 18, 14),
+        new THREE.SphereGeometry(0.11, 20, 16),
         new THREE.MeshBasicMaterial({
           color: 0x0b8f67,
           transparent: true,
-          opacity: 0.3,
+          opacity: 0.45,
           depthTest: true,
           depthWrite: false,
           polygonOffset: true,
@@ -341,7 +341,7 @@ function drawMarkers(): void {
     }
 
     const dot = new THREE.Mesh(
-      new THREE.SphereGeometry(marker.id === selectedMarkerId ? 0.045 : 0.033, 16, 12),
+      new THREE.SphereGeometry(marker.id === selectedMarkerId ? 0.052 : 0.038, 18, 14),
       material,
     );
     dot.name = `injury-marker:${marker.id}`;

@@ -102,33 +102,37 @@ export default function MedicalCasesListScreen() {
     }));
   }, [cases, horsesMap]);
 
-  const filteredCases = useMemo(() => {
-    let result = enrichedCases;
-
-    // Filter by status tab
-    if (filter === "OPEN") {
-      result = result.filter((c) => c.status === "OPEN");
-    } else if (filter === "CLOSED") {
-      result = result.filter((c) => c.status === "CLOSED");
-    }
-
-    // Filter by search query
+  const searchFilteredCases = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (q) {
-      result = result.filter(
-        (c) =>
-          c.horse?.name.toLowerCase().includes(q) ||
-          (c.horse?.microchipId && c.horse.microchipId.toLowerCase().includes(q)) ||
-          (c.initialDiagnosis && c.initialDiagnosis.toLowerCase().includes(q)) ||
-          (c.finalConclusion && c.finalConclusion.toLowerCase().includes(q)),
-      );
+    if (!q) return enrichedCases;
+    return enrichedCases.filter(
+      (c) =>
+        c.horse?.name.toLowerCase().includes(q) ||
+        (c.horse?.microchipId && c.horse.microchipId.toLowerCase().includes(q)) ||
+        (c.initialDiagnosis && c.initialDiagnosis.toLowerCase().includes(q)) ||
+        (c.finalConclusion && c.finalConclusion.toLowerCase().includes(q)),
+    );
+  }, [enrichedCases, search]);
+
+  const allCount = searchFilteredCases.length;
+  const openCount = useMemo(
+    () => searchFilteredCases.filter((c) => c.status === "OPEN").length,
+    [searchFilteredCases],
+  );
+  const closedCount = useMemo(
+    () => searchFilteredCases.filter((c) => c.status === "CLOSED").length,
+    [searchFilteredCases],
+  );
+
+  const filteredCases = useMemo(() => {
+    if (filter === "OPEN") {
+      return searchFilteredCases.filter((c) => c.status === "OPEN");
     }
-
-    return result;
-  }, [enrichedCases, filter, search]);
-
-  const openCount = useMemo(() => cases.filter((c) => c.status === "OPEN").length, [cases]);
-  const closedCount = useMemo(() => cases.filter((c) => c.status === "CLOSED").length, [cases]);
+    if (filter === "CLOSED") {
+      return searchFilteredCases.filter((c) => c.status === "CLOSED");
+    }
+    return searchFilteredCases;
+  }, [searchFilteredCases, filter]);
 
   if (!role) return <Redirect href="/" />;
   if (!canView) return <Redirect href={`/${role}` as Href} />;
@@ -189,7 +193,7 @@ export default function MedicalCasesListScreen() {
           style={[styles.filterTab, filter === "ALL" && styles.filterTabActive]}
         >
           <Text style={[styles.filterTabText, filter === "ALL" && styles.filterTabTextActive]}>
-            Tất cả ({cases.length})
+            Tất cả ({allCount})
           </Text>
         </Pressable>
 
@@ -254,7 +258,7 @@ export default function MedicalCasesListScreen() {
                 <View style={styles.horseInfoRow}>
                   <View style={[styles.horseAvatar, isOpen && styles.horseAvatarOpen]}>
                     <Ionicons
-                      name="paw"
+                      name="pulse"
                       size={18}
                       color={isOpen ? colors.primary : colors.mutedForeground}
                     />
@@ -321,7 +325,7 @@ export default function MedicalCasesListScreen() {
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.conclusionLabel}>Kết luận cuối:</Text>
-                    <Text style={styles.conclusionText} numberOfLines={2}>
+                    <Text style={styles.conclusionText}>
                       {item.finalConclusion}
                     </Text>
                   </View>

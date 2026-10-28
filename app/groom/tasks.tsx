@@ -21,6 +21,7 @@ import { orderedMeals, stableCareService } from "@/services/stable-care.service"
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime, formatTime } from "@/utils/formatters";
 import { radius, space } from "@/config/theme";
+import { isQaTestContent } from "@/utils/textCleaner";
 
 export default function GroomTasks() {
   const { token } = useAuth();
@@ -96,11 +97,11 @@ export default function GroomTasks() {
   return (
     <Screen
       role="groom"
-      title="Groom Today"
+      title={t("Công việc hôm nay")}
       subtitle={
         resource.data
-          ? `${resource.data.date} · ${done} of ${tracked.length} checklist items complete`
-          : "Assigned horses and today's work"
+          ? `${resource.data.date}\nĐã hoàn thành ${done}/${tracked.length} công việc checklist`
+          : "Danh sách ngựa phụ trách và công việc hôm nay"
       }
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
@@ -128,7 +129,7 @@ export default function GroomTasks() {
           </Panel>
 
           {/* Multi-Horse Filter Pills (Scrollable) */}
-          <View style={{ marginVertical: space.xs }}>
+          <View style={{ marginVertical: space.xs, position: "relative" }}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -182,6 +183,11 @@ export default function GroomTasks() {
                 );
               })}
             </ScrollView>
+            {horses.length > 2 && (
+              <View style={styles.scrollCue} pointerEvents="none">
+                <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+              </View>
+            )}
           </View>
 
           {/* Horse Tasks List */}
@@ -400,7 +406,7 @@ export default function GroomTasks() {
                             ) : null}
 
                             {/* Note preview if exists */}
-                            {item.note ? (
+                            {item.note && !isQaTestContent(item.note) ? (
                               <View style={styles.noteBubble}>
                                 <Ionicons name="create-outline" size={13} color={colors.primary} />
                                 <Text style={styles.noteText}>{item.note}</Text>
@@ -421,7 +427,9 @@ export default function GroomTasks() {
                   <Panel>
                     <Text style={ui.muted}>
                       {horse.feedingPlan.status}
-                      {horse.feedingPlan.note ? ` · ${horse.feedingPlan.note}` : ""}
+                      {horse.feedingPlan.note && !isQaTestContent(horse.feedingPlan.note)
+                        ? ` · ${horse.feedingPlan.note}`
+                        : ""}
                     </Text>
                     {orderedMeals(horse.feedingPlan.meals).map((meal) => (
                       <View key={meal.meal} style={{ marginTop: 8 }}>
@@ -429,7 +437,7 @@ export default function GroomTasks() {
                         {meal.items.map((item, index) => (
                           <Text key={`${meal.meal}-${item.supplyItemId}-${index}`} style={ui.muted}>
                             • {item.name} · {item.quantity} {item.unit}
-                            {item.note ? ` · ${item.note}` : ""}
+                            {item.note && !isQaTestContent(item.note) ? ` · ${item.note}` : ""}
                           </Text>
                         ))}
                       </View>
@@ -548,6 +556,26 @@ const getStyles = (colors: any) =>
     horseFilterScroll: {
       gap: space.xs,
       paddingVertical: space.xs,
+      paddingRight: 36,
+    },
+    scrollCue: {
+      position: "absolute",
+      right: 0,
+      top: 6,
+      bottom: 6,
+      width: 24,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderTopLeftRadius: radius.pill,
+      borderBottomLeftRadius: radius.pill,
+      borderLeftWidth: 1,
+      borderColor: colors.border,
+      shadowColor: "#000",
+      shadowOffset: { width: -1, height: 0 },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 2,
     },
     horseFilterChip: {
       flexDirection: "row",

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { type Href, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +19,7 @@ import { extractErrorMessage } from "@/utils/errorHandler";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
+import { isQaTestContent } from "@/utils/textCleaner";
 
 export function NotificationsFeed({ role }: { role: RoleId }) {
   const { colors } = useTheme();
@@ -26,6 +27,8 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
   const { token } = useAuth();
+  const [feedFilter, setFeedFilter] = useState<"ALL" | "CRITICAL" | "HORSE" | "SYSTEM">("ALL");
+
   const load = useCallback(async () => {
     const inboxPromise = notificationsService.list(token!);
     const canReadHorseAlerts = role === "manager" || role === "trainer" || role === "vet";
@@ -52,12 +55,53 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
       horseAlerts: alertGroups.flat().sort((a, b) => b.recordedAt.localeCompare(a.recordedAt)),
     };
   }, [token, role]);
+
   const resource = useApiResource(load, Boolean(token));
-  const notifications = useMemo(
-    () => resource.data?.notifications ?? [],
-    [resource.data?.notifications],
+
+  const notifications = useMemo(() => {
+    const raw = resource.data?.notifications ?? [];
+    return raw.filter(
+      (item) => !isQaTestContent(item.title) && !isQaTestContent(item.message),
+    );
+  }, [resource.data?.notifications]);
+
+  const horseAlerts = useMemo(
+    () => resource.data?.horseAlerts ?? [],
+    [resource.data?.horseAlerts],
   );
-  const horseAlerts = useMemo(() => resource.data?.horseAlerts ?? [], [resource.data?.horseAlerts]);
+
+  // Group repetitive horse alerts from same session/horse
+  const groupedHorseAlerts = useMemo(() => {
+    const map = new Map<string, { alert: (typeof horseAlerts)[0]; count: number }>();
+    for (const a of horseAlerts) {
+      if (isQaTestContent(a.horseName) || isQaTestContent(a.sessionName ?? "")) continue;
+      const key = `${a.horseId}_${a.sessionId ?? "standalone"}_${a.alertLevel}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { alert: a, count: 1 });
+      } else {
+        existing.count += 1;
+      }
+    }
+    return Array.from(map.values());
+  }, [horseAlerts]);
+
+  const visibleNotifications = useMemo(() => {
+    if (feedFilter === "HORSE") return [];
+    if (feedFilter === "CRITICAL") {
+      return notifications.filter((n) => n.priority === "CRITICAL");
+    }
+    return notifications;
+  }, [feedFilter, notifications]);
+
+  const visibleHorseAlerts = useMemo(() => {
+    if (feedFilter === "SYSTEM") return [];
+    if (feedFilter === "CRITICAL") {
+      return groupedHorseAlerts.filter((item) => item.alert.alertLevel === "CRITICAL");
+    }
+    return groupedHorseAlerts;
+  }, [feedFilter, groupedHorseAlerts]);
+
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.readAt).length,
     [notifications],
@@ -85,11 +129,36 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
   return (
     <Screen
       role={role}
-      title="Alerts"
-      subtitle={`${unreadCount} unread notifications`}
+      title={t("Cảnh báo & Thông báo")}
+      subtitle={`${unreadCount} ${t("thông báo chưa đọc")}`}
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
+      {/* Feed Filter Chips */}
+      <View style={styles.filterRow}>
+        {[
+          { key: "ALL", label: `Tất cả (${notifications.length + groupedHorseAlerts.length})` },
+          { key: "CRITICAL", label: "Nguy cấp" },
+          { key: "HORSE", label: `Ngựa & Buổi tập (${groupedHorseAlerts.length})` },
+          { key: "SYSTEM", label: `Hệ thống (${notifications.length})` },
+        ].map((tab) => (
+          <Pressable
+            key={tab.key}
+            onPress={() => setFeedFilter(tab.key as typeof feedFilter)}
+            style={[styles.filterChip, feedFilter === tab.key && styles.filterChipActive]}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                feedFilter === tab.key && styles.filterChipTextActive,
+              ]}
+            >
+              {tab.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       <AsyncStateView
         isLoading={resource.isLoading}
         error={resource.error}
@@ -97,12 +166,12 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
         empty={
           !resource.isLoading &&
           !resource.error &&
-          notifications.length === 0 &&
-          horseAlerts.length === 0
+          visibleNotifications.length === 0 &&
+          visibleHorseAlerts.length === 0
         }
-        emptyLabel="No alerts or notifications."
+        emptyLabel="Không có cảnh báo hoặc thông báo nào."
       />
-      {notifications.length ? (
+      {visibleNotifications.length ? (
         <View style={uiStyles.section}>
           <SectionTitle
             action={
@@ -118,7 +187,7 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
               ) : null
             }
           >
-            Notifications
+            {t("Thông báo hệ thống")}
           </SectionTitle>
           {notifications.map((notification) => (
             <Panel key={notification.id} style={!notification.readAt ? uiStyles.alert : undefined}>
@@ -216,10 +285,10 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
           ))}
         </View>
       ) : null}
-      {horseAlerts.length ? (
+      {visibleHorseAlerts.length ? (
         <View style={uiStyles.section}>
-          <SectionTitle>Horse performance alerts</SectionTitle>
-          {horseAlerts.map((alert) => (
+          <SectionTitle>{t("Cảnh báo nhịp tim & vận động")}</SectionTitle>
+          {visibleHorseAlerts.map(({ alert, count }) => (
             <Pressable
               key={`${alert.horseId}-${alert.sessionParticipantId}-${alert.recordedAt}`}
               onPress={() => {
@@ -240,19 +309,28 @@ export function NotificationsFeed({ role }: { role: RoleId }) {
             >
               <Panel style={uiStyles.alert}>
                 <View style={uiStyles.row}>
-                  <Text
-                    style={{
-                      ...uiStyles.label,
-                      color: alert.alertLevel === "CRITICAL" ? colors.destructive : colors.monitor,
-                    }}
-                  >
-                    {alert.alertLevel}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text
+                      style={{
+                        ...uiStyles.label,
+                        color: alert.alertLevel === "CRITICAL" ? colors.destructive : colors.monitor,
+                      }}
+                    >
+                      {alert.alertLevel === "CRITICAL" ? "NGUY CẤP" : "CẢNH BÁO"}
+                    </Text>
+                    {count > 1 ? (
+                      <View style={styles.repeatBadge}>
+                        <Text style={styles.repeatBadgeText}>
+                          Lặp lại {count} lần
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={uiStyles.muted}>{alert.recordedAtLabel}</Text>
                 </View>
                 <Text style={uiStyles.value}>{alert.horseName}</Text>
                 <Text style={uiStyles.muted}>
-                  {alert.sessionName ?? "Training session"} · {alert.heartRateBpm} bpm ·{" "}
+                  {alert.sessionName ?? "Buổi tập"} · {alert.heartRateBpm} bpm ·{" "}
                   {alert.speedMps} m/s
                 </Text>
                 <View style={styles.horseAlertFooter}>
@@ -420,6 +498,46 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       alignItems: "center",
       justifyContent: "space-between",
       gap: 8,
+    },
+    filterRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: space.xs,
+      marginBottom: space.sm,
+    },
+    filterChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    filterChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    filterChipText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.foreground,
+    },
+    filterChipTextActive: {
+      color: "#ffffff",
+      fontWeight: "700",
+    },
+    repeatBadge: {
+      backgroundColor: colors.muted,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    repeatBadgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: colors.mutedForeground,
     },
   });
 }

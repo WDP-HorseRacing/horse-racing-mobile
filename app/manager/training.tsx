@@ -24,7 +24,7 @@ import { usersService } from "@/services/users.service";
 import { stableService, type BarnListItemDto } from "@/services/stable.service";
 import type { StaffDto } from "@/adapters/staff.adapter";
 import { extractErrorMessage } from "@/utils/errorHandler";
-import { formatDate, formatDateTime, formatEnum } from "@/utils/formatters";
+import { formatDate, formatDateTime, formatDurationMs, formatEnum } from "@/utils/formatters";
 import { radius, space } from "@/config/theme";
 
 type ManagerPayload = {
@@ -54,7 +54,8 @@ type SubjectForm = {
   distance: string;
   duration: string;
   surface: string;
-  target: string;
+  targetMinutes: string;
+  targetSeconds: string;
 };
 
 const emptySubject = (): SubjectForm => ({
@@ -66,7 +67,8 @@ const emptySubject = (): SubjectForm => ({
   distance: "1600",
   duration: "60",
   surface: "",
-  target: "",
+  targetMinutes: "",
+  targetSeconds: "",
 });
 
 type TrainingTab = "Môn học" | "Lớp huấn luyện" | "Hiệu suất" | "Bàn giao";
@@ -169,11 +171,58 @@ export default function ManagerTraining() {
     return { totalHorses, totalSessions, avgScore };
   }, [payload?.performanceRows]);
 
+  const formatTargetDisplay = (ms: number) => {
+    const totalSecs = Math.round(ms / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
+  const getEvaluationRating = (score?: number, comment?: string | null) => {
+    if (comment) {
+      const trimmed = comment.trim().toLowerCase();
+      if (trimmed === "good") return { label: t("Tốt"), color: colors.fit, bg: colors.fitSoft };
+      if (trimmed === "excellent") return { label: t("Xuất sắc"), color: colors.primary, bg: colors.accent };
+      if (trimmed === "average" || trimmed === "fair") return { label: t("Khá"), color: colors.monitor, bg: colors.monitorSoft };
+      if (trimmed === "poor") return { label: t("Cần cải thiện"), color: colors.destructive, bg: colors.injuredSoft };
+    }
+    if (score === undefined || score === null) return null;
+    if (score >= 9) return { label: t("Xuất sắc"), color: colors.primary, bg: colors.accent };
+    if (score >= 7) return { label: t("Tốt"), color: colors.fit, bg: colors.fitSoft };
+    if (score >= 5) return { label: t("Khá"), color: colors.monitor, bg: colors.monitorSoft };
+    return { label: t("Cần cải thiện"), color: colors.destructive, bg: colors.injuredSoft };
+  };
+
+  const translateComment = (comment?: string | null) => {
+    if (!comment) return "";
+    const lower = comment.trim().toLowerCase();
+    if (lower === "good") return t("Tốt");
+    if (lower === "excellent") return t("Xuất sắc");
+    if (lower === "average" || lower === "fair") return t("Khá");
+    if (lower === "poor") return t("Cần cải thiện");
+    return comment;
+  };
+
   const saveSubject = async () => {
     if (!token || !subjectForm) return;
     const distance = Number(subjectForm.distance);
     const duration = Number(subjectForm.duration);
-    const target = subjectForm.target.trim() ? Number(subjectForm.target) : undefined;
+    let target: number | undefined = undefined;
+    if (subjectForm.sessionType === "TIME_TRIAL") {
+      const tm = subjectForm.targetMinutes.trim() ? Number(subjectForm.targetMinutes) : NaN;
+      const ts = subjectForm.targetSeconds.trim() ? Number(subjectForm.targetSeconds) : NaN;
+      if (!Number.isNaN(tm) || !Number.isNaN(ts)) {
+        const total = (Number.isNaN(tm) ? 0 : tm * 60 + (Number.isNaN(ts) ? 0 : ts)) * 1000;
+        if (total > 0 && total <= 3_600_000) {
+          target = total;
+        } else {
+          return Alert.alert(
+            t("Check subject details"),
+            t("Thời gian mục tiêu chạy thử phải từ 1 giây đến 60 phút."),
+          );
+        }
+      }
+    }
     if (
       !subjectForm.name.trim() ||
       subjectForm.name.trim().length > 160 ||
@@ -183,13 +232,12 @@ export default function ManagerTraining() {
       !Number.isInteger(duration) ||
       duration < 15 ||
       duration > 480 ||
-      (subjectForm.sessionType === "TIME_TRIAL" && distance <= 0) ||
-      (target !== undefined && (!Number.isInteger(target) || target < 1 || target > 3_600_000))
+      (subjectForm.sessionType === "TIME_TRIAL" && distance <= 0)
     ) {
       return Alert.alert(
         t("Check subject details"),
         t(
-          "Name is required; distance must be 0–20,000 m (over 0 for trials), duration 15–480 min, and trial target time must be 1–3,600,000 ms.",
+          "Tên môn bắt buộc; cự ly 0–20,000 m (lớn hơn 0 đối với chạy thử), thời lượng 15–480 phút.",
         ),
       );
     }
@@ -230,7 +278,8 @@ export default function ManagerTraining() {
     }
   };
 
-  const editSubject = (subject: ManagerPayload["subjects"][number]) =>
+  const editSubject = (subject: ManagerPayload["subjects"][number]) => {
+    const totalSecs = subject.targetTimeMs ? Math.round(subject.targetTimeMs / 1000) : 0;
     setSubjectForm({
       id: subject.id,
       name: subject.name,
@@ -240,8 +289,10 @@ export default function ManagerTraining() {
       distance: String(subject.plannedDistanceM),
       duration: String(subject.durationMinutes),
       surface: subject.surface ?? "",
-      target: subject.targetTimeMs == null ? "" : String(subject.targetTimeMs),
+      targetMinutes: subject.targetTimeMs ? String(Math.floor(totalSecs / 60)) : "",
+      targetSeconds: subject.targetTimeMs ? String(totalSecs % 60) : "",
     });
+  };
 
   const deleteSubject = (subjectId: string, name: string) =>
     Alert.alert(
@@ -429,11 +480,6 @@ export default function ManagerTraining() {
                       }
                     />
                   </Field>
-                </View>
-
-                {/* Group 3: Thông số kỹ thuật */}
-                <View style={styles.formGroup}>
-                  <Text style={styles.groupHeading}>{t("Technical specifications")}</Text>
                   <Field label={t("Planned distance (m)")}>
                     <NativeInput
                       value={subjectForm.distance}
@@ -463,19 +509,40 @@ export default function ManagerTraining() {
                       placeholder={t("e.g. Dirt track, Turf…")}
                     />
                   </Field>
-                  {subjectForm.sessionType === "TIME_TRIAL" ? (
-                    <Field label={t("Target time (milliseconds, optional)")}>
-                      <NativeInput
-                        value={subjectForm.target}
-                        onChangeText={(value) =>
-                          setSubjectForm((form) => form && { ...form, target: value })
-                        }
-                        keyboardType="number-pad"
-                        placeholder="105000"
-                      />
-                    </Field>
-                  ) : null}
                 </View>
+
+                {/* Group 3: Chỉ hiển thị cho chạy thử (TIME_TRIAL) */}
+                {subjectForm.sessionType === "TIME_TRIAL" ? (
+                  <View style={styles.formGroup}>
+                    <Text style={styles.groupHeading}>{t("Target time")}</Text>
+                    <View style={{ flexDirection: "row", gap: space.sm }}>
+                      <View style={{ flex: 1 }}>
+                        <Field label={t("Minutes")}>
+                          <NativeInput
+                            value={subjectForm.targetMinutes}
+                            onChangeText={(value) =>
+                              setSubjectForm((form) => form && { ...form, targetMinutes: value })
+                            }
+                            keyboardType="number-pad"
+                            placeholder="1"
+                          />
+                        </Field>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Field label={t("Seconds")}>
+                          <NativeInput
+                            value={subjectForm.targetSeconds}
+                            onChangeText={(value) =>
+                              setSubjectForm((form) => form && { ...form, targetSeconds: value })
+                            }
+                            keyboardType="number-pad"
+                            placeholder="18"
+                          />
+                        </Field>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
               </>
             ) : null}
           </BottomSheetModal>
@@ -524,9 +591,9 @@ export default function ManagerTraining() {
             filteredSubjects.map((subject) => {
               const isTrial = subject.sessionType === "TIME_TRIAL";
               return (
-                <Panel key={subject.id} style={{ gap: space.sm }}>
+                <Panel key={subject.id} style={{ gap: space.xs }}>
                   <View style={styles.cardHeaderRow}>
-                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                       <Text style={styles.subjectName} numberOfLines={1}>
                         {subject.name}
                       </Text>
@@ -560,6 +627,32 @@ export default function ManagerTraining() {
                         </View>
                       </View>
                     </View>
+
+                    {/* Compact Action Chips */}
+                    <View style={styles.compactActionRow}>
+                      <Pressable
+                        style={styles.actionChip}
+                        onPress={() => editSubject(subject)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("Edit")}
+                      >
+                        <Ionicons name="create-outline" size={13} color={colors.primary} />
+                        <Text style={[styles.actionChipText, { color: colors.primary }]}>
+                          {t("Edit")}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.actionChip, styles.actionChipDestructive]}
+                        onPress={() => deleteSubject(subject.id, subject.name)}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("Delete")}
+                      >
+                        <Ionicons name="trash-outline" size={13} color={colors.destructive} />
+                        <Text style={[styles.actionChipText, { color: colors.destructive }]}>
+                          {t("Delete")}
+                        </Text>
+                      </Pressable>
+                    </View>
                   </View>
 
                   {/* Metrics Specs Row */}
@@ -586,35 +679,21 @@ export default function ManagerTraining() {
                         <Text style={styles.specText}>{subject.surface}</Text>
                       </View>
                     ) : null}
+                    {subject.targetTimeMs ? (
+                      <View style={styles.targetTimeRow}>
+                        <Ionicons name="stopwatch-outline" size={13} color={colors.primary} />
+                        <Text style={styles.targetTimeText}>
+                          {t("Mục tiêu:")} {formatTargetDisplay(subject.targetTimeMs)}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
-
-                  {subject.targetTimeMs ? (
-                    <Text style={ui.label}>
-                      {t("Target:")} {subject.targetTimeMs} ms
-                    </Text>
-                  ) : null}
 
                   {subject.description ? (
                     <Text style={ui.muted} numberOfLines={2}>
                       {subject.description}
                     </Text>
                   ) : null}
-
-                  {/* Actions */}
-                  <View style={styles.cardActionRow}>
-                    <SecondaryButton
-                      label={t("Edit")}
-                      icon="create-outline"
-                      style={{ flex: 1 }}
-                      onPress={() => editSubject(subject)}
-                    />
-                    <SecondaryButton
-                      label={t("Delete")}
-                      icon="trash-outline"
-                      style={{ flex: 1 }}
-                      onPress={() => deleteSubject(subject.id, subject.name)}
-                    />
-                  </View>
                 </Panel>
               );
             })
@@ -656,45 +735,57 @@ export default function ManagerTraining() {
             const completedSessions = sessions.filter((s) => s.status === "COMPLETED").length;
 
             return (
-              <Panel key={trainingClass.id} style={{ gap: space.sm }}>
-                <View style={styles.cardHeaderRow}>
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text style={styles.classCodeText}>{trainingClass.code}</Text>
-                    <Text style={styles.classNameText} numberOfLines={1}>
-                      {trainingClass.name}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.classStatusBadge,
-                      trainingClass.status === "ACTIVE"
-                        ? { backgroundColor: colors.fitSoft }
-                        : trainingClass.status === "COMPLETED"
-                          ? { backgroundColor: colors.muted }
-                          : { backgroundColor: colors.injuredSoft },
-                    ]}
-                  >
-                    <Text
+              <Panel key={trainingClass.id} style={{ gap: space.xs }}>
+                {/* Header: Code badge and Status badge on top row, Class name on second row */}
+                <View style={{ gap: 6 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={styles.codeBadge}>
+                      <Text style={styles.codeBadgeText}>{trainingClass.code}</Text>
+                    </View>
+                    <View
                       style={[
-                        styles.classStatusBadgeText,
+                        styles.classStatusBadge,
                         trainingClass.status === "ACTIVE"
-                          ? { color: colors.primary }
+                          ? { backgroundColor: colors.fitSoft }
                           : trainingClass.status === "COMPLETED"
-                            ? { color: colors.mutedForeground }
-                            : { color: colors.destructive },
+                            ? { backgroundColor: colors.muted }
+                            : { backgroundColor: colors.injuredSoft },
                       ]}
                     >
-                      {formatEnum(trainingClass.status)}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.classStatusBadgeText,
+                          trainingClass.status === "ACTIVE"
+                            ? { color: colors.primary }
+                            : trainingClass.status === "COMPLETED"
+                              ? { color: colors.mutedForeground }
+                              : { color: colors.destructive },
+                        ]}
+                      >
+                        {formatEnum(trainingClass.status)}
+                      </Text>
+                    </View>
                   </View>
+                  <Text style={styles.classNameText} numberOfLines={2}>
+                    {trainingClass.name}
+                  </Text>
                 </View>
 
-                {/* Plan & Schedule Range */}
+                {/* Plan Badge Line (dedicated row so long plan names do not truncate) */}
+                {planObj ? (
+                  <View style={styles.planBadgeRow}>
+                    <Ionicons name="book-outline" size={13} color={colors.primary} />
+                    <Text style={styles.planBadgeText} numberOfLines={2}>
+                      {t("Giáo án:")} {planObj.name}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* Schedule Range */}
                 <View style={styles.planScheduleRow}>
                   <Ionicons name="calendar-outline" size={13} color={colors.mutedForeground} />
                   <Text style={styles.planScheduleText}>
                     {formatDate(trainingClass.startDate)} – {formatDate(trainingClass.endDate)}
-                    {planObj ? ` · ${planObj.name}` : ""}
                   </Text>
                 </View>
 
@@ -779,6 +870,7 @@ export default function ManagerTraining() {
             payload.performanceRows.map(({ horseId, horseName, summary }) => {
               const latestMetric = summary?.latestMetric;
               const latestEval = summary?.latestEvaluation;
+              const rating = getEvaluationRating(latestEval?.score, latestEval?.comment);
 
               return (
                 <Pressable
@@ -787,7 +879,7 @@ export default function ManagerTraining() {
                 >
                   <Panel style={{ gap: space.sm }}>
                     <View style={styles.cardHeaderRow}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
+                      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                         <Text style={styles.subjectName} numberOfLines={1}>
                           {horseName}
                         </Text>
@@ -798,8 +890,17 @@ export default function ManagerTraining() {
                         </Text>
                       </View>
                       {latestEval ? (
-                        <View style={styles.scoreBadge}>
-                          <Text style={styles.scoreBadgeText}>{latestEval.score}/10</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <View style={styles.scoreBadge}>
+                            <Text style={styles.scoreBadgeText}>{latestEval.score}/10</Text>
+                          </View>
+                          {rating ? (
+                            <View style={[styles.ratingBadge, { backgroundColor: rating.bg }]}>
+                              <Text style={[styles.ratingBadgeText, { color: rating.color }]}>
+                                {rating.label}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
                       ) : null}
                     </View>
@@ -827,9 +928,12 @@ export default function ManagerTraining() {
                     ) : null}
 
                     {latestEval?.comment ? (
-                      <Text style={ui.label} numberOfLines={2}>
-                        {`"${latestEval.comment}"`}
-                      </Text>
+                      <View style={styles.commentBox}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={13} color={colors.primary} />
+                        <Text style={styles.commentText} numberOfLines={2}>
+                          {translateComment(latestEval.comment)}
+                        </Text>
+                      </View>
                     ) : null}
 
                     <View style={styles.drillDownRow}>
@@ -868,7 +972,15 @@ export default function ManagerTraining() {
 
             {/* Step 1: Source Trainer Selection */}
             <View style={{ gap: space.xs }}>
-              <Text style={styles.groupHeading}>{t("Source Head Trainer")}</Text>
+              <View style={styles.stepHeaderRow}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>1</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.groupHeading}>{t("Huấn luyện viên hiện tại")}</Text>
+                  <Text style={ui.muted}>{t("Chọn HLV bàn giao trách nhiệm")}</Text>
+                </View>
+              </View>
               {trainers.map((trainer) => {
                 const isSelected = sourceTrainer === trainer.id;
                 return (
@@ -903,7 +1015,15 @@ export default function ManagerTraining() {
 
             {/* Step 2: Target Trainer Selection */}
             <View style={{ gap: space.xs }}>
-              <Text style={styles.groupHeading}>{t("Receiving Head Trainer")}</Text>
+              <View style={styles.stepHeaderRow}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>2</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.groupHeading}>{t("Huấn luyện viên tiếp nhận")}</Text>
+                  <Text style={ui.muted}>{t("Chọn HLV nhận quản lý khu chuồng và lớp")}</Text>
+                </View>
+              </View>
               {trainers
                 .filter((trainer) => trainer.id !== sourceTrainer)
                 .map((trainer) => {
@@ -942,50 +1062,55 @@ export default function ManagerTraining() {
             {sourceTrainerObj && targetTrainerObj ? (
               <View style={[styles.transferPreviewCard, { gap: 10 }]}>
                 <View style={styles.transferFlowRow}>
-                  <Text style={styles.transferTrainerText} numberOfLines={1}>
-                    {sourceTrainerObj.fullName}
-                  </Text>
+                  <View style={styles.trainerTransferPill}>
+                    <Text style={styles.transferTrainerText} numberOfLines={1}>
+                      {sourceTrainerObj.fullName}
+                    </Text>
+                  </View>
                   <Ionicons name="arrow-forward" size={16} color={colors.primary} />
-                  <Text style={styles.transferTrainerText} numberOfLines={1}>
-                    {targetTrainerObj.fullName}
-                  </Text>
+                  <View style={[styles.trainerTransferPill, { borderColor: colors.primary }]}>
+                    <Text style={styles.transferTrainerText} numberOfLines={1}>
+                      {targetTrainerObj.fullName}
+                    </Text>
+                  </View>
                 </View>
 
                 <View
                   style={{
                     backgroundColor: colors.surface,
                     borderRadius: radius.md,
-                    padding: 10,
-                    gap: 6,
+                    padding: 12,
+                    gap: 8,
+                    width: "100%",
                     borderWidth: 1,
                     borderColor: colors.border,
                   }}
                 >
                   <Text style={{ ...ui.label, fontWeight: "700", color: colors.foreground }}>
-                    Tài nguyên sẽ được chuyển giao:
+                    {t("Tài nguyên sẽ được chuyển giao:")}
                   </Text>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={ui.muted}>Khu chuồng (Barns):</Text>
+                    <Text style={ui.muted}>{t("Khu chuồng (Barns):")}</Text>
                     <Text style={{ ...ui.value, fontSize: 13, fontWeight: "700" }}>
-                      {transferredBarns.length} khu
+                      {transferredBarns.length} {t("khu")}
                       {transferredBarns.length > 0
                         ? ` (${transferredBarns.map((b) => b.name).join(", ")})`
                         : ""}
                     </Text>
                   </View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={ui.muted}>Giáo án huấn luyện:</Text>
+                    <Text style={ui.muted}>{t("Giáo án huấn luyện:")}</Text>
                     <Text style={{ ...ui.value, fontSize: 13, fontWeight: "700" }}>
-                      {transferredPlans.length} giáo án
+                      {transferredPlans.length} {t("giáo án")}
                       {transferredPlans.length > 0
                         ? ` (${transferredPlans.map((p) => p.name).join(", ")})`
                         : ""}
                     </Text>
                   </View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text style={ui.muted}>Lớp đang hoạt động:</Text>
+                    <Text style={ui.muted}>{t("Lớp đang hoạt động:")}</Text>
                     <Text style={{ ...ui.value, fontSize: 13, fontWeight: "700" }}>
-                      {transferredClasses.length} lớp
+                      {transferredClasses.length} {t("lớp")}
                       {transferredClasses.length > 0
                         ? ` (${transferredClasses.map((c) => c.trainingClass.code).join(", ")})`
                         : ""}
@@ -1004,7 +1129,7 @@ export default function ManagerTraining() {
               onPress={() =>
                 Alert.alert(
                   t("Confirm handover"),
-                  `${t("Transfer all barns, plans and unfinished classes from this Head Trainer?")}\n\n• ${transferredBarns.length} khu chuồng\n• ${transferredPlans.length} giáo án\n• ${transferredClasses.length} lớp đang hoạt động`,
+                  `${t("Transfer all barns, plans and unfinished classes from this Head Trainer?")}\n\n• ${transferredBarns.length} ${t("khu chuồng")}\n• ${transferredPlans.length} ${t("giáo án")}\n• ${transferredClasses.length} ${t("lớp đang hoạt động")}`,
                   [
                     { text: t("Cancel"), style: "cancel" },
                     { text: t("Transfer"), style: "destructive", onPress: () => void handover() },
@@ -1366,5 +1491,114 @@ const getStyles = (colors: any) =>
     classStatusBadgeText: {
       fontSize: 11,
       fontWeight: "700",
+    },
+    compactActionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    actionChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+      backgroundColor: colors.fitSoft,
+    },
+    actionChipDestructive: {
+      backgroundColor: colors.injuredSoft,
+    },
+    actionChipText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    targetTimeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    targetTimeText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    codeBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
+    },
+    codeBadgeText: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: colors.primary,
+    },
+    planBadgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.surface,
+      borderRadius: 4,
+      paddingVertical: 2,
+    },
+    planBadgeText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.primary,
+      flex: 1,
+    },
+    ratingBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+    },
+    ratingBadgeText: {
+      fontSize: 11,
+      fontWeight: "800",
+    },
+    commentBox: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 6,
+      padding: 8,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    commentText: {
+      flex: 1,
+      fontSize: 12,
+      fontStyle: "italic",
+      color: colors.foreground,
+      lineHeight: 16,
+    },
+    stepHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.xs,
+      marginBottom: 2,
+    },
+    stepNumberBadge: {
+      width: 20,
+      height: 20,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepNumberText: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: colors.surface,
+    },
+    trainerTransferPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
   });

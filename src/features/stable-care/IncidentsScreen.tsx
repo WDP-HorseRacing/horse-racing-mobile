@@ -28,6 +28,7 @@ import { groomService } from "@/services/groom.service";
 import { mediaService, type LocalMediaAsset } from "@/services/media.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime } from "@/utils/formatters";
+import { formatExamStatus, isQaTestContent } from "@/utils/textCleaner";
 
 export default function IncidentsScreen() {
   const { role: roleParam, horseId: requestedHorseId } = useLocalSearchParams<{
@@ -136,6 +137,7 @@ export default function IncidentsScreen() {
 
   const filteredIncidents = useMemo(() => {
     return incidents.filter((incident) => {
+      if (isQaTestContent(incident.description)) return false;
       if (incidentStatusFilter === "ALL") return true;
       return incident.status === incidentStatusFilter;
     });
@@ -336,13 +338,13 @@ export default function IncidentsScreen() {
   return (
     <Screen
       role={role}
-      title={canReport ? "Stable incidents" : "Incidents"}
+      title={canReport ? "Báo sự cố chuồng trại" : "Sự cố chuồng trại"}
       subtitle={
         canReport
-          ? "Report a horse incident and review your reports"
+          ? "Báo cáo sự cố của ngựa và theo dõi các báo cáo bạn đã gửi"
           : isVet
-            ? "Examine and manage horse incidents"
-            : "Review stable incidents and exam referrals"
+            ? "Tiếp nhận và xử lý sự cố y tế của ngựa"
+            : "Xem lại sự cố chuồng trại và đề xuất chuyển khám"
       }
       back={role !== "groom"}
       fallbackHref={`/${role}` as any}
@@ -725,15 +727,21 @@ export default function IncidentsScreen() {
                   <Text style={styles.incidentHorseName} numberOfLines={1}>
                     {incident.horseName}
                   </Text>
-                  <Text style={styles.incidentMetaText} numberOfLines={1}>
-                    {formatDateTime(incident.createdAt)} · {incident.reporter.fullName}
-                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 4, marginTop: 2 }}>
+                    <Text style={styles.incidentMetaText}>
+                      {formatDateTime(incident.createdAt)}
+                    </Text>
+                    <Text style={styles.incidentMetaText}>·</Text>
+                    <Text style={[styles.incidentMetaText, { color: colors.foreground, fontWeight: "600" }]}>
+                      {incident.reporter.fullName}
+                    </Text>
+                  </View>
                 </View>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 }}>
                   {isUrgent ? (
                     <View style={styles.urgentBadge}>
                       <Ionicons name="flame" size={12} color="#FFFFFF" />
-                      <Text style={styles.urgentBadgeText}>URGENT</Text>
+                      <Text style={styles.urgentBadgeText}>KHẨN CẤP</Text>
                     </View>
                   ) : null}
                   <View
@@ -761,7 +769,7 @@ export default function IncidentsScreen() {
                       ]}
                       numberOfLines={1}
                     >
-                      {isResolved ? t("Resolved") : t("Open")}
+                      {isResolved ? "ĐÃ XỬ LÝ" : "ĐANG MỞ"}
                     </Text>
                   </View>
                 </View>
@@ -788,20 +796,28 @@ export default function IncidentsScreen() {
                 ) : null}
               </View>
 
-              {/* Attached Photo with zoom */}
+              {/* Attached Photo as compact thumbnail */}
               {incident.photoUrl ? (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setEnlargedPhotoUrl(incident.photoUrl)}
-                  style={styles.incidentPhotoContainer}
+                  style={styles.incidentThumbnailRow}
                 >
                   <Image
                     source={{ uri: incident.photoUrl }}
-                    style={styles.incidentPhoto}
+                    style={styles.incidentThumbnail}
                     resizeMode="cover"
                   />
-                  <View style={styles.enlargePhotoBadge}>
-                    <Ionicons name="expand-outline" size={14} color="#FFFFFF" />
+                  <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
+                      Ảnh sự cố đính kèm
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.primary, marginTop: 2 }}>
+                      Chạm để phóng to toàn màn hình →
+                    </Text>
+                  </View>
+                  <View style={styles.zoomButtonIcon}>
+                    <Ionicons name="expand" size={16} color={colors.primary} />
                   </View>
                 </Pressable>
               ) : null}
@@ -811,8 +827,8 @@ export default function IncidentsScreen() {
                 <View style={styles.examRequestBox}>
                   <Ionicons name="medkit-outline" size={16} color={colors.primary} />
                   <Text style={[ui.muted, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
-                    Exam request: {incident.examRequest.status}
-                    {incident.examRequest.urgent ? " · urgent" : ""}
+                    Yêu cầu khám: {formatExamStatus(incident.examRequest.status)}
+                    {incident.examRequest.urgent ? " · Khẩn cấp" : ""}
                   </Text>
                 </View>
               ) : null}
@@ -823,18 +839,18 @@ export default function IncidentsScreen() {
                   <Ionicons name="checkmark-done" size={16} color={colors.primary} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={[ui.value, { fontSize: 13, fontWeight: "600" }]}>
-                      Resolution: {incident.resolution}
+                      Kết quả xử lý: {incident.resolution}
                     </Text>
                     {incident.resolver ? (
-                      <Text style={ui.muted}>Resolved by {incident.resolver.fullName}</Text>
+                      <Text style={ui.muted}>Xử lý bởi {incident.resolver.fullName}</Text>
                     ) : null}
                     {incident.resolutionSource ? (
                       <Text style={ui.muted}>
                         {incident.resolutionSource === "EXAM"
-                          ? "Closed automatically after the vet handled the request"
+                          ? "Đã đóng tự động sau khi Bác sĩ thú y xử lý ca khám"
                           : incident.resolutionSource === "LIFECYCLE"
-                            ? "Closed automatically after a lifecycle change"
-                            : "Closed by the Head Trainer"}
+                            ? "Đã đóng tự động theo thay đổi vòng đời ngựa"
+                            : "Đã đóng bởi Huấn luyện viên trưởng"}
                       </Text>
                     ) : null}
                   </View>
@@ -1250,6 +1266,31 @@ const getStyles = (colors: any) =>
     statusFilterBtnTextActive: {
       color: colors.primary,
       fontWeight: "700",
+    },
+    incidentThumbnailRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      padding: space.xs,
+      borderRadius: radius.md,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginVertical: 4,
+    },
+    incidentThumbnail: {
+      width: 58,
+      height: 58,
+      borderRadius: radius.sm,
+    },
+    zoomButtonIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.fitSoft,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: space.xs,
     },
     incidentPhotoContainer: {
       position: "relative",

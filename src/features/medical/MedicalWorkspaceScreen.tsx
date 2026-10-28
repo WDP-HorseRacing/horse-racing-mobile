@@ -22,11 +22,11 @@ const HEALTH_OPTIONS: {
   label: string;
   tone: "fit" | "monitor" | "injured" | "raceReady" | "default";
 }[] = [
-  { raw: "All health states", label: "All health states", tone: "default" },
-  { raw: "ELIGIBLE", label: "Eligible", tone: "fit" },
-  { raw: "UNDER_OBSERVATION", label: "Under observation", tone: "monitor" },
-  { raw: "INJURED", label: "Injured", tone: "injured" },
-  { raw: "QUARANTINED", label: "Quarantined", tone: "raceReady" },
+  { raw: "All health states", label: "Tất cả trạng thái", tone: "default" },
+  { raw: "ELIGIBLE", label: "Đủ điều kiện", tone: "fit" },
+  { raw: "UNDER_OBSERVATION", label: "Theo dõi", tone: "monitor" },
+  { raw: "INJURED", label: "Chấn thương", tone: "injured" },
+  { raw: "QUARANTINED", label: "Cách ly", tone: "raceReady" },
 ];
 
 function HealthBadge({
@@ -217,7 +217,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
 
           {/* Redesigned Compact Herd Filter Section */}
           <View style={uiStyles.section}>
-            <SectionTitle>Filter herd</SectionTitle>
+            <SectionTitle>Lọc đàn ngựa</SectionTitle>
             <AsyncStateView
               isLoading={barnsResource.isLoading}
               error={barnsResource.error}
@@ -300,7 +300,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
             >
               <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Filter by barn</Text>
+                  <Text style={styles.modalTitle}>Lọc theo khu chuồng</Text>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => setBarnPickerOpen(false)}
@@ -325,7 +325,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
                     ]}
                   >
                     <Text style={[uiStyles.value, barnId === "" && { color: colors.primary }]}>
-                      All barns
+                      Tất cả khu chuồng
                     </Text>
                     {barnId === "" ? (
                       <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -371,7 +371,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
             >
               <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Filter by health status</Text>
+                  <Text style={styles.modalTitle}>Lọc theo trạng thái sức khỏe</Text>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => setHealthPickerOpen(false)}
@@ -415,7 +415,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
 
           {/* Herd by Barn and Stall */}
           <View style={uiStyles.section}>
-            <SectionTitle>Herd by barn and stall</SectionTitle>
+            <SectionTitle>Đàn ngựa theo khu và ô chuồng</SectionTitle>
             {horsesByBarn.map(([groupId, horses]) => (
               <Panel key={groupId}>
                 <Text style={uiStyles.value}>

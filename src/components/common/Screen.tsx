@@ -218,8 +218,8 @@ export function Screen({
           <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
             {t(title)}
           </Text>
-          <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
-            {subtitle ?? `${t(cfg.label)} · ${cfg.scope}`}
+          <Text style={styles.subtitle} numberOfLines={2} ellipsizeMode="tail">
+            {subtitle ? t(subtitle) : `${t(cfg.label)} · ${cfg.scope}`}
           </Text>
         </View>
         <Pressable
