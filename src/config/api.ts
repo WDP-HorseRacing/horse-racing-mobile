@@ -43,7 +43,7 @@ function extractHostIp(): string | undefined {
 export const METRO_HOST_IP = extractHostIp();
 
 function resolveApiBaseUrl(): string {
-  const configured = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+  const configured = process.env.EXPO_PUBLIC_API_URL ?? "https://api.horse.io.vn/api/v1";
   const trimmed = configured.replace(/\/$/, "");
 
   // If already an explicit IP or remote domain, keep as is
