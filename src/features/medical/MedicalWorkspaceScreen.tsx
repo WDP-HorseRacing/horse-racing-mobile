@@ -609,7 +609,7 @@ export function MedicalWorkspaceScreen({ initialRole }: { initialRole?: RoleId }
               );
             })}
 
-            {resource.data.careSchedules.map((schedule) => (
+            {(resource.data.careSchedules ?? []).map((schedule) => (
               <Pressable
                 key={schedule.scheduleId}
                 accessibilityRole="button"

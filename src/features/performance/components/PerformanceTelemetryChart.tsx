@@ -593,67 +593,81 @@ export function PerformanceTelemetryChart({
           >
             {mode === "heartRate" ? (
               <>
-                <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                  Đỉnh:{" "}
-                  <Text
-                    style={{
-                      fontWeight: "700",
-                      color: stats.maxHr >= 240 ? colors.destructive : colors.foreground,
-                    }}
-                  >
-                    {stats.maxHr} bpm
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    Đỉnh:{" "}
+                    <Text
+                      style={{
+                        fontWeight: "700",
+                        color: stats.maxHr >= 240 ? colors.destructive : colors.foreground,
+                      }}
+                    >
+                      {stats.maxHr} bpm
+                    </Text>
                   </Text>
-                </Text>
+                </View>
                 <Text style={[styles.summaryDivider, { color: colors.borderStrong }]}>
                   •
                 </Text>
-                <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                  TB:{" "}
-                  <Text style={{ fontWeight: "700" }}>{stats.avgHr} bpm</Text>
-                </Text>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    TB:{" "}
+                    <Text style={{ fontWeight: "700" }}>{stats.avgHr} bpm</Text>
+                  </Text>
+                </View>
                 <Text style={[styles.summaryDivider, { color: colors.borderStrong }]}>
                   •
                 </Text>
-                <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                  Thấp nhất:{" "}
-                  <Text style={{ fontWeight: "700" }}>{stats.minHr} bpm</Text>
-                </Text>
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    Thấp nhất:{" "}
+                    <Text style={{ fontWeight: "700" }}>{stats.minHr} bpm</Text>
+                  </Text>
+                </View>
               </>
             ) : mode === "speed" ? (
               <>
-                <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                  Tối đa:{" "}
-                  <Text style={{ fontWeight: "700", color: colors.training }}>
-                    {stats.maxSpeed.toFixed(1)} m/s ({(stats.maxSpeed * 3.6).toFixed(1)} km/h)
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    Tối đa:{" "}
+                    <Text style={{ fontWeight: "700", color: colors.training }}>
+                      {stats.maxSpeed.toFixed(1)} m/s ({(stats.maxSpeed * 3.6).toFixed(1)} km/h)
+                    </Text>
                   </Text>
-                </Text>
+                </View>
                 <Text style={[styles.summaryDivider, { color: colors.borderStrong }]}>
                   •
                 </Text>
-                <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                  TB:{" "}
-                  <Text style={{ fontWeight: "700" }}>
-                    {stats.avgSpeed.toFixed(1)} m/s ({(stats.avgSpeed * 3.6).toFixed(1)} km/h)
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    TB:{" "}
+                    <Text style={{ fontWeight: "700" }}>
+                      {stats.avgSpeed.toFixed(1)} m/s ({(stats.avgSpeed * 3.6).toFixed(1)} km/h)
+                    </Text>
                   </Text>
-                </Text>
+                </View>
               </>
             ) : (
               <>
-                <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                  Đỉnh tim:{" "}
-                  <Text style={{ fontWeight: "700", color: colors.destructive }}>
-                    {stats.maxHr} bpm
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    Đỉnh tim:{" "}
+                    <Text style={{ fontWeight: "700", color: colors.destructive }}>
+                      {stats.maxHr} bpm
+                    </Text>
                   </Text>
-                </Text>
+                </View>
                 <Text style={[styles.summaryDivider, { color: colors.borderStrong }]}>
                   •
                 </Text>
-                <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                  Tốc độ đỉnh:{" "}
-                  <Text style={{ fontWeight: "700", color: colors.training }}>
-                    {stats.maxSpeed.toFixed(1)} m/s
+                <View style={styles.summaryItem}>
+                  <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    Tốc độ đỉnh:{" "}
+                    <Text style={{ fontWeight: "700", color: colors.training }}>
+                      {stats.maxSpeed.toFixed(1)} m/s
+                    </Text>
                   </Text>
-                </Text>
+                </View>
               </>
             )}
           </View>
@@ -787,12 +801,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: space.sm,
-    paddingVertical: 7,
-    paddingHorizontal: space.md,
+    flexWrap: "wrap",
+    rowGap: 6,
+    columnGap: space.sm,
+    paddingVertical: 8,
+    paddingHorizontal: space.sm,
     borderRadius: radius.md,
     borderWidth: 1,
     marginTop: 2,
+  },
+  summaryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
   },
   summaryText: {
     fontSize: 12,

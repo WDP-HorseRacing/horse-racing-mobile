@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { View, StyleSheet, Alert, ScrollView } from "react-native";
+import { View, StyleSheet, Alert, ScrollView, Pressable } from "react-native";
 import { router, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
@@ -248,6 +248,12 @@ export function ParticipantPerformanceView({
     return showAllMetrics ? reversed : reversed.slice(0, 30);
   }, [metrics, showAllMetrics]);
 
+  // Derived lowest recorded heart rate
+  const minHeartRateBpm = useMemo(() => {
+    if (!metrics.length) return null;
+    return Math.min(...metrics.map((m) => m.heartRateBpm));
+  }, [metrics]);
+
   return (
     <Screen
       role={role}
@@ -279,13 +285,21 @@ export function ParticipantPerformanceView({
             onStartSimulationRequest={handleToggleStreaming}
           />
 
-          {/* Performance Summary Metrics Grid */}
+          {/* Performance Summary Metrics Grid (Balanced 8 items) */}
           <View style={ui.section}>
             <SectionTitle>Tổng quan chỉ số đo</SectionTitle>
             <View style={ui.metricGrid}>
               <Metric
                 label="Tổng điểm đo"
                 value={summary?.count ?? metrics.length}
+              />
+              <Metric
+                label="Nhịp tim thấp nhất"
+                value={
+                  minHeartRateBpm == null
+                    ? "—"
+                    : `${minHeartRateBpm} bpm`
+                }
               />
               <Metric
                 label="Nhịp tim trung bình"
@@ -304,8 +318,10 @@ export function ParticipantPerformanceView({
                 }
                 tone={
                   summary?.maxHeartRateBpm && summary.maxHeartRateBpm >= 240
-                    ? "warning"
-                    : "default"
+                    ? "danger"
+                    : summary?.maxHeartRateBpm && summary.maxHeartRateBpm >= 180
+                      ? "warning"
+                      : "default"
                 }
               />
               <Metric
@@ -316,9 +332,6 @@ export function ParticipantPerformanceView({
                     : `${summary.avgSpeedMps.toFixed(1)} m/s (${(summary.avgSpeedMps * 3.6).toFixed(1)} km/h)`
                 }
               />
-            </View>
-
-            <View style={ui.metricGrid}>
               <Metric
                 label="Vận tốc tối đa"
                 value={
@@ -335,7 +348,7 @@ export function ParticipantPerformanceView({
               <Metric
                 label="Nguy cấp (≥ 240 bpm)"
                 value={summary?.criticalCount ?? 0}
-                tone={summary?.criticalCount ? "warning" : "default"}
+                tone={summary?.criticalCount ? "danger" : "default"}
               />
             </View>
           </View>
@@ -358,23 +371,108 @@ export function ParticipantPerformanceView({
             <View style={ui.section}>
               <SectionTitle>Đánh giá buổi tập</SectionTitle>
               {evaluation ? (
-                <Panel style={{ gap: 6 }}>
-                  <Text style={ui.value}>Điểm số {evaluation.score}/10</Text>
-                  <Text style={ui.muted}>{evaluation.comment ?? "Không có ghi chú của HLV"}</Text>
-                  <Text style={ui.label}>
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.lg,
+                    padding: space.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    gap: space.sm,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <View
+                        style={{
+                          backgroundColor: colors.fitSoft,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: radius.pill,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Ionicons name="star" size={14} color={colors.primary} />
+                        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
+                          {evaluation.score}/10
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
+                        Đánh giá của HLV
+                      </Text>
+                    </View>
+                    {canWriteEvaluation && evaluationHref ? (
+                      <Pressable
+                        onPress={() => router.push(evaluationHref(true))}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 4,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: radius.pill,
+                          backgroundColor: colors.background,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                        }}
+                      >
+                        <Ionicons name="create-outline" size={14} color={colors.foreground} />
+                        <Text
+                          style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}
+                        >
+                          Sửa
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+
+                  <Text
+                    style={[
+                      ui.body,
+                      {
+                        color: evaluation.comment ? colors.foreground : colors.mutedForeground,
+                        fontStyle: evaluation.comment ? "normal" : "italic",
+                      },
+                    ]}
+                  >
+                    {evaluation.comment ?? "Không có ghi chú của HLV"}
+                  </Text>
+
+                  <Text style={[ui.label, { fontSize: 11 }]}>
                     Cập nhật lúc {formatDateTime(evaluation.updatedAt)}
                   </Text>
-                </Panel>
+                </View>
               ) : (
-                <Text style={ui.muted}>Chưa có bản ghi đánh giá buổi tập nào.</Text>
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.lg,
+                    padding: space.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    gap: space.sm,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={ui.muted}>Chưa có bản ghi đánh giá buổi tập nào.</Text>
+                  {canWriteEvaluation && evaluationHref ? (
+                    <PrimaryButton
+                      label="Thêm đánh giá buổi tập"
+                      icon="star-outline"
+                      style={{ width: "100%", marginTop: 4 }}
+                      onPress={() => router.push(evaluationHref(false))}
+                    />
+                  ) : null}
+                </View>
               )}
-              {canWriteEvaluation && evaluationHref ? (
-                <PrimaryButton
-                  label={evaluation ? "Sửa đánh giá" : "Thêm đánh giá"}
-                  icon="star-outline"
-                  onPress={() => router.push(evaluationHref(Boolean(evaluation)))}
-                />
-              ) : null}
             </View>
           )}
 

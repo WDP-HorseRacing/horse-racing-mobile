@@ -5,7 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -139,6 +142,35 @@ export function Injury3DMapper({
   } | null>(null);
   const compatibleIds =
     compatibility?.horseId === horseId ? compatibility.injuryIds : EMPTY_INJURY_IDS;
+
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    // Auto-confirm draft markers if valid and complete so user isn't blocked on submit
+    const updated = drafts.map((draft) => {
+      if (!draft.confirmed && isValidInjuryDraft({ ...draft, confirmed: true })) {
+        return { ...draft, confirmed: true };
+      }
+      return draft;
+    });
+    onDraftsChange(updated);
+    setVisible(false);
+  }, [drafts, onDraftsChange]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -431,56 +463,60 @@ export function Injury3DMapper({
         visible={visible}
         animationType="slide"
         presentationStyle="fullScreen"
-        onRequestClose={() => setVisible(false)}
+        onRequestClose={handleCloseModal}
         statusBarTranslucent={false}
       >
-        <View
-          style={[
-            styles.modalRoot,
-            {
-              paddingTop: Math.max(insets.top, space.sm),
-            },
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <View style={styles.modalHeader}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t("Close 3D injury map")}
-              onPress={() => setVisible(false)}
-              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-              style={styles.headerButton}
-            >
-              <Ionicons name="close" size={24} color={colors.foreground} />
-            </Pressable>
-            <View style={styles.headerTitle}>
-              <Text style={uiStyles.value} numberOfLines={1}>
-                {t("3D injury map")}
-              </Text>
-              <Text style={uiStyles.muted} numberOfLines={1}>
-                {t("Horse-local coordinates · metres")}
-              </Text>
-            </View>
-            <View style={styles.headerRightActions}>
+          <View
+            style={[
+              styles.modalRoot,
+              {
+                paddingTop: Math.max(insets.top, space.sm),
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t("Reset camera")}
-                onPress={() => postToViewer({ type: "RESET_CAMERA" })}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel={t("Close 3D injury map")}
+                onPress={handleCloseModal}
+                hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                 style={styles.headerButton}
               >
-                <Ionicons name="scan-outline" size={20} color={colors.foreground} />
+                <Ionicons name="close" size={24} color={colors.foreground} />
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Done")}
-                onPress={() => setVisible(false)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={styles.headerDoneButton}
-              >
-                <Text style={styles.headerDoneText}>{t("Done")}</Text>
-              </Pressable>
+              <View style={styles.headerTitle}>
+                <Text style={uiStyles.value} numberOfLines={1}>
+                  {t("3D injury map")}
+                </Text>
+                <Text style={uiStyles.muted} numberOfLines={1}>
+                  {t("Horse-local coordinates · metres")}
+                </Text>
+              </View>
+              <View style={styles.headerRightActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Reset camera")}
+                  onPress={() => postToViewer({ type: "RESET_CAMERA" })}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={styles.headerButton}
+                >
+                  <Ionicons name="scan-outline" size={20} color={colors.foreground} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Done")}
+                  onPress={handleCloseModal}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={styles.headerDoneButton}
+                >
+                  <Text style={styles.headerDoneText}>{t("Done")}</Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
 
           <View style={styles.modeBar}>
             <Pressable
@@ -551,7 +587,12 @@ export function Injury3DMapper({
             ) : null}
           </View>
 
-          <View style={styles.viewerFrame}>
+          <View
+            style={[
+              styles.viewerFrame,
+              isKeyboardVisible && styles.viewerFrameKeyboard,
+            ]}
+          >
             {html ? (
               <WebView<WebViewProps>
                 ref={webViewRef}
@@ -605,9 +646,13 @@ export function Injury3DMapper({
           </View>
 
           <ScrollView
-            style={styles.editorScroll}
-            contentContainerStyle={styles.editorContent}
+            style={[styles.editorScroll, isKeyboardVisible && styles.editorScrollKeyboard]}
+            contentContainerStyle={[
+              styles.editorContent,
+              isKeyboardVisible && { paddingBottom: 160 },
+            ]}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
           >
             {allowNew ? (
               <Panel>
@@ -873,15 +918,18 @@ export function Injury3DMapper({
             ) : null}
           </ScrollView>
 
-          <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
-            <PrimaryButton
-              label="Close 3D injury map"
-              icon="checkmark-circle-outline"
-              onPress={() => setVisible(false)}
-            />
-          </View>
+          {!isKeyboardVisible ? (
+            <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
+              <PrimaryButton
+                label="Close 3D injury map"
+                icon="checkmark-circle-outline"
+                onPress={handleCloseModal}
+              />
+            </View>
+          ) : null}
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+    </Modal>
     </>
   );
 }
@@ -1029,6 +1077,12 @@ const getStyles = (colors: any) =>
       borderWidth: 1,
       borderColor: colors.border,
     },
+    viewerFrameKeyboard: {
+      flex: 0,
+      minHeight: 110,
+      height: 110,
+      marginVertical: 2,
+    },
     webView: { flex: 1, backgroundColor: "#f4f3ef" },
     loadingOverlay: {
       ...StyleSheet.absoluteFill,
@@ -1042,6 +1096,10 @@ const getStyles = (colors: any) =>
     errorContent: { gap: space.sm, paddingHorizontal: space.md },
     confirmedNotice: { flexDirection: "row", alignItems: "center", gap: space.xs },
     editorScroll: { flexGrow: 0, maxHeight: "47%" },
+    editorScrollKeyboard: {
+      flex: 1,
+      maxHeight: undefined,
+    },
     editorContent: { padding: space.md, gap: space.sm, paddingBottom: space.xl },
     editorSection: { gap: space.sm, paddingTop: space.md },
     markerCard: {

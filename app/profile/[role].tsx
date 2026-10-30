@@ -1,6 +1,7 @@
 import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View, StyleSheet, Pressable, Alert, Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { isRole, roles } from "@/features/auth/roles";
 import { Screen, SectionTitle } from "@/components/common";
@@ -385,14 +386,15 @@ export default function Profile() {
         </Panel>
       </View>
 
-      <View style={[uiStyles.section, { gap: space.sm, marginTop: space.sm }]}>
-        <PrimaryButton
-          label="End-to-end workflow"
-          icon="git-merge-outline"
-          onPress={() => router.push("/flow" as any)}
-        />
-        <Pressable style={styles.signOutBtn} onPress={() => void auth.signOut()}>
-          <Text style={styles.signOutText}>Sign out</Text>
+      <View style={[uiStyles.section, { gap: space.sm, marginTop: space.md, marginBottom: space.xl }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("Sign out")}
+          style={[styles.signOutBtn, { backgroundColor: colors.destructive }]}
+          onPress={() => void auth.signOut()}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.signOutText}>{t("Sign out")}</Text>
         </Pressable>
       </View>
     </Screen>
@@ -507,15 +509,22 @@ const getStyles = (colors: any) =>
       textAlign: "right",
     },
     signOutBtn: {
-      height: 48,
+      height: 52,
       borderRadius: radius.md,
+      flexDirection: "row",
       justifyContent: "center",
       alignItems: "center",
+      gap: space.xs,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+      elevation: 3,
     },
     signOutText: {
-      color: colors.foreground,
-      opacity: 0.85,
-      fontSize: 14,
-      fontWeight: "500",
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+      letterSpacing: 0.3,
     },
   });

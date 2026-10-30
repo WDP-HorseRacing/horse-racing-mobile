@@ -150,7 +150,7 @@ export function IoTSimulatorControlCard({
         </View>
       </View>
 
-      {/* Live Readout Dashboard */}
+      {/* Live Readout Dashboard (2x2 Grid) */}
       <View
         style={[
           styles.readoutGrid,
@@ -165,8 +165,6 @@ export function IoTSimulatorControlCard({
             {emittedCount}
           </Text>
         </View>
-
-        <View style={[styles.readoutDivider, { backgroundColor: colors.border }]} />
 
         <View style={styles.readoutItem}>
           <Text style={[styles.readoutLabel, { color: colors.mutedForeground }]}>
@@ -183,8 +181,6 @@ export function IoTSimulatorControlCard({
             )}
           </View>
         </View>
-
-        <View style={[styles.readoutDivider, { backgroundColor: colors.border }]} />
 
         <View style={styles.readoutItem}>
           <Text style={[styles.readoutLabel, { color: colors.mutedForeground }]}>
@@ -207,8 +203,6 @@ export function IoTSimulatorControlCard({
             )}
           </View>
         </View>
-
-        <View style={[styles.readoutDivider, { backgroundColor: colors.border }]} />
 
         <View style={styles.readoutItem}>
           <Text style={[styles.readoutLabel, { color: colors.mutedForeground }]}>
@@ -246,8 +240,8 @@ export function IoTSimulatorControlCard({
         <PrimaryButton
           label={
             isStreaming
-              ? "⏸ Tạm dừng phát tín hiệu"
-              : "▶ Bắt đầu phát nhịp tim tự động (3s/điểm)"
+              ? "Tạm dừng phát tín hiệu"
+              : "Phát nhịp tim tự động (3s/lần)"
           }
           icon={isStreaming ? "pause" : "pulse"}
           disabled={disabled || isSending}
@@ -272,19 +266,19 @@ export function IoTSimulatorControlCard({
           ]}
         >
           <View style={styles.spikeButtonContent}>
-            <Ionicons name="flash" size={18} color="#FFFFFF" />
+            <Ionicons name="flash" size={17} color="#FFFFFF" />
             <Text style={styles.spikeButtonText}>
-              ⚡ Kích hoạt vọt nhịp tim (Nguy cấp - 248 bpm)
+              ⚡ Kích hoạt vọt nhịp tim (248 bpm)
             </Text>
           </View>
           <Text style={styles.spikeButtonHint}>
-            Phát xung nhịp tim 248 bpm vượt ngưỡng an toàn (≥ 240 bpm) để kích hoạt cảnh báo khẩn cấp tới Bác sĩ & HLV
+            Phát xung nhịp tim 248 bpm (≥ 240 bpm) để kích hoạt cảnh báo nguy cấp tới Bác sĩ & HLV
           </Text>
         </Pressable>
 
         {/* Row 3: Single Test Point */}
         <SecondaryButton
-          label="➕ Gửi 1 điểm đo chuẩn (150 - 180 bpm)"
+          label="Gửi 1 điểm đo chuẩn (150 - 180 bpm)"
           icon="add-circle-outline"
           disabled={disabled || isSending}
           onPress={onEmitSinglePoint}
@@ -349,40 +343,38 @@ const styles = StyleSheet.create({
   },
   readoutGrid: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    paddingVertical: space.sm,
-    paddingHorizontal: space.md,
+    padding: space.sm,
     borderRadius: radius.md,
     borderWidth: 1,
+    rowGap: space.sm,
   },
   readoutItem: {
-    flex: 1,
+    width: "48%",
     alignItems: "center",
-    gap: 2,
-  },
-  readoutDivider: {
-    width: 1,
-    height: 28,
+    justifyContent: "center",
+    paddingVertical: 4,
+    gap: 3,
   },
   readoutLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.3,
   },
   readoutValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
   },
   levelChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
     marginTop: 2,
   },
   levelChipText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.2,
   },

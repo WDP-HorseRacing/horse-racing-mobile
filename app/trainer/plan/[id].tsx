@@ -51,6 +51,7 @@ import {
 import { formatDate, formatDateTime } from "@/utils/formatters";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { radius, space } from "@/config/theme";
+import { TrainingClassCalendarView } from "@/features/training/components/TrainingClassCalendarView";
 
 type HorseSortOption = "name_asc" | "name_desc" | "recently_added" | "oldest";
 const SORT_OPTIONS: { id: HorseSortOption; label: string }[] = [
@@ -924,95 +925,18 @@ export default function TrainingClassDetail() {
                   rest gaps; all repeated sessions are saved together or none are saved.
                 </Text>
               </BottomSheetModal>
-              {payload.sessions.length ? (
-                payload.sessions.map((session) => (
-                  <Pressable
-                    key={session.id}
-                    onPress={() => router.push(`/trainer/plan/${classId}/session/${session.id}`)}
-                  >
-                    <Panel
-                      style={{
-                        gap: 6,
-                        borderLeftWidth: 4,
-                        borderLeftColor:
-                          session.status === "IN_PROGRESS"
-                            ? colors.destructive
-                            : session.status === "COMPLETED"
-                              ? colors.fit
-                              : colors.primary,
-                      }}
-                    >
-                      <View style={ui.row}>
-                        <Text style={[ui.value, { flex: 1, minWidth: 0, fontSize: 15, fontWeight: "800" }]} numberOfLines={1}>
-                          {session.name}
-                        </Text>
-                        <View
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                            borderRadius: radius.pill,
-                            backgroundColor:
-                              session.status === "IN_PROGRESS"
-                                ? colors.injuredSoft
-                                : session.status === "COMPLETED"
-                                  ? colors.muted
-                                  : colors.fitSoft,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontWeight: "700",
-                              color:
-                                session.status === "IN_PROGRESS"
-                                  ? colors.destructive
-                                  : session.status === "COMPLETED"
-                                    ? colors.mutedForeground
-                                    : colors.primary,
-                            }}
-                          >
-                            {formatTrainingStatus(session.status)}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Ionicons name="time-outline" size={13} color={colors.primary} />
-                        <Text style={ui.muted}>
-                          {formatDateTime(session.scheduledStartAt)} →{" "}
-                          {formatDateTime(session.scheduledEndAt)}
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 2 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                          <Ionicons name="school-outline" size={13} color={colors.mutedForeground} />
-                          <Text style={ui.label}>{formatSessionType(session.sessionType, t)}</Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                          <Ionicons name="flame-outline" size={13} color="#f59e0b" />
-                          <Text style={ui.label}>{formatIntensity(session.intensity, t)}</Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                          <Ionicons name="flag-outline" size={13} color={colors.primary} />
-                          <Text style={ui.label}>{session.plannedDistanceM.toLocaleString()} m</Text>
-                        </View>
-                      </View>
-                      {session.cancelReason ? (
-                        <Text style={{ ...ui.muted, color: colors.destructive }}>
-                          Đã hủy: {session.cancelReason}
-                        </Text>
-                      ) : null}
-                    </Panel>
-                  </Pressable>
-                ))
-              ) : (
-                <AsyncStateView
-                  isLoading={false}
-                  error={null}
-                  onRetry={() => void resource.refresh()}
-                  empty
-                  emptyLabel="Chưa có buổi tập nào. Hãy lên lịch buổi tập cho lớp này."
-                />
-              )}
+              <TrainingClassCalendarView
+                sessions={payload.sessions}
+                classId={classId}
+                canAddSession={payload.trainingClass.status === "ACTIVE"}
+                onAddSession={(date) => {
+                  if (date) setSessionDate(date);
+                  setShowSessionForm(true);
+                }}
+                onSelectSession={(session) => {
+                  router.push(`/trainer/plan/${classId}/session/${session.id}` as Href);
+                }}
+              />
             </View>
           ) : null}
         </>

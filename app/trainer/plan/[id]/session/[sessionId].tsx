@@ -648,6 +648,19 @@ export default function TrainingSessionDetail() {
                     clockNow,
                   );
                 const canComplete = participant.status === "ONGOING";
+                const isTerminalParticipant = [
+                  "COMPLETED",
+                  "STOPPED",
+                  "ABSENT",
+                  "SKIPPED",
+                ].includes(participant.status);
+                const isTerminalSession = ["COMPLETED", "CANCELLED"].includes(
+                  session?.status ?? "",
+                );
+                const canAssignGroom =
+                  payload.trainingClass.status === "ACTIVE" &&
+                  !isTerminalSession &&
+                  !isTerminalParticipant;
                 return (
                   <Panel key={participant.id} style={{ gap: 9 }}>
                     <View style={ui.row}>
@@ -658,8 +671,8 @@ export default function TrainingSessionDetail() {
                         <Text style={ui.muted} numberOfLines={1}>
                           {formatTrainingStatus(participant.status)}
                           {participant.assignedGroomName
-                            ? ` · ${participant.assignedGroomName}`
-                            : " · Chưa phân công Groom"}
+                            ? ` · Groom: ${participant.assignedGroomName}`
+                            : " · Chưa gán Groom"}
                         </Text>
                       </View>
                       {participant.trainingLocked ? (
@@ -763,7 +776,7 @@ export default function TrainingSessionDetail() {
                       </Panel>
                     ))}
 
-                    {payload.trainingClass.status === "ACTIVE" ? (
+                    {canAssignGroom ? (
                       <View style={{ gap: 8 }}>
                         <SecondaryButton
                           label={
@@ -1004,6 +1017,109 @@ export default function TrainingSessionDetail() {
                       </View>
                     ) : null}
 
+                    {/* Trainer Evaluation Block when Completed / Stopped */}
+                    {session &&
+                    session.status !== "CANCELLED" &&
+                    ["COMPLETED", "STOPPED"].includes(participant.status) ? (
+                      evaluation ? (
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            backgroundColor: colors.surface,
+                            borderRadius: radius.md,
+                            paddingHorizontal: space.md,
+                            paddingVertical: space.sm,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                          }}
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 8,
+                              flex: 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            <View
+                              style={{
+                                backgroundColor: colors.fitSoft,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: radius.pill,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <Ionicons name="star" size={13} color={colors.primary} />
+                              <Text
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: "800",
+                                  color: colors.primary,
+                                }}
+                              >
+                                {evaluation.score}/10
+                              </Text>
+                            </View>
+                            <Text
+                              style={[ui.muted, { flex: 1, fontSize: 13 }]}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              {evaluation.comment || t("Đã hoàn tất đánh giá")}
+                            </Text>
+                          </View>
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() =>
+                              router.push(
+                                `/trainer/eval/${participant.id}?edit=1&horse=${encodeURIComponent(participant.horseName)}&session=${encodeURIComponent(session!.name)}` as Href,
+                              )
+                            }
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 4,
+                              paddingHorizontal: 12,
+                              paddingVertical: 6,
+                              borderRadius: radius.pill,
+                              backgroundColor: colors.background,
+                              borderWidth: 1,
+                              borderColor: colors.border,
+                              marginLeft: 8,
+                            }}
+                          >
+                            <Ionicons name="create-outline" size={14} color={colors.foreground} />
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                fontWeight: "700",
+                                color: colors.foreground,
+                              }}
+                            >
+                              {t("Sửa")}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <PrimaryButton
+                          label="Đánh giá buổi tập"
+                          icon="star-outline"
+                          onPress={() =>
+                            router.push(
+                              `/trainer/eval/${participant.id}?horse=${encodeURIComponent(participant.horseName)}&session=${encodeURIComponent(session!.name)}` as Href,
+                            )
+                          }
+                        />
+                      )
+                    ) : null}
+
+                    {/* Participant Action Buttons */}
                     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                       <SecondaryButton
                         label="Hiệu suất & Biểu đồ IoT"
@@ -1025,36 +1141,6 @@ export default function TrainingSessionDetail() {
                           );
                         }}
                       />
-                      {session &&
-                      session.status !== "CANCELLED" &&
-                      ["COMPLETED", "STOPPED"].includes(participant.status) &&
-                      !evaluation ? (
-                        <SecondaryButton
-                          label="Add evaluation"
-                          icon="star-outline"
-                          style={{ flexGrow: 1 }}
-                          onPress={() =>
-                            router.push(
-                              `/trainer/eval/${participant.id}?horse=${encodeURIComponent(participant.horseName)}&session=${encodeURIComponent(session!.name)}` as Href,
-                            )
-                          }
-                        />
-                      ) : null}
-                      {evaluation && session && session.status !== "CANCELLED" ? (
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Text style={[ui.label, { alignSelf: "center", color: colors.primary }]}>
-                            Evaluated · {evaluation.score}/10
-                          </Text>
-                          <SecondaryButton
-                            label="Edit evaluation"
-                            onPress={() =>
-                              router.push(
-                                `/trainer/eval/${participant.id}?edit=1&horse=${encodeURIComponent(participant.horseName)}&session=${encodeURIComponent(session!.name)}` as Href,
-                              )
-                            }
-                          />
-                        </View>
-                      ) : null}
                       {session &&
                       session.status !== "CANCELLED" &&
                       session?.sessionType === "TIME_TRIAL" &&

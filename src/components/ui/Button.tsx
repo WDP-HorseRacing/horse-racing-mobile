@@ -13,12 +13,14 @@ export function PrimaryButton({
   icon = "arrow-forward",
   disabled = false,
   style,
+  numberOfLines = 2,
 }: {
   label: string;
   onPress: () => void;
   icon?: IconName;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  numberOfLines?: number;
 }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -36,7 +38,7 @@ export function PrimaryButton({
         style,
       ]}
     >
-      <Text style={styles.buttonText} numberOfLines={1} ellipsizeMode="tail">
+      <Text style={styles.buttonText} numberOfLines={numberOfLines} ellipsizeMode="tail">
         {t(label)}
       </Text>
       {icon && <Ionicons name={icon} size={18} color="#FFFFFF" />}
@@ -117,12 +119,14 @@ export function DangerButton({
   icon,
   disabled = false,
   style,
+  numberOfLines = 2,
 }: {
   label: string;
   onPress: () => void;
   icon?: IconName;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  numberOfLines?: number;
 }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -140,7 +144,7 @@ export function DangerButton({
         style,
       ]}
     >
-      <Text style={styles.dangerButtonText} numberOfLines={1} ellipsizeMode="tail">
+      <Text style={styles.dangerButtonText} numberOfLines={numberOfLines} ellipsizeMode="tail">
         {t(label)}
       </Text>
       {icon && <Ionicons name={icon} size={18} color="#FFFFFF" />}
@@ -154,12 +158,14 @@ export function SecondaryButton({
   icon,
   disabled = false,
   style,
+  numberOfLines = 2,
 }: {
   label: string;
   onPress: () => void;
   icon?: IconName;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  numberOfLines?: number;
 }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -177,7 +183,7 @@ export function SecondaryButton({
         style,
       ]}
     >
-      <Text style={styles.secondaryButtonText} numberOfLines={1} ellipsizeMode="tail">
+      <Text style={styles.secondaryButtonText} numberOfLines={numberOfLines} ellipsizeMode="tail">
         {t(label)}
       </Text>
       {icon && <Ionicons name={icon} size={18} color={colors.foreground} />}

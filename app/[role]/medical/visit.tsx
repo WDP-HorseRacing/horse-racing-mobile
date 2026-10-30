@@ -175,13 +175,14 @@ export default function MedicalVisitForm() {
     [resource.data],
   );
   const openCase = resource.data?.cases.items.find((item) => item.status === "OPEN");
+  const activeCaseId = caseId || openCase?.id || "";
   const carePrefill = resource.data?.care.current?.careInstructions ?? "";
   const finalCareInstructions = careInstructions.trim() || carePrefill;
 
   if (!role) return <Redirect href="/" />;
   if (role !== "vet") return <Redirect href={`/${role}` as Href} />;
 
-  const opensCase = Boolean(caseId) || conclusion === "ISSUE";
+  const opensCase = Boolean(activeCaseId) || conclusion === "ISSUE";
 
   const onSelectConclusion = (selected: "NORMAL" | "ISSUE") => {
     if (selected === "NORMAL" && injuryDrafts.length > 0) {
@@ -226,166 +227,20 @@ export default function MedicalVisitForm() {
     setNextVisitTime(parts.time || "09:00");
   };
 
-  const submit = async () => {
+  const executeSave = async () => {
     if (!resource.data || !token || saving) return;
-    if (!caseId && openCase) {
-      Alert.alert(
-        t("An open case already exists"),
-        t("Record a follow-up inside the current case."),
-        [
-          {
-            text: t("Open case"),
-            onPress: () => router.push(`/${role}/medical/cases/${openCase.id}` as Href),
-          },
-          { text: t("Close") },
-        ],
-      );
-      return;
-    }
-    if (!caseId && kind === "REQUEST" && !selectedRequests.length) {
-      Alert.alert(
-        t("Select a request"),
-        t(
-          "A request-based examination must be linked to at least one pending request for this horse.",
-        ),
-      );
-      return;
-    }
-    if (conclusion === "ISSUE" && !isValidRequiredText(initialDiagnosis, 2000)) {
-      Alert.alert(
-        t("Initial diagnosis required"),
-        t("An examination with an issue must create a case with an initial diagnosis."),
-      );
-      return;
-    }
-    if (
-      (diagnosis.trim() && diagnosis.trim().length > 4000) ||
-      (careInstructions.trim() && careInstructions.trim().length > 2000) ||
-      selectedRequests.length > 20
-    ) {
-      Alert.alert(
-        t("Examination details are too long"),
-        t(
-          "Diagnosis is limited to 4,000 characters, care notes to 2,000, and a visit can link at most 20 requests.",
-        ),
-      );
-      return;
-    }
-    if (
-      healthStatus &&
-      healthStatus !== resource.data.horse.healthStatus &&
-      !isValidRequiredText(healthReason, 500)
-    ) {
-      Alert.alert(
-        t("Health change reason required"),
-        t("Enter a reason when changing the horse’s health status."),
-      );
-      return;
-    }
-    if (
-      nextVisitDate &&
-      (!isValidDateOnly(nextVisitDate) ||
-        !isNotPastDateTime(toClubDateTime(nextVisitDate, nextVisitTime) ?? ""))
-    ) {
-      Alert.alert(t("Invalid follow-up date"), t("Choose a valid future date for the next visit."));
-      return;
-    }
 
     const measurements: VisitInputDto["measurements"] = [];
     for (const item of measurementInputs) {
       const text = measurementValues[item.type]?.trim();
       if (!text) continue;
       const value = Number(text);
-      const range = MEDICAL_MEASUREMENT_RANGES[item.type];
-      if (!isValidMedicalMeasurement(item.type, value)) {
-        Alert.alert(
-          t("Invalid measurement"),
-          `${item.label} must be between ${range.min} and ${range.max}.`,
-        );
-        return;
-      }
       measurements.push({ type: item.type, value });
     }
 
     const hasPrescription = Boolean(
       medicine.trim() || dosage.trim() || frequency.trim() || prescriptionEnd.trim(),
     );
-    if (
-      hasPrescription &&
-      (!medicine.trim() ||
-        !dosage.trim() ||
-        !frequency.trim() ||
-        medicine.trim().length > 160 ||
-        dosage.trim().length > 160 ||
-        frequency.trim().length > 160 ||
-        !isValidDateOnly(prescriptionStart) ||
-        (prescriptionEnd && !isValidDateOnly(prescriptionEnd)))
-    ) {
-      Alert.alert(
-        t("Prescription incomplete"),
-        t("Enter medicine, dosage, frequency, a valid start date, and a valid optional end date."),
-      );
-      return;
-    }
-    if (prescriptionEnd && prescriptionEnd < prescriptionStart) {
-      Alert.alert(
-        t("Invalid prescription dates"),
-        t("The prescription end date cannot be before the start date."),
-      );
-      return;
-    }
-    if (hasPrescription && !opensCase && !prescriptionEnd.trim()) {
-      Alert.alert(
-        t("Prescription end date required"),
-        t(
-          "A visit that does not open a case must have an end date for every prescription.",
-        ),
-      );
-      return;
-    }
-
-    if (!opensCase && nextVisitDate) {
-      Alert.alert(
-        t("Follow-up appointment not allowed"),
-        t(
-          "Follow-up appointments can only be scheduled when opening or following up a medical case.",
-        ),
-      );
-      return;
-    }
-
-    if (injuryDrafts.length + injuryUpdates.length > 20) {
-      Alert.alert(
-        t("Too many injury changes"),
-        t("A visit can contain at most 20 new markers and recovery updates combined."),
-      );
-      return;
-    }
-    if (injuryDrafts.some((marker) => !isValidInjuryDraft(marker))) {
-      Alert.alert(
-        t("Injury details incomplete"),
-        t(
-          "Confirm the body region, injury type, recovery status, and position for every new marker.",
-        ),
-      );
-      return;
-    }
-    if (!opensCase && injuryDrafts.length > 0) {
-      Alert.alert(
-        t("Injury requires a treatment case"),
-        t(
-          "A new injury can be saved with a standalone examination only when it opens a treatment case.",
-        ),
-      );
-      return;
-    }
-    if (!caseId && injuryUpdates.length > 0) {
-      Alert.alert(
-        t("Follow-up required"),
-        t("Existing injury status can be updated only during a follow-up inside its open case."),
-      );
-      return;
-    }
 
     const base: VisitInputDto = {
       ...(replacesRecordId ? { replacesRecordId } : {}),
@@ -418,7 +273,7 @@ export default function MedicalVisitForm() {
             newInjuries: toNewInjuryApiInputs(injuryDrafts),
           }
         : {}),
-      ...(caseId && injuryUpdates.length
+      ...(activeCaseId && injuryUpdates.length
         ? {
             injuryUpdates: toInjuryUpdateApiInputs(injuryUpdates),
           }
@@ -427,8 +282,8 @@ export default function MedicalVisitForm() {
 
     setSaving(true);
     try {
-      const record = caseId
-        ? await medicalService.createFollowUpVisit(token, caseId, base)
+      const record = activeCaseId
+        ? await medicalService.createFollowUpVisit(token, activeCaseId, base)
         : await medicalService.createStandaloneVisit(token, resource.data.resolvedHorseId, {
             ...base,
             kind,
@@ -469,11 +324,216 @@ export default function MedicalVisitForm() {
     }
   };
 
+  const submit = () => {
+    if (!resource.data || !token || saving) return;
+
+    if (!activeCaseId && kind === "REQUEST" && !selectedRequests.length) {
+      Alert.alert(
+        t("Chưa chọn yêu cầu khám"),
+        t(
+          "Hình thức Khám theo yêu cầu bắt buộc phải liên kết với ít nhất một yêu cầu khám đang chờ xử lý.",
+        ),
+      );
+      return;
+    }
+
+    if (!activeCaseId && conclusion === "ISSUE" && !isValidRequiredText(initialDiagnosis, 2000)) {
+      Alert.alert(
+        t("Thiếu Chẩn đoán ban đầu"),
+        t(
+          "Khi chọn Kết luận 'Có vấn đề, mở bệnh án', trường Chẩn đoán ban đầu là bắt buộc nhập.",
+        ),
+      );
+      return;
+    }
+
+    if (
+      (diagnosis.trim() && diagnosis.trim().length > 4000) ||
+      (careInstructions.trim() && careInstructions.trim().length > 2000) ||
+      selectedRequests.length > 20
+    ) {
+      Alert.alert(
+        t("Nội dung quá dài"),
+        t(
+          "Chẩn đoán chi tiết tối đa 4.000 ký tự, hướng dẫn chăm sóc tối đa 2.000 ký tự và tối đa 20 yêu cầu khám.",
+        ),
+      );
+      return;
+    }
+
+    if (
+      healthStatus &&
+      healthStatus !== resource.data.horse.healthStatus &&
+      !isValidRequiredText(healthReason, 500)
+    ) {
+      Alert.alert(
+        t("Thiếu Lý do thay đổi sức khỏe"),
+        t(
+          "Bạn đã thay đổi trạng thái sức khỏe của ngựa. Vui lòng nhập Lý do thay đổi trạng thái sức khỏe (tối đa 500 ký tự).",
+        ),
+      );
+      return;
+    }
+
+    if (
+      nextVisitDate &&
+      (!isValidDateOnly(nextVisitDate) ||
+        !isNotPastDateTime(toClubDateTime(nextVisitDate, nextVisitTime) ?? ""))
+    ) {
+      Alert.alert(
+        t("Ngày tái khám không hợp lệ"),
+        t("Vui lòng chọn một ngày hợp lệ trong tương lai cho buổi tái khám tiếp theo (YYYY-MM-DD)."),
+      );
+      return;
+    }
+
+    for (const item of measurementInputs) {
+      const text = measurementValues[item.type]?.trim();
+      if (!text) continue;
+      const value = Number(text);
+      const range = MEDICAL_MEASUREMENT_RANGES[item.type];
+      if (!isValidMedicalMeasurement(item.type, value)) {
+        Alert.alert(
+          t("Chỉ số đo không hợp lệ"),
+          `${item.label} (${text}) phải nằm trong khoảng hợp lệ từ ${range.min} đến ${range.max}.`,
+        );
+        return;
+      }
+    }
+
+    const hasPrescription = Boolean(
+      medicine.trim() || dosage.trim() || frequency.trim() || prescriptionEnd.trim(),
+    );
+    if (hasPrescription) {
+      if (!medicine.trim()) {
+        Alert.alert(t("Đơn thuốc chưa đầy đủ"), t("Vui lòng nhập Tên thuốc trong đơn thuốc."));
+        return;
+      }
+      if (!dosage.trim()) {
+        Alert.alert(t("Đơn thuốc chưa đầy đủ"), t("Vui lòng nhập Liều lượng trong đơn thuốc."));
+        return;
+      }
+      if (!frequency.trim()) {
+        Alert.alert(t("Đơn thuốc chưa đầy đủ"), t("Vui lòng nhập Tần suất dùng thuốc trong đơn thuốc."));
+        return;
+      }
+      if (
+        medicine.trim().length > 160 ||
+        dosage.trim().length > 160 ||
+        frequency.trim().length > 160
+      ) {
+        Alert.alert(
+          t("Đơn thuốc quá dài"),
+          t("Tên thuốc, liều lượng và tần suất mỗi trường tối đa 160 ký tự."),
+        );
+        return;
+      }
+      if (!isValidDateOnly(prescriptionStart)) {
+        Alert.alert(t("Đơn thuốc chưa đầy đủ"), t("Ngày bắt đầu dùng thuốc không hợp lệ (YYYY-MM-DD)."));
+        return;
+      }
+      if (prescriptionEnd && !isValidDateOnly(prescriptionEnd)) {
+        Alert.alert(t("Đơn thuốc chưa đầy đủ"), t("Ngày kết thúc dùng thuốc không hợp lệ (YYYY-MM-DD)."));
+        return;
+      }
+      if (prescriptionEnd && prescriptionEnd < prescriptionStart) {
+        Alert.alert(
+          t("Ngày đơn thuốc không hợp lệ"),
+          t("Ngày kết thúc đơn thuốc không được trước ngày bắt đầu dùng thuốc."),
+        );
+        return;
+      }
+      if (!opensCase && !prescriptionEnd.trim()) {
+        Alert.alert(
+          t("Thiếu ngày kết thúc đơn thuốc"),
+          t(
+            "Buổi khám thông thường (không mở bệnh án) bắt buộc phải có Ngày kết thúc cho mỗi đơn thuốc.",
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!opensCase && nextVisitDate) {
+      Alert.alert(
+        t("Không thể hẹn tái khám"),
+        t(
+          "Lịch hẹn tái khám chỉ áp dụng khi mở bệnh án điều trị mới hoặc là buổi tái khám trong bệnh án.",
+        ),
+      );
+      return;
+    }
+
+    if (injuryDrafts.length + injuryUpdates.length > 20) {
+      Alert.alert(
+        t("Quá nhiều chấn thương"),
+        t("Một buổi khám tối đa chứa 20 điểm chấn thương mới và cập nhật kết hợp."),
+      );
+      return;
+    }
+
+    if (!opensCase && injuryDrafts.length > 0) {
+      Alert.alert(
+        t("Chấn thương yêu cầu mở bệnh án"),
+        t(
+          "Bạn đã gắn điểm chấn thương trên bản đồ 3D. Buổi khám có chấn thương mới bắt buộc phải chọn Kết luận là 'Có vấn đề, mở bệnh án' (hoặc xóa ghim chấn thương nếu chỉ là khám định kỳ bình thường).",
+        ),
+      );
+      return;
+    }
+
+    const unconfirmedDraft = injuryDrafts.find((marker) => !marker.confirmed);
+    if (unconfirmedDraft) {
+      Alert.alert(
+        t("Chấn thương 3D chưa xác nhận"),
+        t(
+          `Bạn có điểm chấn thương ở vùng ${formatEnum(t(unconfirmedDraft.bodyRegion))} chưa nhấn 'Xác nhận ghim chấn thương'. Vui lòng mở lại Bản đồ 3D để xác nhận ghim.`,
+        ),
+      );
+      return;
+    }
+
+    if (injuryDrafts.some((marker) => !isValidInjuryDraft(marker))) {
+      Alert.alert(
+        t("Chi tiết chấn thương chưa hợp lệ"),
+        t(
+          "Vui lòng kiểm tra lại vùng cơ thể, loại chấn thương, tình trạng hồi phục và tọa độ của từng ghim mới.",
+        ),
+      );
+      return;
+    }
+
+    if (!activeCaseId && injuryUpdates.length > 0) {
+      Alert.alert(
+        t("Yêu cầu tái khám trong bệnh án"),
+        t(
+          "Cập nhật tiến triển của chấn thương cũ chỉ được thực hiện khi tái khám bên trong bệnh án đang mở.",
+        ),
+      );
+      return;
+    }
+
+    Alert.alert(
+      t("Lưu kết quả khám?"),
+      conclusion === "ISSUE" && !activeCaseId
+        ? t("Hệ thống sẽ tự động tạo một bệnh án điều trị đang mở cùng buổi khám này.")
+        : t("Buổi khám này sẽ được lưu vào lịch sử y tế của ngựa."),
+      [
+        { text: t("Xem lại"), style: "cancel" },
+        { text: t("Lưu"), onPress: () => void executeSave() },
+      ],
+    );
+  };
+
   return (
     <Screen
       role="vet"
-      title={caseId ? "Follow-up examination" : "Record examination"}
-      subtitle={resource.data?.horse.name ?? "Veterinary visit"}
+      title={activeCaseId ? "Buổi khám trong bệnh án" : "Ghi buổi khám"}
+      subtitle={
+        activeCaseId
+          ? `${resource.data?.horse.name ?? "Veterinary visit"} · Bệnh án #${activeCaseId.slice(0, 8)}`
+          : (resource.data?.horse.name ?? "Veterinary visit")
+      }
       back
       fallbackHref="/vet/medical"
       refreshing={resource.isRefreshing}
@@ -507,6 +567,28 @@ export default function MedicalVisitForm() {
               </View>
             ))}
           </View>
+
+          {/* Open Case Auto-Link Banner */}
+          {openCase && !caseId ? (
+            <View
+              style={[
+                styles.openCaseBanner,
+                { backgroundColor: colors.fitSoft, borderColor: colors.primary },
+              ]}
+            >
+              <Ionicons name="medical" size={24} color={colors.primary} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[styles.openCaseBannerTitle, { color: colors.primary }]}>
+                  {t("Tự động liên kết vào Bệnh án điều trị")} (#{openCase.id.slice(0, 8)})
+                </Text>
+                <Text style={[styles.openCaseBannerText, { color: colors.foreground }]}>
+                  {t(
+                    "Ngựa đang có bệnh án điều trị mở. Buổi khám này sẽ được tự động ghi nhận thành một lần khám diễn tiến trong bệnh án, và yêu cầu khám khẩn sẽ được hoàn thành.",
+                  )}
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {/* SECTION A: Patient Clinical Profile Header */}
           <View style={uiStyles.section}>
@@ -551,7 +633,7 @@ export default function MedicalVisitForm() {
           <View style={uiStyles.section}>
             <SectionTitle>{t("1. Examination reason")}</SectionTitle>
 
-            {!caseId ? (
+            {!activeCaseId ? (
               <View style={styles.segmentedSelectorRow}>
                 <Pressable
                   accessibilityRole="button"
@@ -628,7 +710,7 @@ export default function MedicalVisitForm() {
             ) : null}
 
             {/* If On-Demand: Request Selector */}
-            {caseId || kind === "REQUEST" || selectedRequests.length ? (
+            {activeCaseId || kind === "REQUEST" || selectedRequests.length ? (
               <View style={{ gap: space.xs, marginTop: space.xs }}>
                 {(pendingRequests as ExamRequestDto[]).map((request) => {
                   const isSelected = selectedRequests.includes(request.id);
@@ -771,7 +853,7 @@ export default function MedicalVisitForm() {
           <View style={uiStyles.section}>
             <SectionTitle>{t("3. Clinical findings & conclusion")}</SectionTitle>
 
-            {!caseId ? (
+            {!activeCaseId ? (
               <View style={styles.segmentedSelectorRow}>
                 <Pressable
                   accessibilityRole="button"
@@ -852,7 +934,7 @@ export default function MedicalVisitForm() {
               />
             </Field>
 
-            {!caseId && conclusion === "ISSUE" ? (
+            {!activeCaseId && conclusion === "ISSUE" ? (
               <Field label="Initial case diagnosis (required)">
                 <NativeInput
                   value={initialDiagnosis}
@@ -952,12 +1034,12 @@ export default function MedicalVisitForm() {
                       drafts={injuryDrafts}
                       onDraftsChange={(markers) => {
                         setInjuryDrafts(markers);
-                        if (markers.length && !caseId) setConclusion("ISSUE");
+                        if (markers.length && !activeCaseId) setConclusion("ISSUE");
                       }}
                       updates={injuryUpdates}
                       onUpdatesChange={setInjuryUpdates}
                       allowNew
-                      allowFollowUpUpdates={Boolean(caseId)}
+                      allowFollowUpUpdates={Boolean(activeCaseId)}
                       historyUnavailable={resource.data.injuryHistoryUnavailable}
                     />
                   ) : null}
@@ -1088,28 +1170,25 @@ export default function MedicalVisitForm() {
 
           {/* Sticky Bottom Action Bar */}
           <View style={styles.bottomBar}>
+            {openCase && !caseId ? (
+              <View style={styles.bottomBarWarningRow}>
+                <Ionicons name="information-circle" size={16} color={colors.primary} />
+                <Text style={[styles.bottomBarWarningText, { color: colors.primary }]}>
+                  {t("Tự động lưu vào bệnh án đang mở")} (#{openCase.id.slice(0, 8)})
+                </Text>
+              </View>
+            ) : null}
             <PrimaryButton
               label={
                 saving
-                  ? "Saving examination…"
-                  : caseId
-                    ? "Save follow-up"
-                    : "Save examination record"
+                  ? t("Saving examination…")
+                  : activeCaseId
+                    ? t("Lưu vào bệnh án")
+                    : t("Save examination record")
               }
               icon="checkmark-done-outline"
-              disabled={saving || (!caseId && Boolean(openCase))}
-              onPress={() =>
-                Alert.alert(
-                  t("Save examination?"),
-                  conclusion === "ISSUE" && !caseId
-                    ? t("Hệ thống sẽ tự động tạo một bệnh án điều trị đang mở cùng buổi khám này.")
-                    : t("This visit will be recorded in the horse’s medical history."),
-                  [
-                    { text: t("Review"), style: "cancel" },
-                    { text: t("Save"), onPress: () => void submit() },
-                  ],
-                )
-              }
+              disabled={saving}
+              onPress={submit}
             />
           </View>
         </>
@@ -1120,6 +1199,50 @@ export default function MedicalVisitForm() {
 
 function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
   return StyleSheet.create({
+    openCaseBanner: {
+      flexDirection: "row",
+      padding: space.md,
+      borderRadius: radius.md,
+      borderWidth: 1.5,
+      gap: space.sm,
+      alignItems: "flex-start",
+      marginBottom: space.sm,
+    },
+    openCaseBannerTitle: {
+      fontSize: 14,
+      fontWeight: "800",
+    },
+    openCaseBannerText: {
+      fontSize: 12,
+      lineHeight: 17,
+      opacity: 0.9,
+    },
+    openCaseBannerBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      alignSelf: "flex-start",
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: radius.pill,
+      marginTop: 4,
+    },
+    openCaseBannerBtnText: {
+      color: "#FFFFFF",
+      fontSize: 12,
+      fontWeight: "700",
+    },
+    bottomBarWarningRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      justifyContent: "center",
+      marginBottom: 6,
+    },
+    bottomBarWarningText: {
+      fontSize: 12,
+      fontWeight: "700",
+    },
     patientCard: {
       gap: space.xs,
       borderColor: colors.border,

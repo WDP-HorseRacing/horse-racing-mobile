@@ -57,7 +57,7 @@ export function mapGroomTodayToTasks(today: GroomTodayDto): Task[] {
       });
     }
 
-    for (const run of horse.trainingRuns) {
+    for (const run of horse.trainingRuns ?? []) {
       const action =
         run.status === "PLANNED" || run.status === "ABSENT"
           ? "check-in"
@@ -95,7 +95,7 @@ export function mapGroomTodayToTasks(today: GroomTodayDto): Task[] {
       });
     }
 
-    for (const schedule of horse.careSchedules) {
+    for (const schedule of horse.careSchedules ?? []) {
       tasks.push({
         id: `care:${schedule.id}`,
         sourceId: schedule.id,

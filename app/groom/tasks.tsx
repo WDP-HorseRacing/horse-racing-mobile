@@ -193,6 +193,8 @@ export default function GroomTasks() {
           {/* Horse Tasks List */}
           {filteredHorses.map((horse) => {
             const items = horse.checklist?.items ?? [];
+            const trainingRuns = Array.isArray(horse.trainingRuns) ? horse.trainingRuns : [];
+            const careSchedules = Array.isArray(horse.careSchedules) ? horse.careSchedules : [];
             const horseDone = items.filter((i) => i.done).length;
             const vetAppointments = (resource.data?.horseVetAppointments ?? []).filter(
               (appointment) => appointment.horseId === horse.horseId,
@@ -449,8 +451,8 @@ export default function GroomTasks() {
 
                 {/* Training Runs Section */}
                 <Text style={[ui.value, { marginTop: space.sm }]}>{t("Training runs")}</Text>
-                {horse.trainingRuns.length ? (
-                  horse.trainingRuns.map((run) => (
+                {trainingRuns.length ? (
+                  trainingRuns.map((run) => (
                     <Panel key={run.participantId}>
                       <Text style={ui.value}>{run.sessionName}</Text>
                       <Text style={ui.muted}>
@@ -479,8 +481,8 @@ export default function GroomTasks() {
 
                 {/* Care Schedules Section */}
                 <Text style={[ui.value, { marginTop: space.sm }]}>{t("Care schedules")}</Text>
-                {horse.careSchedules.length ? (
-                  horse.careSchedules.map((schedule) => (
+                {careSchedules.length ? (
+                  careSchedules.map((schedule) => (
                     <Panel key={schedule.id}>
                       <Text style={ui.value}>
                         {schedule.type.replaceAll("_", " ")}

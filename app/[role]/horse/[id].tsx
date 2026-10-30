@@ -1290,8 +1290,8 @@ export default function HorseProfile() {
                 <Text style={uiStyles.muted}>No medical visits are recorded.</Text>
               )}
               <SectionTitle>Care schedule history</SectionTitle>
-              {medicalResource.data.careSchedules.length ? (
-                medicalResource.data.careSchedules.map((schedule) => (
+              {(medicalResource.data.careSchedules ?? []).length ? (
+                (medicalResource.data.careSchedules ?? []).map((schedule) => (
                   <Panel key={schedule.id}>
                     <View style={uiStyles.row}>
                       <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>

@@ -4,7 +4,7 @@ import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from "re
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen } from "@/components/common";
-import { BottomSheetModal, Chips, Field, NativeInput, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
+import { Chips, Field, NativeInput, PrimaryButton, SecondaryButton, getUiStyles } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
 import { useTheme } from "@/hooks/useTheme";
@@ -339,21 +339,26 @@ export default function ExaminationRequests() {
               onPress={() => handleTabChange(tab.key)}
               style={[styles.tabButton, isActive && styles.tabButtonActive]}
             >
-              <Ionicons
-                name={tab.icon}
-                size={15}
-                color={isActive ? "#ffffff" : colors.mutedForeground}
-              />
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]} numberOfLines={1}>
-                {tab.label}
-              </Text>
-              {typeof count === "number" && count > 0 ? (
-                <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                    {count}
-                  </Text>
-                </View>
-              ) : null}
+              <View style={styles.tabContentGroup}>
+                <Ionicons
+                  name={tab.icon}
+                  size={14}
+                  color={isActive ? "#ffffff" : colors.mutedForeground}
+                />
+                <Text
+                  style={[styles.tabText, isActive && styles.tabTextActive]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+                {typeof count === "number" && count > 0 ? (
+                  <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                    <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                      {count}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </Pressable>
           );
         })}
@@ -985,54 +990,63 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     tabContainer: {
       flexDirection: "row",
       backgroundColor: colors.surface,
-      borderRadius: radius.pill,
-      padding: 3,
+      borderRadius: 14,
+      padding: 4,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: 3,
+      gap: 4,
       marginBottom: space.sm,
     },
     tabButton: {
       flex: 1,
-      flexDirection: "row",
+      minWidth: 0,
+      height: 44,
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
-      paddingVertical: 8,
-      paddingHorizontal: 4,
-      borderRadius: radius.pill,
+      paddingHorizontal: 6,
+      borderRadius: 10,
     },
     tabButtonActive: {
       backgroundColor: colors.primary,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
+      shadowOpacity: 0.12,
       shadowRadius: 2,
       elevation: 2,
     },
+    tabContentGroup: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+      maxWidth: "100%",
+    },
     tabText: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: "600",
       color: colors.mutedForeground,
+      textAlign: "center",
+      flexShrink: 1,
     },
     tabTextActive: {
       color: "#ffffff",
       fontWeight: "700",
     },
     tabBadge: {
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      borderRadius: radius.pill,
+      paddingHorizontal: 4,
+      height: 16,
+      minWidth: 16,
+      borderRadius: 8,
       backgroundColor: colors.muted,
-      minWidth: 18,
       alignItems: "center",
       justifyContent: "center",
+      flexShrink: 0,
     },
     tabBadgeActive: {
       backgroundColor: "rgba(255,255,255,0.25)",
     },
     tabBadgeText: {
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: "700",
       color: colors.foreground,
     },
