@@ -101,6 +101,7 @@ export default function MedicalVisitDetail() {
 
   const record = resource.data;
   const isNormal = record?.conclusion === "NORMAL";
+  const isIssue = record?.conclusion === "ISSUE";
   const isAuthorVet = role === "vet" && record?.vetId === user?.userId;
   const horseLifecycle = record?.horse.lifecycleStatus;
   const canEditClinicalRecord =
@@ -196,31 +197,43 @@ export default function MedicalVisitDetail() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
                 <View style={styles.kindBadge}>
                   <Ionicons
-                    name={record.kind === "ROUTINE" ? "calendar-outline" : "alert-circle-outline"}
+                    name={
+                      record.kind === "ROUTINE"
+                        ? "calendar-outline"
+                        : record.kind === "FOLLOW_UP"
+                          ? "refresh-outline"
+                          : "alert-circle-outline"
+                    }
                     size={14}
                     color={colors.primary}
                   />
                   <Text style={styles.kindBadgeText}>
-                    {record.kind === "ROUTINE" ? "Khám định kỳ" : "Khám theo yêu cầu"}
+                    {record.kind === "ROUTINE"
+                      ? "Khám định kỳ"
+                      : record.kind === "FOLLOW_UP"
+                        ? "Tái khám"
+                        : "Khám theo yêu cầu"}
                   </Text>
                 </View>
               </View>
 
-              <View
-                style={[
-                  styles.conclusionBadge,
-                  isNormal ? styles.conclusionBadgeNormal : styles.conclusionBadgeIssue,
-                ]}
-              >
-                <Text
+              {record.conclusion ? (
+                <View
                   style={[
-                    styles.conclusionBadgeText,
-                    isNormal ? styles.conclusionBadgeTextNormal : styles.conclusionBadgeTextIssue,
+                    styles.conclusionBadge,
+                    isNormal ? styles.conclusionBadgeNormal : styles.conclusionBadgeIssue,
                   ]}
                 >
-                  {isNormal ? "BÌNH THƯỜNG" : "CÓ VẤN ĐỀ"}
-                </Text>
-              </View>
+                  <Text
+                    style={[
+                      styles.conclusionBadgeText,
+                      isNormal ? styles.conclusionBadgeTextNormal : styles.conclusionBadgeTextIssue,
+                    ]}
+                  >
+                    {isIssue ? "CÓ VẤN ĐỀ" : "BÌNH THƯỜNG"}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             {/* Diagnosis & Resulting Health */}

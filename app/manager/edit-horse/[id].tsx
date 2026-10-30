@@ -633,7 +633,7 @@ function EditHorseForm({
           >
             <Ionicons name="git-network-outline" size={18} color={colors.training} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
               2. Nguồn gốc & Phả hệ
             </Text>

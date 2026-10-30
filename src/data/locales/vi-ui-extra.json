@@ -2743,5 +2743,20 @@
   "Follow-up appointments can only be scheduled when opening or following up a medical case.": "Chỉ có thể đặt lịch hẹn tái khám khi mở bệnh án mới hoặc theo dõi bệnh án đang mở.",
   "Normal examinations do not open a medical case and cannot save new injuries. Switching to Normal will clear your injury markers.": "Buổi khám bình thường không mở bệnh án và không thể lưu chấn thương mới. Chuyển sang Bình thường sẽ xóa các dấu chấn thương đang vẽ.",
   "Clear and select Normal": "Xóa và chọn Bình thường",
-  "Keep Issue": "Giữ Có vấn đề"
+  "Keep Issue": "Giữ Có vấn đề",
+  "Injury history could not be loaded": "Không tải được lịch sử chấn thương",
+  "Check your connection and reload before updating recovery status.": "Kiểm tra kết nối và tải lại dữ liệu trước khi cập nhật tình trạng hồi phục.",
+  "{count} unhealed injury": "Còn {count} chấn thương chưa lành",
+  "{count} unhealed injuries": "Còn {count} chấn thương chưa lành",
+  "Eligible updates the horse's health status. Update each injury to Healed separately before closing the case.": "Đủ điều kiện cập nhật trạng thái sức khỏe của ngựa. Cần cập nhật từng chấn thương thành Đã lành trước khi đóng bệnh án.",
+  "Show injury update section": "Mở phần cập nhật chấn thương",
+  "Injury section is open": "Phần cập nhật chấn thương đã mở",
+  "5. Injury recovery updates": "5. Cập nhật hồi phục chấn thương",
+  "Review injury recovery status in the 3D map": "Kiểm tra tình trạng hồi phục trên bản đồ 3D",
+  "Tap to review unhealed injuries and update recovery": "Chạm để xem chấn thương chưa lành và cập nhật hồi phục",
+  "Open 3D map & recovery updates": "Mở bản đồ 3D và cập nhật hồi phục",
+  "To close the case, update each injury that has healed to HEALED in this follow-up.": "Để đóng bệnh án, hãy cập nhật từng chấn thương đã lành thành ĐÃ LÀNH trong buổi tái khám này.",
+  "Injury details could not be loaded. Refresh before updating recovery status.": "Không tải được chi tiết chấn thương. Hãy tải lại trước khi cập nhật tình trạng hồi phục.",
+  "And {count} more.": "Và {count} chấn thương khác.",
+  "The preview reports unhealed injuries, but their details are out of sync. Refresh to load the latest status.": "Bản xem trước báo còn chấn thương chưa lành nhưng danh sách chi tiết chưa đồng bộ. Hãy tải lại để lấy trạng thái mới nhất."
 }

@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useRefreshOnFocus } from "@/hooks/useRefreshOnFocus";
+import { useI18n } from "@/context/I18nContext";
 import { useTheme } from "@/hooks/useTheme";
 import { radius, space } from "@/config/theme";
 import { isRole } from "@/features/auth/roles";
@@ -43,6 +44,7 @@ export default function MedicalCaseDetail() {
   const role = isRole(roleParam) ? roleParam : null;
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const { token, user } = useAuth();
+  const { t } = useI18n();
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
@@ -96,6 +98,13 @@ export default function MedicalCaseDetail() {
   useRefreshOnFocus(resource.revalidate);
   const medicalCase = resource.data?.medicalCase;
   const visits = medicalCase?.visits ?? [];
+  const unhealedInjuries = useMemo(
+    () =>
+      (resource.data?.injuries ?? []).filter(
+        (injury) => injury.currentRecoveryStatus !== "HEALED",
+      ),
+    [resource.data?.injuries],
+  );
   const isVet = role === "vet";
   const canCorrectConclusion =
     isVet &&
@@ -543,6 +552,7 @@ export default function MedicalCaseDetail() {
 
             {visits.map((visit, index) => {
               const isNormal = visit.conclusion === "NORMAL";
+              const isIssue = visit.conclusion === "ISSUE";
               return (
                 <View key={visit.id} style={styles.visitCard}>
                   <Pressable
@@ -555,26 +565,32 @@ export default function MedicalCaseDetail() {
                           <Text style={styles.visitNumberText}>#{visits.length - index}</Text>
                         </View>
                         <Text style={styles.visitKindText}>
-                          {visit.kind === "ROUTINE" ? "Khám định kỳ" : "Khám theo yêu cầu"}
+                          {visit.kind === "ROUTINE"
+                            ? "Khám định kỳ"
+                            : visit.kind === "FOLLOW_UP"
+                              ? "Tái khám"
+                              : "Khám theo yêu cầu"}
                         </Text>
                       </View>
-                      <View
-                        style={[
-                          styles.conclusionBadge,
-                          isNormal ? styles.conclusionBadgeNormal : styles.conclusionBadgeIssue,
-                        ]}
-                      >
-                        <Text
+                      {visit.conclusion ? (
+                        <View
                           style={[
-                            styles.conclusionBadgeText,
-                            isNormal
-                              ? styles.conclusionBadgeTextNormal
-                              : styles.conclusionBadgeTextIssue,
+                            styles.conclusionBadge,
+                            isNormal ? styles.conclusionBadgeNormal : styles.conclusionBadgeIssue,
                           ]}
                         >
-                          {isNormal ? "BÌNH THƯỜNG" : "CÓ VẤN ĐỀ"}
-                        </Text>
-                      </View>
+                          <Text
+                            style={[
+                              styles.conclusionBadgeText,
+                              isNormal
+                                ? styles.conclusionBadgeTextNormal
+                                : styles.conclusionBadgeTextIssue,
+                            ]}
+                          >
+                            {isIssue ? "CÓ VẤN ĐỀ" : "BÌNH THƯỜNG"}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
 
                     <Text style={styles.visitDateText}>
@@ -820,11 +836,62 @@ export default function MedicalCaseDetail() {
                             { color: colors.destructive, fontWeight: "700" },
                           ]}
                         >
-                          • Còn {resource.data.preview.unhealedInjuryCount} chấn thương chưa lành.
+                          • Còn {resource.data.preview.unhealedInjuryCount} chấn thương của ngựa chưa lành (kể cả bệnh án trước).
                         </Text>
                         <Text style={[uiStyles.muted, { fontSize: 13, color: colors.destructive }]}>
-                          Hệ thống không cho phép đóng bệnh án khi còn vết thương chưa lành (trừ trường hợp ghi nhận ngựa mất).
+                          Hệ thống không cho phép đóng bệnh án khi ngựa còn chấn thương chưa lành (trừ khi ghi nhận ngựa mất).
                         </Text>
+                        <View style={{ marginTop: space.xs, gap: space.xs }}>
+                          <Text style={[uiStyles.muted, { fontSize: 12, fontWeight: "700" }]}>
+                            Chấn thương cần cập nhật
+                          </Text>
+                          {resource.data.injuryHistoryUnavailable ? (
+                            <Text style={[uiStyles.muted, { fontSize: 12, color: colors.destructive }]}>
+                              Injury details could not be loaded. Refresh before updating recovery status.
+                            </Text>
+                          ) : unhealedInjuries.length ? (
+                            <View style={{ gap: 6 }}>
+                              {unhealedInjuries.slice(0, 5).map((injury) => (
+                                <View
+                                  key={injury.id}
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: space.xs,
+                                    padding: space.xs,
+                                    borderRadius: radius.sm,
+                                    backgroundColor: colors.surface,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                  }}
+                                >
+                                  <Ionicons name="bandage-outline" size={16} color={colors.destructive} />
+                                  <Text
+                                    style={[uiStyles.muted, { flex: 1, fontSize: 12 }]}
+                                    translatable={false}
+                                  >
+                                    {formatEnum(t(injury.bodyRegion))} · {formatEnum(t(injury.injuryType))}
+                                  </Text>
+                                  <Text
+                                    style={{ color: colors.destructive, fontSize: 11, fontWeight: "700" }}
+                                    translatable={false}
+                                  >
+                                    {formatEnum(t(injury.currentRecoveryStatus))}
+                                  </Text>
+                                </View>
+                              ))}
+                              {unhealedInjuries.length > 5 ? (
+                                <Text style={[uiStyles.muted, { fontSize: 12 }]}>
+                                  And {unhealedInjuries.length - 5} more.
+                                </Text>
+                              ) : null}
+                            </View>
+                          ) : (
+                            <Text style={[uiStyles.muted, { fontSize: 12, color: colors.destructive }]}>
+                              The preview reports unhealed injuries, but their details are out of sync. Refresh to load the latest status.
+                            </Text>
+                          )}
+                        </View>
                         <Pressable
                           accessibilityRole="button"
                           onPress={() => {

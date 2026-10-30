@@ -453,7 +453,7 @@ export function Injury3DMapper({
           </Text>
         ) : null}
         <PrimaryButton
-          label="Open 3D injury map"
+          label={allowFollowUpUpdates ? "Open 3D map & recovery updates" : "Open 3D injury map"}
           icon="body-outline"
           onPress={() => setVisible(true)}
         />
@@ -852,6 +852,11 @@ export function Injury3DMapper({
                     "Only unhealed injuries can receive a recovery update. The original body region and position remain unchanged.",
                   )}
                 </Text>
+                {existingInjuries.some((injury) => injury.currentRecoveryStatus !== "HEALED") ? (
+                  <Text style={[uiStyles.muted, { fontSize: 12, color: colors.primary }]}>
+                    To close the case, update each injury that has healed to HEALED in this follow-up.
+                  </Text>
+                ) : null}
                 {existingInjuries
                   .filter((injury) => injury.currentRecoveryStatus !== "HEALED")
                   .map((injury) => {

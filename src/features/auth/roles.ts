@@ -1,4 +1,5 @@
 import type { RoleId } from "@/lib/raceos-data";
+export type { RoleId };
 
 export type RoleConfig = {
   id: RoleId;

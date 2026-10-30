@@ -89,10 +89,8 @@ export function HorseRow({
             </View>
           ) : null}
           {aptitudeLabel ? (
-            <View style={[styles.metaPill, styles.metaPillHighlight]}>
-              <Text style={[styles.metaPillText, styles.metaPillTextHighlight]}>
-                {aptitudeLabel}
-              </Text>
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>{aptitudeLabel}</Text>
             </View>
           ) : null}
           {weightLabel ? (

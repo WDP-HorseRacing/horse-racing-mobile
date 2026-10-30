@@ -36,6 +36,7 @@ import {
 } from "@/utils/horse-validation";
 import { useI18n } from "@/context/I18nContext";
 
+import { rememberRecentlyCreatedHorse } from "@/utils/recentHorses";
 import * as DocumentPicker from "expo-document-picker";
 
 type SaveMode = "open" | "another";
@@ -239,6 +240,7 @@ export default function RegisterHorse() {
         ...(mediaId ? { mediaId } : {}),
       };
       const created = await horseService.create(token, input);
+      await rememberRecentlyCreatedHorse(created.id);
       if (mode === "another") {
         Alert.alert(
           "Horse registered",
@@ -575,7 +577,7 @@ export default function RegisterHorse() {
               >
                 <Ionicons name="git-network-outline" size={18} color={colors.training} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
                   2. Nguồn gốc & Phả hệ
                 </Text>

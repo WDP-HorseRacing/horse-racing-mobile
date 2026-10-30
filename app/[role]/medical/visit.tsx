@@ -4,7 +4,16 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
-import { Chips, DatePickerField, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
+import {
+  Chips,
+  DatePickerField,
+  Field,
+  NativeInput,
+  Panel,
+  PrimaryButton,
+  SecondaryButton,
+  getUiStyles,
+} from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
@@ -173,6 +182,13 @@ export default function MedicalVisitForm() {
   const pendingRequests = useMemo(
     () => (resource.data?.requests ?? []).filter((item) => item.status === "PENDING"),
     [resource.data],
+  );
+  const unhealedInjuries = useMemo(
+    () =>
+      (resource.data?.injuries ?? []).filter(
+        (injury) => injury.currentRecoveryStatus !== "HEALED",
+      ),
+    [resource.data?.injuries],
   );
   const openCase = resource.data?.cases.items.find((item) => item.status === "OPEN");
   const activeCaseId = caseId || openCase?.id || "";
@@ -969,6 +985,59 @@ export default function MedicalVisitForm() {
               </Field>
             ) : null}
 
+            {activeCaseId && resource.data.injuryHistoryUnavailable ? (
+              <View
+                style={{
+                  marginTop: space.sm,
+                  padding: space.sm,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  borderColor: colors.destructive,
+                  backgroundColor: colors.injuredSoft,
+                  gap: 4,
+                }}
+              >
+                <Text style={{ color: colors.destructive, fontWeight: "700", fontSize: 13 }}>
+                  Injury history could not be loaded
+                </Text>
+                <Text style={[uiStyles.muted, { fontSize: 12 }]}>
+                  Check your connection and reload before updating recovery status.
+                </Text>
+              </View>
+            ) : null}
+
+            {activeCaseId && !resource.data.injuryHistoryUnavailable && unhealedInjuries.length > 0 ? (
+              <View
+                style={{
+                  marginTop: space.sm,
+                  padding: space.sm,
+                  borderRadius: radius.md,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.injuredSoft,
+                  gap: space.xs,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+                  <Ionicons name="bandage-outline" size={18} color={colors.destructive} />
+                  <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 13, flex: 1 }}>
+                    {unhealedInjuries.length === 1
+                      ? "1 unhealed injury"
+                      : `${unhealedInjuries.length} unhealed injuries`}
+                  </Text>
+                </View>
+                <Text style={[uiStyles.muted, { fontSize: 12 }]}>
+                  Eligible updates the horse's health status. Update each injury to Healed separately before closing the case.
+                </Text>
+                <SecondaryButton
+                  label={recordInjury ? "Injury section is open" : "Show injury update section"}
+                  icon="create-outline"
+                  onPress={() => setRecordInjury(true)}
+                  disabled={recordInjury}
+                />
+              </View>
+            ) : null}
+
             {/* Collapsible Injury Marker Section */}
             <View style={{ marginTop: space.sm }}>
               {!opensCase ? (
@@ -1012,12 +1081,14 @@ export default function MedicalVisitForm() {
                     />
                     <View style={{ flex: 1 }}>
                       <Text style={[uiStyles.value, { fontSize: 15 }]}>
-                        {t("5. Injury documentation (optional)")}
+                        {activeCaseId ? "5. Injury recovery updates" : "5. Injury documentation (optional)"}
                       </Text>
                       <Text style={uiStyles.muted}>
                         {recordInjury
-                          ? t("Document anatomical position")
-                          : t("Tap to mark injury location")}
+                          ? "Review injury recovery status in the 3D map"
+                          : activeCaseId
+                            ? "Tap to review unhealed injuries and update recovery"
+                            : "Tap to mark injury location"}
                       </Text>
                     </View>
                     <Ionicons

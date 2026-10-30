@@ -152,6 +152,9 @@ export function DatePickerField({
     for (let d = 1; d <= daysInMonth; d++) {
       days.push({ day: d, currentMonth: true });
     }
+    while (days.length % 7 !== 0) {
+      days.push(null);
+    }
     return days;
   }, [viewYear, viewMonth]);
 
@@ -380,22 +383,25 @@ export function DatePickerField({
                       <Pressable
                         key={`day-${item.day}`}
                         onPress={() => handleSelectDay(item.day)}
-                        style={[
-                          styles.dayCell,
-                          isSelected && {
-                            backgroundColor: colors.primary,
-                            borderRadius: radius.pill,
-                          },
-                        ]}
+                        style={styles.dayCell}
                       >
-                        <Text
+                        <View
                           style={[
-                            styles.dayText,
-                            isSelected && { color: "#ffffff", fontWeight: "700" },
+                            styles.dayCellInner,
+                            isSelected && {
+                              backgroundColor: colors.primary,
+                            },
                           ]}
                         >
-                          {item.day}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.dayText,
+                              isSelected && { color: "#ffffff", fontWeight: "700" },
+                            ]}
+                          >
+                            {item.day}
+                          </Text>
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -524,33 +530,38 @@ const getStyles = (colors: any) =>
     },
     weekdayRow: {
       flexDirection: "row",
-      justifyContent: "space-around",
-      paddingVertical: 4,
+      paddingVertical: 6,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
+      marginBottom: 4,
     },
     weekdayText: {
-      width: 36,
+      flex: 1,
       textAlign: "center",
       fontSize: 12,
-      fontWeight: "600",
+      fontWeight: "700",
       color: colors.mutedForeground,
     },
     daysGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
-      justifyContent: "space-around",
-      gap: 4,
     },
     dayCell: {
-      width: 36,
-      height: 36,
+      width: "14.285%",
+      height: 38,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: radius.sm,
+      marginVertical: 1,
+    },
+    dayCellInner: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
     },
     dayText: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: "500",
       color: colors.foreground,
     },

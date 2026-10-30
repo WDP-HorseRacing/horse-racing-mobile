@@ -2,10 +2,13 @@ import { type Href, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ScrollViewInstance,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -106,6 +109,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
   const [newBarnName, setNewBarnName] = useState("");
   const [newBarnCapacity, setNewBarnCapacity] = useState("9");
   const [newBarnDescription, setNewBarnDescription] = useState("");
+  const [newBarnHeadTrainerId, setNewBarnHeadTrainerId] = useState("");
   const [creatingBarn, setCreatingBarn] = useState(false);
 
   // Edit Barn modal state
@@ -492,6 +496,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
     setNewBarnName("");
     setNewBarnCapacity("9");
     setNewBarnDescription("");
+    setNewBarnHeadTrainerId("");
     setShowCreateBarnModal(true);
   };
 
@@ -508,6 +513,11 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         capacity: newBarnCapacity.trim() ? cap : 9,
         description: newBarnDescription.trim() || undefined,
       });
+      if (newBarnHeadTrainerId) {
+        await stableService.updateBarn(token, created.id, {
+          headTrainerId: newBarnHeadTrainerId,
+        });
+      }
       await resource.refresh();
       setShowCreateBarnModal(false);
       Alert.alert(t("Create barn"), `${t("Barn")} ${created.name} ${t("done").toLowerCase()}`);
@@ -1834,73 +1844,121 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         animationType="fade"
         transparent
         onRequestClose={() => {
+          Keyboard.dismiss();
           if (!creatingBarn) setShowCreateBarnModal(false);
         }}
       >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => !creatingBarn && setShowCreateBarnModal(false)}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeaderRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.modalTitle}>{t("Create barn")}</Text>
-                <Text style={uiStyles.muted}>{t("Add a new barn zone")}</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Close")}
-                disabled={creatingBarn}
-                onPress={() => setShowCreateBarnModal(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.foreground} />
-              </Pressable>
-            </View>
-
-            <View style={{ gap: space.md }}>
-              <Field label={t("Barn name")}>
-                <NativeInput
-                  value={newBarnName}
-                  onChangeText={setNewBarnName}
-                  placeholder={t("e.g. Barn D")}
-                />
-              </Field>
-
-              <Field label={t("Capacity (max stalls)")}>
-                <NativeInput
-                  value={newBarnCapacity}
-                  onChangeText={setNewBarnCapacity}
-                  placeholder={t("1–9 stalls (default is 9)")}
-                  keyboardType="numeric"
-                />
-              </Field>
-
-              <Field label={t("Description")}>
-                <NativeInput
-                  value={newBarnDescription}
-                  onChangeText={setNewBarnDescription}
-                  placeholder={t("Location, facilities…")}
-                  multiline
-                />
-              </Field>
-
-              <View style={{ gap: space.xs, marginTop: space.xs }}>
-                <PrimaryButton
-                  label={creatingBarn ? t("Creating…") : t("Create barn")}
-                  icon="add"
-                  disabled={creatingBarn || !newBarnName.trim()}
-                  onPress={() => void handleCreateBarn()}
-                />
-                <SecondaryButton
-                  label={t("Cancel")}
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => {
+              Keyboard.dismiss();
+              if (!creatingBarn) setShowCreateBarnModal(false);
+            }}
+          >
+            <Pressable
+              style={styles.modalContent}
+              onPress={(e) => {
+                e.stopPropagation();
+                Keyboard.dismiss();
+              }}
+            >
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.modalTitle}>{t("Create barn")}</Text>
+                  <Text style={uiStyles.muted}>{t("Add a new barn zone")}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Close")}
                   disabled={creatingBarn}
-                  onPress={() => setShowCreateBarnModal(false)}
-                />
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowCreateBarnModal(false);
+                  }}
+                  style={styles.modalCloseBtn}
+                >
+                  <Ionicons name="close" size={20} color={colors.foreground} />
+                </Pressable>
               </View>
-            </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
+              >
+                <Field label={t("Barn name")}>
+                  <NativeInput
+                    value={newBarnName}
+                    onChangeText={setNewBarnName}
+                    placeholder={t("e.g. Barn D")}
+                  />
+                </Field>
+
+                <Field label={t("Capacity (max stalls)")}>
+                  <NativeInput
+                    value={newBarnCapacity}
+                    onChangeText={setNewBarnCapacity}
+                    placeholder={t("1–9 stalls (default is 9)")}
+                    keyboardType="numeric"
+                  />
+                </Field>
+
+                <Field label={t("Head Trainer phụ trách")}>
+                  <View style={{ gap: space.xs }}>
+                    <Chips
+                      options={[
+                        t("Không gán HLV"),
+                        ...activeHeadTrainers.map((ht) => ht.fullName),
+                      ]}
+                      value={
+                        activeHeadTrainers.find((ht) => ht.id === newBarnHeadTrainerId)?.fullName ??
+                        t("Không gán HLV")
+                      }
+                      onChange={(label) => {
+                        if (label === t("Không gán HLV")) {
+                          setNewBarnHeadTrainerId("");
+                        } else {
+                          const ht = activeHeadTrainers.find((t) => t.fullName === label);
+                          if (ht) setNewBarnHeadTrainerId(ht.id);
+                        }
+                      }}
+                    />
+                  </View>
+                </Field>
+
+                <Field label={t("Description")}>
+                  <NativeInput
+                    value={newBarnDescription}
+                    onChangeText={setNewBarnDescription}
+                    placeholder={t("Location, facilities…")}
+                    multiline
+                  />
+                </Field>
+
+                <View style={{ gap: space.xs, marginTop: space.xs }}>
+                  <PrimaryButton
+                    label={creatingBarn ? t("Creating…") : t("Create barn")}
+                    icon="add"
+                    disabled={creatingBarn || !newBarnName.trim()}
+                    onPress={() => void handleCreateBarn()}
+                  />
+                  <SecondaryButton
+                    label={t("Cancel")}
+                    disabled={creatingBarn}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowCreateBarnModal(false);
+                    }}
+                  />
+                </View>
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal: Create Stall (Section 4.2) */}
@@ -1909,87 +1967,112 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         animationType="fade"
         transparent
         onRequestClose={() => {
+          Keyboard.dismiss();
           if (!creatingStall) setShowCreateStallModal(false);
         }}
       >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => !creatingStall && setShowCreateStallModal(false)}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeaderRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.modalTitle}>{t("Create stall")}</Text>
-                <Text style={uiStyles.muted}>
-                  {t("Add stall to")} {targetBarnForStall?.name}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Close")}
-                disabled={creatingStall}
-                onPress={() => setShowCreateStallModal(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.foreground} />
-              </Pressable>
-            </View>
-
-            <View style={{ gap: space.md }}>
-              <Field label={t("Stall code")}>
-                <NativeInput
-                  value={newStallCode}
-                  onChangeText={setNewStallCode}
-                  placeholder="A-01"
-                />
-              </Field>
-
-              <Field label={t("Stall type")}>
-                <Chips
-                  options={["STANDARD", "ISOLATION", "RECOVERY"]}
-                  value={newStallType}
-                  onChange={(val) => setNewStallType(val as any)}
-                />
-              </Field>
-
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <Text style={styles.switchTitle}>{t("Stall has surveillance camera")}</Text>
-                  <Text style={uiStyles.muted}>{t("New stalls are available by default")}</Text>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => {
+              Keyboard.dismiss();
+              if (!creatingStall) setShowCreateStallModal(false);
+            }}
+          >
+            <Pressable
+              style={styles.modalContent}
+              onPress={(e) => {
+                e.stopPropagation();
+                Keyboard.dismiss();
+              }}
+            >
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.modalTitle}>{t("Create stall")}</Text>
+                  <Text style={uiStyles.muted}>
+                    {t("Add stall to")} {targetBarnForStall?.name}
+                  </Text>
                 </View>
-                <Switch
-                  value={newStallHasCamera}
-                  onValueChange={setNewStallHasCamera}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Close")}
                   disabled={creatingStall}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                />
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowCreateStallModal(false);
+                  }}
+                  style={styles.modalCloseBtn}
+                >
+                  <Ionicons name="close" size={20} color={colors.foreground} />
+                </Pressable>
               </View>
 
-              <Field label={t("Description")}>
-                <NativeInput
-                  value={newStallDescription}
-                  onChangeText={setNewStallDescription}
-                  placeholder={t("Notes, camera angle…")}
-                  multiline
-                />
-              </Field>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
+              >
+                <Field label={t("Stall code")}>
+                  <NativeInput
+                    value={newStallCode}
+                    onChangeText={setNewStallCode}
+                    placeholder="A-01"
+                  />
+                </Field>
 
-              <View style={{ gap: space.xs, marginTop: space.xs }}>
-                <PrimaryButton
-                  label={creatingStall ? t("Creating…") : t("Create stall")}
-                  icon="add"
-                  disabled={creatingStall || !newStallCode.trim()}
-                  onPress={() => void handleCreateStall()}
-                />
-                <SecondaryButton
-                  label={t("Cancel")}
-                  disabled={creatingStall}
-                  onPress={() => setShowCreateStallModal(false)}
-                />
-              </View>
-            </View>
+                <Field label={t("Stall type")}>
+                  <Chips
+                    options={["STANDARD", "ISOLATION", "RECOVERY"]}
+                    value={newStallType}
+                    onChange={(val) => setNewStallType(val as any)}
+                  />
+                </Field>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <Text style={styles.switchTitle}>{t("Stall has surveillance camera")}</Text>
+                    <Text style={uiStyles.muted}>{t("New stalls are available by default")}</Text>
+                  </View>
+                  <Switch
+                    value={newStallHasCamera}
+                    onValueChange={setNewStallHasCamera}
+                    disabled={creatingStall}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                  />
+                </View>
+
+                <Field label={t("Description")}>
+                  <NativeInput
+                    value={newStallDescription}
+                    onChangeText={setNewStallDescription}
+                    placeholder={t("Notes, camera angle…")}
+                    multiline
+                  />
+                </Field>
+
+                <View style={{ gap: space.xs, marginTop: space.xs }}>
+                  <PrimaryButton
+                    label={creatingStall ? t("Creating…") : t("Create stall")}
+                    icon="add"
+                    disabled={creatingStall || !newStallCode.trim()}
+                    onPress={() => void handleCreateStall()}
+                  />
+                  <SecondaryButton
+                    label={t("Cancel")}
+                    disabled={creatingStall}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowCreateStallModal(false);
+                    }}
+                  />
+                </View>
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal: Edit Barn */}
@@ -1998,104 +2081,129 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         animationType="fade"
         transparent
         onRequestClose={() => {
+          Keyboard.dismiss();
           if (!savingBarn) setShowEditBarnModal(false);
         }}
       >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => !savingBarn && setShowEditBarnModal(false)}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeaderRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.modalTitle}>{t("Chỉnh sửa khu chuồng")}</Text>
-                <Text style={uiStyles.muted}>{editingBarn?.name}</Text>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => {
+              Keyboard.dismiss();
+              if (!savingBarn) setShowEditBarnModal(false);
+            }}
+          >
+            <Pressable
+              style={styles.modalContent}
+              onPress={(e) => {
+                e.stopPropagation();
+                Keyboard.dismiss();
+              }}
+            >
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.modalTitle}>{t("Chỉnh sửa khu chuồng")}</Text>
+                  <Text style={uiStyles.muted}>{editingBarn?.name}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Close")}
+                  disabled={savingBarn}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowEditBarnModal(false);
+                  }}
+                  style={styles.modalCloseBtn}
+                >
+                  <Ionicons name="close" size={20} color={colors.foreground} />
+                </Pressable>
               </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Close")}
-                disabled={savingBarn}
-                onPress={() => setShowEditBarnModal(false)}
-                style={styles.modalCloseBtn}
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
               >
-                <Ionicons name="close" size={20} color={colors.foreground} />
-              </Pressable>
-            </View>
+                <Field label={t("Barn name")}>
+                  <NativeInput
+                    value={editBarnName}
+                    onChangeText={setEditBarnName}
+                    placeholder={t("e.g. Barn A")}
+                  />
+                </Field>
 
-            <ScrollView contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}>
-              <Field label={t("Barn name")}>
-                <NativeInput
-                  value={editBarnName}
-                  onChangeText={setEditBarnName}
-                  placeholder={t("e.g. Barn A")}
-                />
-              </Field>
+                <Field label={t("Capacity (1–9 stalls)")}>
+                  <NativeInput
+                    value={editBarnCapacity}
+                    onChangeText={setEditBarnCapacity}
+                    keyboardType="number-pad"
+                    placeholder="9"
+                  />
+                </Field>
 
-              <Field label={t("Capacity (1–9 stalls)")}>
-                <NativeInput
-                  value={editBarnCapacity}
-                  onChangeText={setEditBarnCapacity}
-                  keyboardType="number-pad"
-                  placeholder="9"
-                />
-              </Field>
-
-              <Field label={t("Trạng thái khu")}>
-                <Chips
-                  options={["ACTIVE", "MAINTENANCE", "CLOSED"]}
-                  value={editBarnStatus}
-                  onChange={(val) => setEditBarnStatus(val)}
-                />
-              </Field>
-
-              <Field label={t("Head Trainer phụ trách")}>
-                <View style={{ gap: space.xs }}>
+                <Field label={t("Trạng thái khu")}>
                   <Chips
-                    options={[
-                      t("Không gán HLV"),
-                      ...activeHeadTrainers.map((ht) => ht.fullName),
-                    ]}
-                    value={
-                      activeHeadTrainers.find((ht) => ht.id === editBarnHeadTrainerId)?.fullName ??
-                      t("Không gán HLV")
-                    }
-                    onChange={(label) => {
-                      if (label === t("Không gán HLV")) {
-                        setEditBarnHeadTrainerId("");
-                      } else {
-                        const ht = activeHeadTrainers.find((t) => t.fullName === label);
-                        if (ht) setEditBarnHeadTrainerId(ht.id);
+                    options={["ACTIVE", "MAINTENANCE", "CLOSED"]}
+                    value={editBarnStatus}
+                    onChange={(val) => setEditBarnStatus(val)}
+                  />
+                </Field>
+
+                <Field label={t("Head Trainer phụ trách")}>
+                  <View style={{ gap: space.xs }}>
+                    <Chips
+                      options={[
+                        t("Không gán HLV"),
+                        ...activeHeadTrainers.map((ht) => ht.fullName),
+                      ]}
+                      value={
+                        activeHeadTrainers.find((ht) => ht.id === editBarnHeadTrainerId)?.fullName ??
+                        t("Không gán HLV")
                       }
+                      onChange={(label) => {
+                        if (label === t("Không gán HLV")) {
+                          setEditBarnHeadTrainerId("");
+                        } else {
+                          const ht = activeHeadTrainers.find((t) => t.fullName === label);
+                          if (ht) setEditBarnHeadTrainerId(ht.id);
+                        }
+                      }}
+                    />
+                  </View>
+                </Field>
+
+                <Field label={t("Description")}>
+                  <NativeInput
+                    value={editBarnDescription}
+                    onChangeText={setEditBarnDescription}
+                    placeholder={t("Description")}
+                    multiline
+                  />
+                </Field>
+
+                <View style={{ gap: space.xs, marginTop: space.xs }}>
+                  <PrimaryButton
+                    label={savingBarn ? t("Saving…") : t("Save changes")}
+                    icon="checkmark"
+                    disabled={savingBarn || !editBarnName.trim()}
+                    onPress={() => void handleSaveBarn()}
+                  />
+                  <SecondaryButton
+                    label={t("Cancel")}
+                    disabled={savingBarn}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowEditBarnModal(false);
                     }}
                   />
                 </View>
-              </Field>
-
-              <Field label={t("Description")}>
-                <NativeInput
-                  value={editBarnDescription}
-                  onChangeText={setEditBarnDescription}
-                  placeholder={t("Description")}
-                  multiline
-                />
-              </Field>
-
-              <View style={{ gap: space.xs, marginTop: space.xs }}>
-                <PrimaryButton
-                  label={savingBarn ? t("Saving…") : t("Save changes")}
-                  icon="checkmark"
-                  disabled={savingBarn || !editBarnName.trim()}
-                  onPress={() => void handleSaveBarn()}
-                />
-                <SecondaryButton
-                  label={t("Cancel")}
-                  disabled={savingBarn}
-                  onPress={() => setShowEditBarnModal(false)}
-                />
-              </View>
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal: Edit Stall */}
@@ -2104,85 +2212,110 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         animationType="fade"
         transparent
         onRequestClose={() => {
+          Keyboard.dismiss();
           if (!savingStall) setShowEditStallModal(false);
         }}
       >
-        <Pressable
-          style={styles.modalBackdrop}
-          onPress={() => !savingStall && setShowEditStallModal(false)}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeaderRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.modalTitle}>{t("Sửa ô chuồng")}</Text>
-                <Text style={uiStyles.muted}>{editingStall?.code}</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Close")}
-                disabled={savingStall}
-                onPress={() => setShowEditStallModal(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.foreground} />
-              </Pressable>
-            </View>
-
-            <View style={{ gap: space.md }}>
-              <Field label={t("Stall code")}>
-                <NativeInput
-                  value={editStallCode}
-                  onChangeText={setEditStallCode}
-                  placeholder="A-01"
-                />
-              </Field>
-
-              <Field label={t("Stall type")}>
-                <Chips
-                  options={["STANDARD", "ISOLATION", "RECOVERY"]}
-                  value={editStallType}
-                  onChange={(val) => setEditStallType(val as "STANDARD" | "ISOLATION" | "RECOVERY")}
-                />
-              </Field>
-
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                  <Text style={styles.switchTitle}>{t("Stall has surveillance camera")}</Text>
-                  <Text style={uiStyles.muted}>{t("Giám sát camera 24/7")}</Text>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => {
+              Keyboard.dismiss();
+              if (!savingStall) setShowEditStallModal(false);
+            }}
+          >
+            <Pressable
+              style={styles.modalContent}
+              onPress={(e) => {
+                e.stopPropagation();
+                Keyboard.dismiss();
+              }}
+            >
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.modalTitle}>{t("Sửa ô chuồng")}</Text>
+                  <Text style={uiStyles.muted}>{editingStall?.code}</Text>
                 </View>
-                <Switch
-                  value={editStallHasCamera}
-                  onValueChange={setEditStallHasCamera}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Close")}
                   disabled={savingStall}
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                />
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setShowEditStallModal(false);
+                  }}
+                  style={styles.modalCloseBtn}
+                >
+                  <Ionicons name="close" size={20} color={colors.foreground} />
+                </Pressable>
               </View>
 
-              <Field label={t("Description")}>
-                <NativeInput
-                  value={editStallDescription}
-                  onChangeText={setEditStallDescription}
-                  placeholder={t("Notes, camera angle…")}
-                  multiline
-                />
-              </Field>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
+              >
+                <Field label={t("Stall code")}>
+                  <NativeInput
+                    value={editStallCode}
+                    onChangeText={setEditStallCode}
+                    placeholder="A-01"
+                  />
+                </Field>
 
-              <View style={{ gap: space.xs, marginTop: space.xs }}>
-                <PrimaryButton
-                  label={savingStall ? t("Saving…") : t("Save changes")}
-                  icon="checkmark"
-                  disabled={savingStall || !editStallCode.trim()}
-                  onPress={() => void handleSaveStall()}
-                />
-                <SecondaryButton
-                  label={t("Cancel")}
-                  disabled={savingStall}
-                  onPress={() => setShowEditStallModal(false)}
-                />
-              </View>
-            </View>
+                <Field label={t("Stall type")}>
+                  <Chips
+                    options={["STANDARD", "ISOLATION", "RECOVERY"]}
+                    value={editStallType}
+                    onChange={(val) => setEditStallType(val as "STANDARD" | "ISOLATION" | "RECOVERY")}
+                  />
+                </Field>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                    <Text style={styles.switchTitle}>{t("Stall has surveillance camera")}</Text>
+                    <Text style={uiStyles.muted}>{t("Giám sát camera 24/7")}</Text>
+                  </View>
+                  <Switch
+                    value={editStallHasCamera}
+                    onValueChange={setEditStallHasCamera}
+                    disabled={savingStall}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                  />
+                </View>
+
+                <Field label={t("Description")}>
+                  <NativeInput
+                    value={editStallDescription}
+                    onChangeText={setEditStallDescription}
+                    placeholder={t("Notes, camera angle…")}
+                    multiline
+                  />
+                </Field>
+
+                <View style={{ gap: space.xs, marginTop: space.xs }}>
+                  <PrimaryButton
+                    label={savingStall ? t("Saving…") : t("Save changes")}
+                    icon="checkmark"
+                    disabled={savingStall || !editStallCode.trim()}
+                    onPress={() => void handleSaveStall()}
+                  />
+                  <SecondaryButton
+                    label={t("Cancel")}
+                    disabled={savingStall}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowEditStallModal(false);
+                    }}
+                  />
+                </View>
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </Screen>
   );

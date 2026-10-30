@@ -17,6 +17,7 @@ import { mapHorseSummary, mapHorseSummaryToPrototype } from "@/adapters/horse.ad
 import { stableService } from "@/services/stable.service";
 import { filterHorsesBySearch } from "@/utils/horse-validation";
 import { useI18n } from "@/context/I18nContext";
+import { getRecentlyCreatedHorseIds } from "@/utils/recentHorses";
 
 const HEALTH_FILTERS = [
   "All",
@@ -62,6 +63,7 @@ export default function Horses() {
   const [health, setHealth] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortOption>("created_desc");
   const [sortModalOpen, setSortModalOpen] = useState(false);
+  const [recentHorseIds, setRecentHorseIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<Omit<HorseListFilters, "healthStatus">>(() =>
     role === "trainer" ? { myBarns: true } : role === "groom" ? { myHorses: true } : {},
   );
@@ -95,6 +97,7 @@ export default function Horses() {
   }, [resource.revalidate]);
   useFocusEffect(
     useCallback(() => {
+      void getRecentlyCreatedHorseIds().then(setRecentHorseIds);
       if (focusedOnce.current) void refreshRef.current();
       else focusedOnce.current = true;
       return undefined;
@@ -120,10 +123,26 @@ export default function Horses() {
     } else if (sortBy === "name_desc") {
       sorted.sort((a, b) => b.name.localeCompare(a.name, "vi"));
     } else if (sortBy === "created_asc") {
-      sorted.reverse();
+      sorted.sort((a, b) => {
+        const idxA = recentHorseIds.indexOf(a.id);
+        const idxB = recentHorseIds.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxB - idxA;
+        if (idxA !== -1) return 1;
+        if (idxB !== -1) return -1;
+        return b.name.localeCompare(a.name, "vi");
+      });
+    } else if (sortBy === "created_desc") {
+      sorted.sort((a, b) => {
+        const idxA = recentHorseIds.indexOf(a.id);
+        const idxB = recentHorseIds.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
     }
     return sorted;
-  }, [resource.data, search, health, sortBy]);
+  }, [resource.data, search, health, sortBy, recentHorseIds]);
   const filterCount = useMemo(
     () =>
       Object.values(filters).filter(

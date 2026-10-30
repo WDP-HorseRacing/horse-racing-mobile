@@ -45,13 +45,14 @@ import { auditService } from "@/services/audit.service";
 import { stableCareService } from "@/services/stable-care.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatToDdMmYyyy } from "@/utils/horse-validation";
+import { HorseMeasurementsView } from "@/features/horses/components/HorseMeasurementsView";
 
 const tabsByRole: Record<RoleId, string[]> = {
-  trainer: ["Overview", "Training", "Health", "Performance", "Racing"],
-  vet: ["Overview", "Training", "Health", "Injuries", "Treatment"],
+  trainer: ["Overview", "Training", "Health", "Medical", "Performance"],
+  vet: ["Overview", "Training", "Health", "Medical", "Injuries", "Treatment"],
   groom: ["Overview", "Care"],
-  owner: ["Overview", "Training", "Health", "Performance", "Racing", "Costs"],
-  manager: ["Overview", "Health", "Performance", "Racing", "Costs", "Timeline"],
+  owner: ["Overview", "Training", "Health", "Medical", "Performance", "Racing", "Costs"],
+  manager: ["Overview", "Health", "Medical", "Performance", "Costs", "Timeline"],
 };
 
 export default function HorseProfile() {
@@ -87,11 +88,11 @@ export default function HorseProfile() {
     const base = tabsByRole[roleId];
     if (!isUuid(id) || !permissionsResource.data) return base;
     return base.filter((item) => {
-      if (["Health", "Injuries", "Treatment"].includes(item))
+      if (["Health", "Medical", "Injuries", "Treatment"].includes(item))
         return permissionsResource.data?.canViewMedicalTab === true;
       if (item === "Performance") return permissionsResource.data?.canViewPerformanceTab === true;
       if (item === "Training") return permissionsResource.data?.canViewTrainingTab === true;
-      if (item === "Racing") return ["manager", "trainer", "owner"].includes(roleId);
+      if (item === "Racing") return ["owner"].includes(roleId);
       if (item === "Costs") return permissionsResource.data?.canViewMedicalTab === true;
       return true;
     });
@@ -139,6 +140,7 @@ export default function HorseProfile() {
       isUuid(id) &&
       permissionsResource.data?.canViewMedicalTab &&
       (visibleTab === "Health" ||
+        visibleTab === "Medical" ||
         visibleTab === "Injuries" ||
         visibleTab === "Treatment" ||
         visibleTab === "Costs"),
@@ -526,9 +528,6 @@ export default function HorseProfile() {
               >
                 {horseResource.data ? formatEnum(horseResource.data.healthStatus) : "Ổn định"}
               </Text>
-              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
-                ({horseResource.data?.eligibility.trainingEligible ? "Đủ điều kiện tập" : "Hạn chế tập"})
-              </Text>
             </View>
           </View>
 
@@ -876,11 +875,6 @@ export default function HorseProfile() {
                 ))}
               </Panel>
               <PrimaryButton
-                label="Body measurements"
-                icon="stats-chart"
-                onPress={() => router.push(`/${roleId}/horse/${horse.id}/measurements` as Href)}
-              />
-              <PrimaryButton
                 label="Ownership history"
                 icon="people-outline"
                 onPress={() => router.push(`/${roleId}/horse/${horse.id}/ownership` as Href)}
@@ -1141,36 +1135,38 @@ export default function HorseProfile() {
       ) : null}
       {visibleTab === "Health" && horseResource.data ? (
         <>
+          <Info
+            title="Tình trạng sức khỏe & Tập luyện"
+            items={[
+              ["Trạng thái sức khỏe", formatEnum(horseResource.data.healthStatus)],
+              [
+                "Điều kiện tập luyện",
+                horseResource.data.eligibility.trainingEligible
+                  ? "Đủ điều kiện"
+                  : horseResource.data.eligibility.trainingReasons
+                      .map((reason) => formatEnum(t(reason)))
+                      .join(", ") || "Hạn chế",
+              ],
+            ]}
+          />
+          <HorseMeasurementsView
+            horseId={id}
+            roleId={roleId}
+            canRecord={permissionsResource.data?.canRecordMeasurement}
+            canDelete={permissionsResource.data?.canDeleteMeasurement}
+            onUpdated={() => {
+              void horseResource.refresh();
+            }}
+          />
+        </>
+      ) : null}
+
+      {visibleTab === "Medical" && horseResource.data ? (
+        <>
           <AsyncStateView
             isLoading={medicalResource.isLoading}
             error={medicalResource.error}
             onRetry={() => void medicalResource.retry()}
-          />
-          <Info
-            title="Health and latest measurements"
-            items={[
-              ["Health status", formatEnum(horseResource.data.healthStatus)],
-              [
-                "Training eligibility",
-                horseResource.data.eligibility.trainingEligible
-                  ? "Eligible"
-                  : horseResource.data.eligibility.trainingReasons
-                      .map((reason) => formatEnum(t(reason)))
-                      .join(", ") || "Restricted",
-              ],
-              ...horseResource.data.latestMeasurements.map(
-                (measurement) =>
-                  [
-                    formatEnum(measurement.type),
-                    `${measurement.value} ${measurement.unit} · ${new Date(measurement.measuredAt).toLocaleDateString()}${measurement.isAbnormal ? " · abnormal" : ""}`,
-                  ] as [string, string],
-              ),
-            ]}
-          />
-          <PrimaryButton
-            label="Body measurements"
-            icon="stats-chart"
-            onPress={() => router.push(`/${roleId}/horse/${horse.id}/measurements` as Href)}
           />
           {roleId === "vet" ? (
             <>
@@ -1977,7 +1973,7 @@ export default function HorseProfile() {
         </>
       ) : null}
       {!horseResource.data &&
-      (["Health", "Injuries", "Treatment"] as string[]).includes(visibleTab) ? (
+      (["Health", "Medical", "Injuries", "Treatment"] as string[]).includes(visibleTab) ? (
         <>
           <Info
             title="Vitals & status"
