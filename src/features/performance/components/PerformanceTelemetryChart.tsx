@@ -162,12 +162,19 @@ export function PerformanceTelemetryChart({
     });
   }, [sortedMetrics, labelInterval, colors]);
 
-  // Y-axis scaling for Heart Rate
-  const hrMax = Math.max(260, stats.maxHr + 15);
-  const hrMin = Math.max(0, Math.min(80, stats.minHr - 10));
-  const hrSections = 4;
-  const hrStep = Math.ceil((hrMax - hrMin) / hrSections);
-  const calculatedHrMax = hrMin + hrStep * hrSections;
+  // Y-axis scaling for Heart Rate (clean 0 - 280 BPM scale)
+  const latestMetric = sortedMetrics[sortedMetrics.length - 1];
+  const isLatestCritical = latestMetric ? latestMetric.heartRateBpm >= 240 : false;
+  const isLatestWarning = latestMetric ? latestMetric.heartRateBpm >= 180 && !isLatestCritical : false;
+  const currentActiveColor = isLatestCritical
+    ? colors.destructive
+    : isLatestWarning
+      ? colors.monitor
+      : colors.fit;
+
+  const hrSections = 5;
+  const hrMax = Math.max(280, Math.ceil((stats.maxHr + 20) / 20) * 20);
+  const hrStep = Math.ceil(hrMax / hrSections);
 
   // Y-axis scaling for Speed
   const speedMax = Math.max(20, Math.ceil(stats.maxSpeed + 2));
@@ -330,11 +337,11 @@ export function PerformanceTelemetryChart({
                 data={hrChartData}
                 width={chartWidth}
                 height={height}
-                startFillColor={stats.maxHr >= 240 ? colors.destructive : colors.fit}
+                startFillColor={currentActiveColor}
                 startOpacity={0.28}
-                endFillColor={colors.fit}
+                endFillColor={currentActiveColor}
                 endOpacity={0.02}
-                color={stats.maxHr >= 240 ? colors.destructive : colors.fit}
+                color={currentActiveColor}
                 thickness={2.5}
                 yAxisTextStyle={{ color: colors.mutedForeground, fontSize: 10 }}
                 xAxisLabelTextStyle={{
@@ -348,8 +355,7 @@ export function PerformanceTelemetryChart({
                 rulesColor={colors.border}
                 rulesType="solid"
                 showXAxisIndices={false}
-                yAxisOffset={hrMin}
-                maxValue={calculatedHrMax - hrMin}
+                maxValue={hrMax}
                 noOfSections={hrSections}
                 stepValue={hrStep}
                 isAnimated={false}
@@ -504,7 +510,7 @@ export function PerformanceTelemetryChart({
                 data2={dualDataSpeed}
                 width={chartWidth}
                 height={height}
-                color1={colors.destructive}
+                color1={currentActiveColor}
                 color2={colors.training}
                 thickness1={2.2}
                 thickness2={2.2}
@@ -520,8 +526,7 @@ export function PerformanceTelemetryChart({
                 rulesColor={colors.border}
                 rulesType="solid"
                 showXAxisIndices={false}
-                yAxisOffset={hrMin}
-                maxValue={calculatedHrMax - hrMin}
+                maxValue={hrMax}
                 noOfSections={hrSections}
                 stepValue={hrStep}
                 isAnimated={false}

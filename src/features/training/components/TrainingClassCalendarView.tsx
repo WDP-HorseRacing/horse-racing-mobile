@@ -1,15 +1,13 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { View, StyleSheet, Pressable, ScrollView, Dimensions } from "react-native";
+import { View, StyleSheet, Pressable, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { useTheme } from "@/hooks/useTheme";
-import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
-import type { TrainingSessionDto } from "@/services/training.service";
+import type { TrainingClassDto, TrainingSessionDto } from "@/services/training.service";
 import { clubDate } from "@/utils/horse-validation";
 import { clubDateTimeParts, formatTrainingStatus } from "@/features/training/training-utils";
-import { formatTime, formatDate } from "@/utils/formatters";
-import { PrimaryButton, SecondaryButton } from "@/components/ui";
+import { PrimaryButton } from "@/components/ui";
 
 const VI_SHORT_DAYS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 const VI_DAY_NAMES = [
@@ -31,7 +29,8 @@ type StatusFilter = "ALL" | "IN_PROGRESS" | "SCHEDULED" | "COMPLETED" | "CANCELL
 
 type Props = {
   sessions: TrainingSessionDto[];
-  classId: string;
+  classId?: string;
+  classes?: TrainingClassDto[];
   canAddSession?: boolean;
   onAddSession?: (prefillDate?: string) => void;
   onSelectSession: (session: TrainingSessionDto) => void;
@@ -40,12 +39,12 @@ type Props = {
 export function TrainingClassCalendarView({
   sessions,
   classId,
+  classes,
   canAddSession = false,
   onAddSession,
   onSelectSession,
 }: Props) {
   const { colors, isDark } = useTheme();
-  const { t } = useI18n();
 
   const todayStr = useMemo(() => clubDate(), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
@@ -56,6 +55,16 @@ export function TrainingClassCalendarView({
     const d = new Date();
     return d.getHours() * 60 + d.getMinutes();
   });
+
+  const classesById = useMemo(() => {
+    const map = new Map<string, TrainingClassDto>();
+    if (classes) {
+      for (const c of classes) {
+        map.set(c.id, c);
+      }
+    }
+    return map;
+  }, [classes]);
 
   // Keep live time updated for the current time red indicator line
   useEffect(() => {
@@ -76,7 +85,7 @@ export function TrainingClassCalendarView({
       map.set(datePart, list);
     }
     // Sort sessions in each date by start time
-    for (const [dateKey, list] of map.entries()) {
+    for (const [, list] of map.entries()) {
       list.sort((a, b) => a.scheduledStartAt.localeCompare(b.scheduledStartAt));
     }
     return map;
@@ -142,7 +151,7 @@ export function TrainingClassCalendarView({
   // All grouped dates for Agenda mode
   const agendaDates = useMemo(() => {
     const allDates = Array.from(sessionsByDate.keys()).sort();
-    let filteredList: Array<{ dateStr: string; items: TrainingSessionDto[] }> = [];
+    const filteredList: { dateStr: string; items: TrainingSessionDto[] }[] = [];
 
     for (const dateKey of allDates) {
       let items = sessionsByDate.get(dateKey) || [];
@@ -155,6 +164,27 @@ export function TrainingClassCalendarView({
     }
     return filteredList;
   }, [sessionsByDate, statusFilter]);
+
+  // Active scope sessions for filter counts
+  const scopedSessions = useMemo(() => {
+    if (viewMode === "day") {
+      return sessionsByDate.get(selectedDate) || [];
+    }
+    return sessions;
+  }, [viewMode, sessionsByDate, selectedDate, sessions]);
+
+  const filterCounts = useMemo(() => {
+    const all = scopedSessions.length;
+    const inProgress = scopedSessions.filter((s) => s.status === "IN_PROGRESS").length;
+    const scheduled =
+      viewMode === "day"
+        ? scopedSessions.filter((s) => s.status === "SCHEDULED").length
+        : scopedSessions.filter(
+            (s) => s.status === "SCHEDULED" && s.scheduledStartAt.slice(0, 10) >= todayStr,
+          ).length;
+    const completed = scopedSessions.filter((s) => s.status === "COMPLETED").length;
+    return { all, inProgress, scheduled, completed };
+  }, [scopedSessions, viewMode, todayStr]);
 
   // Hours array for timeline grid: 06:00 to 22:00
   const timelineHours = useMemo(() => {
@@ -439,12 +469,16 @@ export function TrainingClassCalendarView({
           const isActive = statusFilter === st;
           const label =
             st === "ALL"
-              ? `Tất cả (${sessions.length})`
+              ? `Tất cả (${filterCounts.all})`
               : st === "IN_PROGRESS"
-                ? `Đang diễn ra`
+                ? filterCounts.inProgress > 0
+                  ? `Live (${filterCounts.inProgress})`
+                  : `Live`
                 : st === "SCHEDULED"
-                  ? `Sắp tới`
-                  : `Đã xong`;
+                  ? `Sắp tới (${filterCounts.scheduled})`
+                  : filterCounts.completed > 0
+                    ? `Đã xong (${filterCounts.completed})`
+                    : `Đã xong`;
 
           return (
             <Pressable
@@ -575,6 +609,7 @@ export function TrainingClassCalendarView({
                   const cardHeight = Math.max(48, durationMin * (HOUR_SLOT_HEIGHT / 60) - 4);
 
                   const palette = getSessionColor(session.status);
+                  const sessionClass = classesById.get(session.classId);
 
                   return (
                     <Pressable
@@ -594,12 +629,21 @@ export function TrainingClassCalendarView({
                       <View style={styles.timelineEventContent}>
                         {/* Title & Status badge */}
                         <View style={styles.timelineEventHeader}>
-                          <Text
-                            style={[styles.timelineEventTitle, { color: colors.foreground }]}
-                            numberOfLines={1}
-                          >
-                            {session.name}
-                          </Text>
+                          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            {sessionClass ? (
+                              <View style={[styles.miniClassBadge, { backgroundColor: palette.stripe + "20" }]}>
+                                <Text style={[styles.miniClassBadgeText, { color: palette.stripe }]} numberOfLines={1}>
+                                  {sessionClass.code}
+                                </Text>
+                              </View>
+                            ) : null}
+                            <Text
+                              style={[styles.timelineEventTitle, { color: colors.foreground, flex: 1 }]}
+                              numberOfLines={1}
+                            >
+                              {session.name}
+                            </Text>
+                          </View>
                           <View
                             style={[
                               styles.miniStatusBadge,
@@ -645,40 +689,6 @@ export function TrainingClassCalendarView({
                     </Pressable>
                   );
                 })}
-
-                {/* If no sessions on this day */}
-                {daySessions.length === 0 && (
-                  <View style={styles.emptyDayOverlay}>
-                    <Ionicons
-                      name="calendar-clear-outline"
-                      size={28}
-                      color={colors.mutedForeground}
-                    />
-                    <Text style={[styles.emptyDayTitle, { color: colors.foreground }]}>
-                      Không có buổi tập nào
-                    </Text>
-                    <Text style={[styles.emptyDaySubtitle, { color: colors.mutedForeground }]}>
-                      {selectedDateHeader}
-                    </Text>
-                    {canAddSession && onAddSession && (
-                      <Pressable
-                        onPress={() => onAddSession(selectedDate)}
-                        style={[
-                          styles.emptyDayAddBtn,
-                          {
-                            backgroundColor: colors.background,
-                            borderColor: colors.border,
-                          },
-                        ]}
-                      >
-                        <Ionicons name="add-circle-outline" size={15} color={colors.primary} />
-                        <Text style={[styles.emptyDayAddBtnText, { color: colors.primary }]}>
-                          Lên lịch cho ngày này
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
-                )}
               </View>
             </View>
           </ScrollView>
@@ -727,6 +737,7 @@ export function TrainingClassCalendarView({
                       const startParts = clubDateTimeParts(session.scheduledStartAt);
                       const endParts = clubDateTimeParts(session.scheduledEndAt);
                       const palette = getSessionColor(session.status);
+                      const sessionClass = classesById.get(session.classId);
 
                       return (
                         <Pressable
@@ -744,12 +755,21 @@ export function TrainingClassCalendarView({
                           <View style={styles.agendaEventBody}>
                             {/* Left: Name and tags */}
                             <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-                              <Text
-                                style={[styles.agendaEventName, { color: colors.foreground }]}
-                                numberOfLines={1}
-                              >
-                                {session.name}
-                              </Text>
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                {sessionClass ? (
+                                  <View style={[styles.agendaClassBadge, { backgroundColor: palette.stripe + "18" }]}>
+                                    <Text style={[styles.agendaClassBadgeText, { color: palette.stripe }]}>
+                                      {sessionClass.code}
+                                    </Text>
+                                  </View>
+                                ) : null}
+                                <Text
+                                  style={[styles.agendaEventName, { color: colors.foreground, flexShrink: 1 }]}
+                                  numberOfLines={1}
+                                >
+                                  {session.name}
+                                </Text>
+                              </View>
                               <View style={styles.agendaMetaRow}>
                                 <View
                                   style={[
@@ -1224,5 +1244,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     marginBottom: space.sm,
+  },
+  miniClassBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  miniClassBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+  },
+  agendaClassBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  agendaClassBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
   },
 });

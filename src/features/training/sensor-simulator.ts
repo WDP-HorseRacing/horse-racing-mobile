@@ -10,11 +10,11 @@ export type SimTelemetryPoint = {
 };
 
 /**
- * Generate a realistic telemetry point within normal or elevated bounds
+ * Generate a realistic telemetry point within normal bounds (< 180 bpm)
  */
 export function generateNormalMetric(): { heartRateBpm: number; speedMps: number } {
-  // Typical training heart rate between 150 - 180 bpm
-  const heartRateBpm = Math.floor(150 + Math.random() * 32);
+  // Typical safe training heart rate between 135 - 160 bpm (strictly NORMAL < 180)
+  const heartRateBpm = Math.floor(135 + Math.random() * 25);
   // Typical canter/gallop speed between 11.0 - 14.5 m/s (approx 40 - 52 km/h)
   const speedMps = Number((11.0 + Math.random() * 3.5).toFixed(2));
   return { heartRateBpm, speedMps };
@@ -72,7 +72,7 @@ export function startSimulation(
 ) {
   stopSimulation(participantId);
 
-  const intervalMs = options?.intervalMs ?? 3000;
+  const intervalMs = options?.intervalMs ?? 1000;
   let timer: ReturnType<typeof setInterval> | null = null;
   let requestInFlight = false;
 

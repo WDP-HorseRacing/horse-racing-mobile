@@ -241,7 +241,7 @@ export function IoTSimulatorControlCard({
           label={
             isStreaming
               ? "Tạm dừng phát tín hiệu"
-              : "Phát nhịp tim tự động (3s/lần)"
+              : "Phát nhịp tim tự động (1s/lần)"
           }
           icon={isStreaming ? "pause" : "pulse"}
           disabled={disabled || isSending}
@@ -278,7 +278,7 @@ export function IoTSimulatorControlCard({
 
         {/* Row 3: Single Test Point */}
         <SecondaryButton
-          label="Gửi 1 điểm đo chuẩn (150 - 180 bpm)"
+          label="Gửi 1 điểm đo chuẩn (135 - 160 bpm)"
           icon="add-circle-outline"
           disabled={disabled || isSending}
           onPress={onEmitSinglePoint}

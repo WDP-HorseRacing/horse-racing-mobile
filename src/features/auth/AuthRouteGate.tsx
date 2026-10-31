@@ -1,4 +1,5 @@
 import { useEffect, type PropsWithChildren } from "react";
+import { StyleSheet, View } from "react-native";
 import { router, usePathname, type Href } from "expo-router";
 import { roleOrder } from "@/features/auth/roles";
 import { useAuth } from "@/context/AuthContext";
@@ -29,9 +30,23 @@ export function AuthRouteGate({ children }: PropsWithChildren) {
     }
   }, [redirectPath]);
 
-  if (isLoading) return <LoadingScreen label="Checking your session…" />;
-  return <>{children}</>;
+  return (
+    <View style={styles.container}>
+      {children}
+      {isLoading ? (
+        <View style={StyleSheet.absoluteFill}>
+          <LoadingScreen label="Checking your session…" />
+        </View>
+      ) : null}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
 
 function roleForPath(pathname: string): RoleId | null {
   const [, first, second] = pathname.split("/");
