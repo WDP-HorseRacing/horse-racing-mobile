@@ -237,6 +237,18 @@ export function Injury3DMapper({
     () => existingInjuries.filter((injury) => !compatibleIds.has(injury.id)),
     [compatibleIds, existingInjuries],
   );
+  const sortedExistingInjuries = useMemo(() => {
+    return [...existingInjuries].sort((a, b) => {
+      const aHealed = a.currentRecoveryStatus === "HEALED" ? 1 : 0;
+      const bHealed = b.currentRecoveryStatus === "HEALED" ? 1 : 0;
+      if (aHealed !== bHealed) return aHealed - bHealed;
+      return new Date(b.firstExamDate).getTime() - new Date(a.firstExamDate).getTime();
+    });
+  }, [existingInjuries]);
+  const unhealedCount = useMemo(
+    () => existingInjuries.filter((item) => item.currentRecoveryStatus !== "HEALED").length,
+    [existingInjuries],
+  );
   const selectedDraft = drafts.find((marker) => marker.id === selectedMarkerId) ?? null;
   const selectedSaved = mappedExisting.find((injury) => injury.id === selectedMarkerId) ?? null;
   const markersForViewer = useMemo<InjuryViewerMarker[]>(
@@ -773,154 +785,223 @@ export function Injury3DMapper({
               </Panel>
             ) : null}
 
-            {selectedSaved ? (
-              <Panel>
-                <Text style={uiStyles.value}>{t("Saved injury marker")}</Text>
-                <Text style={uiStyles.muted}>
-                  {formatEnum(t(selectedSaved.bodyRegion))} ·{" "}
-                  {formatEnum(t(selectedSaved.injuryType))}
-                </Text>
-                <Text style={uiStyles.muted}>
-                  {formatEnum(t(selectedSaved.currentRecoveryStatus))}
-                </Text>
-                {selectedSaved.position ? (
-                  <Text style={uiStyles.muted}>{formatPosition(selectedSaved.position)}</Text>
-                ) : null}
-              </Panel>
-            ) : null}
-
-            {mappedExisting.length ? (
-              <Panel>
-                <Text style={uiStyles.value}>{t("Mapped existing injuries")}</Text>
-                <Text style={uiStyles.muted}>
-                  {t(
-                    "These points match a mapping saved on this device and were confirmed by the API response.",
-                  )}
-                </Text>
-                {mappedExisting.map((injury) => (
-                  <Pressable
-                    key={injury.id}
-                    accessibilityRole="button"
-                    onPress={() => {
-                      focusMarker(injury.id);
-                    }}
-                    style={styles.savedInjuryRow}
+            {/* Unified Injury Records & Recovery Panel */}
+            <Panel style={styles.editorSection}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[uiStyles.value, { fontSize: 16, fontWeight: "700" }]}>
+                    {t("Horse injury records")}
+                  </Text>
+                  <Text style={[uiStyles.muted, { fontSize: 12 }]}>
+                    {allowFollowUpUpdates
+                      ? "Xem vị trí trên mô hình 3D và cập nhật tiến trình hồi phục của từng chấn thương."
+                      : "Danh sách chấn thương đã ghi nhận. Chạm để xem vị trí trên mô hình 3D."}
+                  </Text>
+                </View>
+                {existingInjuries.length > 0 ? (
+                  <View
+                    style={[
+                      styles.headerCountBadge,
+                      unhealedCount > 0 ? styles.badgePending : styles.badgeAllHealed,
+                    ]}
                   >
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <Text style={uiStyles.value}>
-                        {formatEnum(t(injury.bodyRegion))} · {formatEnum(t(injury.injuryType))}
-                      </Text>
-                      <Text style={uiStyles.muted}>
-                        {formatEnum(t(injury.currentRecoveryStatus))}
-                      </Text>
-                    </View>
-                    <Ionicons name="locate-outline" size={18} color={colors.primary} />
-                  </Pressable>
-                ))}
-              </Panel>
-            ) : null}
-
-            {legacyExisting.length ? (
-              <Panel>
-                <Text style={uiStyles.value}>
-                  {t("Existing injuries without a verified 3D frame")}
-                </Text>
-                <Text style={uiStyles.muted}>
-                  {t(
-                    "The API does not include a model version or coordinate frame for these records. They are kept in the history and are not drawn at guessed positions.",
-                  )}
-                </Text>
-                {legacyExisting.map((injury) => (
-                  <View key={injury.id} style={styles.legacyRow}>
-                    <Text style={uiStyles.value}>
-                      {formatEnum(t(injury.bodyRegion))} · {formatEnum(t(injury.injuryType))}
-                    </Text>
-                    <Text style={uiStyles.muted}>
-                      {formatEnum(t(injury.currentRecoveryStatus))} · {t("First recorded")}:{" "}
-                      {new Date(injury.firstExamDate).toLocaleDateString()}
+                    <Text
+                      style={[
+                        styles.headerCountBadgeText,
+                        unhealedCount > 0 ? styles.textPending : styles.textAllHealed,
+                      ]}
+                    >
+                      {unhealedCount > 0 ? `${unhealedCount} chưa lành` : "Đã lành"}
                     </Text>
                   </View>
-                ))}
-              </Panel>
-            ) : null}
-
-            {allowFollowUpUpdates ? (
-              <Panel>
-                <Text style={uiStyles.value}>{t("Update injuries in this follow-up")}</Text>
-                <Text style={uiStyles.muted}>
-                  {t(
-                    "Only unhealed injuries can receive a recovery update. The original body region and position remain unchanged.",
-                  )}
-                </Text>
-                {existingInjuries.some((injury) => injury.currentRecoveryStatus !== "HEALED") ? (
-                  <Text style={[uiStyles.muted, { fontSize: 12, color: colors.primary }]}>
-                    To close the case, update each injury that has healed to HEALED in this follow-up.
-                  </Text>
                 ) : null}
-                {existingInjuries
-                  .filter((injury) => injury.currentRecoveryStatus !== "HEALED")
-                  .map((injury) => {
-                    const update = updates.find((item) => item.injuryId === injury.id);
-                    return (
-                      <View key={injury.id} style={styles.followUpCard}>
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() => {
-                            if (compatibleIds.has(injury.id)) focusMarker(injury.id);
-                          }}
-                          style={styles.markerTitleRow}
-                        >
-                          <Text style={[uiStyles.value, { flex: 1 }]}>
-                            {formatEnum(t(injury.bodyRegion))} · {formatEnum(t(injury.injuryType))}
+              </View>
+
+              {existingInjuries.length === 0 ? (
+                <View style={styles.emptyInjuriesBox}>
+                  <Ionicons name="shield-checkmark-outline" size={26} color={colors.primary} />
+                  <Text style={[uiStyles.muted, { fontSize: 13, textAlign: "center" }]}>
+                    Ngựa hiện chưa có ghi nhận chấn thương nào trong hồ sơ y tế.
+                  </Text>
+                </View>
+              ) : (
+                sortedExistingInjuries.map((injury) => {
+                  const isSelected = selectedMarkerId === injury.id;
+                  const has3D = compatibleIds.has(injury.id);
+                  const isUnhealed = injury.currentRecoveryStatus !== "HEALED";
+                  const update = updates.find((item) => item.injuryId === injury.id);
+                  const latestNote = injury.history?.at(-1)?.notes?.trim();
+
+                  return (
+                    <View
+                      key={injury.id}
+                      style={[
+                        styles.unifiedInjuryCard,
+                        isSelected && styles.unifiedInjuryCardSelected,
+                        update && styles.unifiedInjuryCardUpdating,
+                      ]}
+                    >
+                      {/* Top Row: Region · Type and Current Status */}
+                      <View style={styles.injuryCardHeader}>
+                        <View style={{ flex: 1, gap: 3 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <Text style={[uiStyles.value, { fontSize: 15, fontWeight: "700" }]}>
+                              {formatEnum(t(injury.bodyRegion))} · {formatEnum(t(injury.injuryType))}
+                            </Text>
+                            {update?.recoveryStatus === "HEALED" ? (
+                              <View style={styles.miniHealedBadge}>
+                                <Text style={styles.miniHealedBadgeText}>Mới: Đã lành</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          <Text style={[uiStyles.muted, { fontSize: 11 }]}>
+                            {t("First recorded")}: {new Date(injury.firstExamDate).toLocaleDateString()}
                           </Text>
-                          {compatibleIds.has(injury.id) ? (
-                            <Ionicons name="locate-outline" size={18} color={colors.primary} />
-                          ) : null}
-                        </Pressable>
-                        <Text style={uiStyles.muted}>
-                          {t("Current status")}: {formatEnum(t(injury.currentRecoveryStatus))}
-                        </Text>
-                        <SecondaryButton
-                          label={update ? "Remove follow-up update" : "Update in this follow-up"}
-                          onPress={() => addFollowUpUpdate(injury)}
-                          icon={update ? "remove-circle-outline" : "create-outline"}
-                        />
-                        {update ? (
-                          <>
-                            <Field label="Recovery status">
-                              <Chips
-                                options={RECOVERY_OPTIONS}
-                                value={update.recoveryStatus}
-                                onChange={(value) => {
-                                  if (RECOVERY_OPTIONS.includes(value))
-                                    updateFollowUp(injury.id, {
-                                      recoveryStatus: value as InjuryRecoveryStatus,
-                                    });
-                                }}
-                              />
-                            </Field>
-                            <Field label="Injury clinical notes">
-                              <NativeInput
-                                value={update.notes ?? ""}
-                                onChangeText={(notes) =>
-                                  updateFollowUp(injury.id, { notes: notes.slice(0, 1000) })
-                                }
-                                multiline
-                                placeholder="Severity, swelling, palpation pain notes..."
-                              />
-                            </Field>
-                          </>
+                        </View>
+
+                        {/* Status badge */}
+                        <View
+                          style={[
+                            styles.statusPill,
+                            injury.currentRecoveryStatus === "ACUTE"
+                              ? styles.statusPillAcute
+                              : injury.currentRecoveryStatus === "RECOVERING"
+                                ? styles.statusPillRecovering
+                                : styles.statusPillHealed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusPillText,
+                              injury.currentRecoveryStatus === "ACUTE"
+                                ? styles.statusTextAcute
+                                : injury.currentRecoveryStatus === "RECOVERING"
+                                  ? styles.statusTextRecovering
+                                  : styles.statusTextHealed,
+                            ]}
+                          >
+                            {formatEnum(t(injury.currentRecoveryStatus))}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Action Bar: 3D focus & update trigger */}
+                      <View style={styles.injuryCardActionBar}>
+                        {has3D ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => focusMarker(injury.id)}
+                            style={[
+                              styles.view3DBadgeBtn,
+                              isSelected && styles.view3DBadgeBtnActive,
+                            ]}
+                          >
+                            <Ionicons
+                              name={isSelected ? "location" : "locate-outline"}
+                              size={14}
+                              color={isSelected ? "#FFFFFF" : colors.primary}
+                            />
+                            <Text
+                              style={[
+                                styles.view3DBadgeBtnText,
+                                isSelected && styles.view3DBadgeBtnTextActive,
+                              ]}
+                            >
+                              {isSelected ? "Đang xem trên 3D" : "Xem vị trí 3D"}
+                            </Text>
+                          </Pressable>
+                        ) : (
+                          <View style={styles.no3DTag}>
+                            <Ionicons name="cube-outline" size={13} color={colors.mutedForeground} />
+                            <Text style={styles.no3DTagText}>Chưa có tọa độ 3D</Text>
+                          </View>
+                        )}
+
+                        {allowFollowUpUpdates && isUnhealed && !update ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => addFollowUpUpdate(injury)}
+                            style={styles.triggerUpdateBtn}
+                          >
+                            <Ionicons name="create-outline" size={14} color={colors.primary} />
+                            <Text style={styles.triggerUpdateBtnText}>Cập nhật hồi phục</Text>
+                          </Pressable>
                         ) : null}
                       </View>
-                    );
-                  })}
-                {!existingInjuries.some((injury) => injury.currentRecoveryStatus !== "HEALED") ? (
-                  <Text style={uiStyles.muted}>
-                    {t("No unhealed injuries are available to update.")}
-                  </Text>
-                ) : null}
-              </Panel>
-            ) : null}
+
+                      {/* Latest Notes from history */}
+                      {latestNote ? (
+                        <View style={styles.previousNoteBox}>
+                          <Ionicons name="document-text-outline" size={13} color={colors.mutedForeground} />
+                          <Text style={styles.previousNoteText} numberOfLines={2}>
+                            Ghi chú: &ldquo;{latestNote}&rdquo;
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {/* In-place Follow-up update editor */}
+                      {allowFollowUpUpdates && isUnhealed && update ? (
+                        <View style={styles.updateEditorBox}>
+                          <View style={styles.updateEditorTitleRow}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                              <Ionicons name="create" size={15} color={colors.primary} />
+                              <Text style={styles.updateEditorTitle}>Cập nhật trong lần tái khám này</Text>
+                            </View>
+                            <Pressable
+                              accessibilityRole="button"
+                              onPress={() => addFollowUpUpdate(injury)}
+                              style={styles.cancelUpdateBtn}
+                            >
+                              <Ionicons name="close-circle-outline" size={15} color={colors.destructive} />
+                              <Text style={styles.cancelUpdateText}>Hủy</Text>
+                            </Pressable>
+                          </View>
+
+                          <View style={{ marginTop: 6 }}>
+                            <Text style={[uiStyles.label, { fontSize: 12, marginBottom: 4 }]}>
+                              Mức độ hồi phục mới
+                            </Text>
+                            <Chips
+                              options={RECOVERY_OPTIONS}
+                              value={update.recoveryStatus}
+                              onChange={(value) => {
+                                if (RECOVERY_OPTIONS.includes(value))
+                                  updateFollowUp(injury.id, {
+                                    recoveryStatus: value as InjuryRecoveryStatus,
+                                  });
+                              }}
+                            />
+                          </View>
+
+                          {update.recoveryStatus === "HEALED" ? (
+                            <View style={styles.healedConfirmationBox}>
+                              <Ionicons name="checkmark-circle" size={16} color="#16a34a" />
+                              <Text style={styles.healedConfirmationText}>
+                                Đã chuyển thành Đã lành. Bệnh án sẽ đủ điều kiện đóng khi tất cả chấn thương đều đã lành.
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          <View style={{ marginTop: space.xs }}>
+                            <Text style={[uiStyles.label, { fontSize: 12, marginBottom: 4 }]}>
+                              Ghi chú lâm sàng lần khám này
+                            </Text>
+                            <NativeInput
+                              value={update.notes ?? ""}
+                              onChangeText={(notes) =>
+                                updateFollowUp(injury.id, { notes: notes.slice(0, 1000) })
+                              }
+                              multiline
+                              placeholder="Ghi chú mức độ hồi phục, giảm sưng, phản xạ đau..."
+                            />
+                          </View>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })
+              )}
+            </Panel>
           </ScrollView>
 
           {!isKeyboardVisible ? (
@@ -1118,27 +1199,224 @@ const getStyles = (colors: any) =>
     },
     markerCardActive: { borderColor: colors.primary, borderWidth: 2 },
     markerTitleRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
-    savedInjuryRow: {
+    sectionHeaderRow: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
       gap: space.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingVertical: space.sm,
+      marginBottom: space.xs,
     },
-    legacyRow: {
-      gap: 3,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingVertical: space.sm,
+    headerCountBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      borderWidth: 1,
     },
-    followUpCard: {
+    headerCountBadgeText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    badgePending: {
+      backgroundColor: "#fef3c7",
+      borderColor: "#fde68a",
+    },
+    badgeAllHealed: {
+      backgroundColor: colors.fitSoft ?? "#dcfce7",
+      borderColor: colors.primary,
+    },
+    textPending: {
+      color: "#b45309",
+    },
+    textAllHealed: {
+      color: colors.primary,
+    },
+    emptyInjuriesBox: {
+      alignItems: "center",
+      justifyContent: "center",
+      padding: space.lg,
       gap: space.xs,
-      padding: space.sm,
-      marginTop: space.sm,
-      borderRadius: radius.md,
+    },
+    unifiedInjuryCard: {
       borderWidth: 1,
       borderColor: colors.border,
+      borderRadius: radius.md,
       backgroundColor: colors.surface,
+      padding: space.sm,
+      gap: space.xs,
+      marginTop: space.xs,
+    },
+    unifiedInjuryCardSelected: {
+      borderColor: colors.primary,
+      borderWidth: 2,
+    },
+    unifiedInjuryCardUpdating: {
+      borderColor: colors.primary,
+    },
+    injuryCardHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: space.sm,
+    },
+    statusPill: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+    },
+    statusPillAcute: {
+      backgroundColor: "#fee2e2",
+      borderColor: "#fca5a5",
+    },
+    statusPillRecovering: {
+      backgroundColor: "#fef3c7",
+      borderColor: "#fde68a",
+    },
+    statusPillHealed: {
+      backgroundColor: "#dcfce7",
+      borderColor: "#86efac",
+    },
+    statusPillText: {
+      fontSize: 11,
+      fontWeight: "700",
+    },
+    statusTextAcute: { color: "#dc2626" },
+    statusTextRecovering: { color: "#d97706" },
+    statusTextHealed: { color: "#16a34a" },
+    miniHealedBadge: {
+      backgroundColor: "#dcfce7",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: "#86efac",
+    },
+    miniHealedBadgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: "#16a34a",
+    },
+    injuryCardActionBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: space.xs,
+      flexWrap: "wrap",
+      marginTop: 2,
+    },
+    view3DBadgeBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      borderRadius: radius.sm,
+      backgroundColor: colors.muted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    view3DBadgeBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    view3DBadgeBtnText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    view3DBadgeBtnTextActive: {
+      color: "#FFFFFF",
+    },
+    no3DTag: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+    },
+    no3DTagText: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      fontWeight: "500",
+    },
+    triggerUpdateBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingVertical: 5,
+      paddingHorizontal: 10,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    triggerUpdateBtnText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    previousNoteBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.muted,
+      padding: space.xs,
+      borderRadius: radius.sm,
+      marginTop: 2,
+    },
+    previousNoteText: {
+      fontSize: 12,
+      color: colors.mutedForeground,
+      fontStyle: "italic",
+      flex: 1,
+    },
+    updateEditorBox: {
+      marginTop: space.xs,
+      padding: space.sm,
+      backgroundColor: colors.muted,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      gap: 4,
+    },
+    updateEditorTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 2,
+    },
+    updateEditorTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.primary,
+    },
+    cancelUpdateBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      padding: 2,
+    },
+    cancelUpdateText: {
+      fontSize: 12,
+      color: colors.destructive,
+      fontWeight: "600",
+    },
+    healedConfirmationBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: "#dcfce7",
+      padding: space.xs,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: "#86efac",
+      marginTop: 6,
+    },
+    healedConfirmationText: {
+      fontSize: 11,
+      color: "#166534",
+      fontWeight: "600",
+      flex: 1,
+      lineHeight: 15,
     },
   });

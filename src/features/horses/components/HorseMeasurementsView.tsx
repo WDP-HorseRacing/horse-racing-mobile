@@ -101,6 +101,7 @@ export function HorseMeasurementsView({
   const [deleteId, setDeleteId] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const loadPermissions = useCallback(
     () => horseService.getPermissions(token!, horseId),
@@ -266,16 +267,19 @@ export function HorseMeasurementsView({
 
   // Tính miền giá trị Y cho biểu đồ
   const chartYBounds = useMemo(() => {
-    if (!chartPoints.length) return { min: 0, max: 100, step: 25 };
+    if (!chartPoints.length) return { min: 0, max: 100, step: 25, span: 100 };
     const vals = chartPoints.map((p) => p.value);
     const minVal = Math.min(...vals);
     const maxVal = Math.max(...vals);
-    const padding = Math.max((maxVal - minVal) * 0.2, 2);
+    const diff = maxVal - minVal;
+    const padding = diff === 0 ? Math.max(minVal * 0.05, 1) : Math.max(diff * 0.2, 1);
     const chartMin = Math.max(0, Math.floor(minVal - padding));
     const chartMax = Math.ceil(maxVal + padding);
     const noOfSections = 4;
-    const step = Math.max(1, Math.ceil((chartMax - chartMin) / noOfSections));
-    return { min: chartMin, max: chartMin + step * noOfSections, step };
+    const rawSpan = Math.max(chartMax - chartMin, 4);
+    const step = Math.max(1, Math.ceil(rawSpan / noOfSections));
+    const span = step * noOfSections;
+    return { min: chartMin, max: chartMin + span, step, span };
   }, [chartPoints]);
 
   const activeMetricConfig = METRIC_CONFIGS[chartType];
@@ -293,15 +297,9 @@ export function HorseMeasurementsView({
         <>
           {/* SECTION 1: THẺ SỐ ĐO MỚI NHẤT (LATEST MEASUREMENTS) */}
           <View style={{ gap: space.sm }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
+            <View style={{ gap: 2 }}>
               <SectionTitle>Số đo mới nhất</SectionTitle>
-              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+              <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
                 Cập nhật lần cuối theo từng chỉ số
               </Text>
             </View>
@@ -566,15 +564,17 @@ export function HorseMeasurementsView({
                   isAnimated
                   animationDuration={600}
                   noOfSections={4}
-                  maxValue={chartYBounds.max}
-                  mostNegativeValue={chartYBounds.min}
+                  maxValue={chartYBounds.span}
+                  yAxisOffset={chartYBounds.min}
                   stepValue={chartYBounds.step}
                   yAxisColor={colors.border}
                   xAxisColor={colors.border}
-                  yAxisTextStyle={{ fontSize: 9, color: colors.mutedForeground }}
+                  yAxisLabelWidth={38}
+                  yAxisTextStyle={{ fontSize: 10, color: colors.mutedForeground }}
                   xAxisLabelTextStyle={{ fontSize: 9, color: colors.mutedForeground }}
                   rulesColor={colors.border}
                   rulesType="dashed"
+                  showVerticalLines={false}
                   dataPointsColor={activeMetricConfig.color}
                   dataPointsRadius={4}
                   pointerConfig={{
@@ -628,98 +628,128 @@ export function HorseMeasurementsView({
               }}
             >
               <SectionTitle>Lịch sử ghi nhận</SectionTitle>
-              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+              <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
                 {resource.data.length} bản ghi
               </Text>
             </View>
 
             {resource.data.length ? (
-              resource.data.map((row) => {
-                const cfg = METRIC_CONFIGS[row.type] ?? METRIC_CONFIGS.WEIGHT;
-                const isDeletingThis = deleteId === row.id;
+              <>
+                {(showAllHistory ? resource.data : resource.data.slice(0, 4)).map((row) => {
+                  const cfg = METRIC_CONFIGS[row.type] ?? METRIC_CONFIGS.WEIGHT;
+                  const isDeletingThis = deleteId === row.id;
 
-                return (
-                  <Panel key={row.id} style={{ gap: space.sm }}>
-                    <View style={styles.recordHeader}>
-                      <View style={[styles.recordTypeIcon, { backgroundColor: cfg.bgTint }]}>
-                        <Ionicons name={cfg.icon} size={16} color={cfg.color} />
-                      </View>
-
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <Text style={styles.recordTitle}>
-                            {cfg.label}: {row.value} {formatMeasurementUnit(row.unit)}
-                          </Text>
-                          {row.isAbnormal ? (
-                            <View
-                              style={[
-                                styles.statusBadge,
-                                { backgroundColor: "rgba(239, 68, 68, 0.15)" },
-                              ]}
-                            >
-                              <Text style={[styles.statusBadgeText, { color: colors.destructive }]}>
-                                Bất thường
-                              </Text>
-                            </View>
-                          ) : null}
+                  return (
+                    <Panel key={row.id} style={{ gap: space.sm, paddingVertical: space.sm, paddingHorizontal: space.md }}>
+                      <View style={styles.recordHeader}>
+                        <View style={[styles.recordTypeIcon, { backgroundColor: cfg.bgTint }]}>
+                          <Ionicons name={cfg.icon} size={16} color={cfg.color} />
                         </View>
 
-                        <Text style={styles.recordMeta}>
-                          {formatDateTime(row.measuredAt)} · Người ghi:{" "}
-                          {row.measuredByName || "Hệ thống"} ·{" "}
-                          {row.source === "MEDICAL_EXAM" ? "Khám thú y" : "Ghi thủ công"}
-                        </Text>
+                        <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <Text style={styles.recordTitle}>
+                              {cfg.label}: {row.value} {formatMeasurementUnit(row.unit)}
+                            </Text>
+                            {row.isAbnormal ? (
+                              <View
+                                style={[
+                                  styles.statusBadge,
+                                  { backgroundColor: "rgba(239, 68, 68, 0.15)" },
+                                ]}
+                              >
+                                <Text style={[styles.statusBadgeText, { color: colors.destructive }]}>
+                                  Bất thường
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+
+                          <Text style={styles.recordMeta}>
+                            {formatDateTime(row.measuredAt)} · {row.measuredByName || "Hệ thống"} ·{" "}
+                            {row.source === "MEDICAL_EXAM" ? "Khám thú y" : "Thủ công"}
+                          </Text>
+                        </View>
+
+                        {canDelete && row.source === "MANUAL" ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() => setDeleteId(isDeletingThis ? "" : row.id)}
+                            style={styles.deleteButton}
+                          >
+                            <Ionicons
+                              name={isDeletingThis ? "close-circle-outline" : "trash-outline"}
+                              size={18}
+                              color={colors.destructive}
+                            />
+                          </Pressable>
+                        ) : null}
                       </View>
 
-                      {canDelete && row.source === "MANUAL" ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() => setDeleteId(isDeletingThis ? "" : row.id)}
-                          style={styles.deleteButton}
-                        >
-                          <Ionicons
-                            name={isDeletingThis ? "close-circle-outline" : "trash-outline"}
-                            size={18}
-                            color={colors.destructive}
+                      {isDeletingThis ? (
+                        <View style={styles.deleteSection}>
+                          <Field label="Lý do xóa bản ghi sai (bắt buộc)">
+                            <NativeInput
+                              value={deleteReason}
+                              onChangeText={setDeleteReason}
+                              multiline
+                              placeholder="Giải thích lý do cần gỡ bỏ bản ghi số đo này"
+                            />
+                          </Field>
+                          <PrimaryButton
+                            label={deleting ? "Đang xóa…" : "Xác nhận xóa bản ghi"}
+                            icon="trash"
+                            disabled={deleting || !deleteReason.trim()}
+                            onPress={() =>
+                              Alert.alert(
+                                "Xóa bản ghi số đo?",
+                                "Bản ghi này sẽ bị ẩn khỏi lịch sử và không tính vào biểu đồ.",
+                                [
+                                  { text: "Hủy", style: "cancel" },
+                                  {
+                                    text: "Xóa vĩnh viễn",
+                                    style: "destructive",
+                                    onPress: () => void removeMeasurement(),
+                                  },
+                                ],
+                              )
+                            }
                           />
-                        </Pressable>
+                        </View>
                       ) : null}
-                    </View>
+                    </Panel>
+                  );
+                })}
 
-                    {isDeletingThis ? (
-                      <View style={styles.deleteSection}>
-                        <Field label="Lý do xóa bản ghi sai (bắt buộc)">
-                          <NativeInput
-                            value={deleteReason}
-                            onChangeText={setDeleteReason}
-                            multiline
-                            placeholder="Giải thích lý do cần gỡ bỏ bản ghi số đo này"
-                          />
-                        </Field>
-                        <PrimaryButton
-                          label={deleting ? "Đang xóa…" : "Xác nhận xóa bản ghi"}
-                          icon="trash"
-                          disabled={deleting || !deleteReason.trim()}
-                          onPress={() =>
-                            Alert.alert(
-                              "Xóa bản ghi số đo?",
-                              "Bản ghi này sẽ bị ẩn khỏi lịch sử và không tính vào biểu đồ.",
-                              [
-                                { text: "Hủy", style: "cancel" },
-                                {
-                                  text: "Xóa vĩnh viễn",
-                                  style: "destructive",
-                                  onPress: () => void removeMeasurement(),
-                                },
-                              ],
-                            )
-                          }
-                        />
-                      </View>
-                    ) : null}
-                  </Panel>
-                );
-              })
+                {resource.data.length > 4 ? (
+                  <Pressable
+                    onPress={() => setShowAllHistory((prev) => !prev)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      paddingVertical: 10,
+                      backgroundColor: colors.surface,
+                      borderRadius: radius.md,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      marginTop: 2,
+                    }}
+                  >
+                    <Ionicons
+                      name={showAllHistory ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text style={{ fontSize: 13, fontWeight: "600", color: colors.primary }}>
+                      {showAllHistory
+                        ? "Thu gọn lịch sử"
+                        : `Xem thêm ${resource.data.length - 4} bản ghi trước`}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
             ) : (
               <AsyncStateView
                 isLoading={false}
@@ -973,6 +1003,7 @@ const getStyles = (colors: any) =>
       justifyContent: "center",
       alignItems: "center",
       marginTop: 4,
+      overflow: "hidden",
     },
     chartTooltip: {
       backgroundColor: colors.surface,

@@ -1,4 +1,5 @@
 {
+  "Nutrition": "Dinh dưỡng",
   "Choose your workspace": "Chọn không gian làm việc",
   "Stable operations, in your hand": "Vận hành chuồng ngựa ngay trong tay bạn",
   "Stable workflow": "Quy trình vận hành chuồng",
@@ -1123,5 +1124,6 @@
   "No active individual task types are available. Club Manager can add them under Care task types.": "Chưa có loại việc riêng nào đang hoạt động. Quản lý CLB có thể thêm trong mục Loại việc chăm sóc.",
   "Awaiting Head Trainer": "Đang chờ Trưởng huấn luyện áp dụng",
   "In stock": "Còn hàng",
-  "Open horse care": "Mở chăm sóc ngựa"
+  "Open horse care": "Mở chăm sóc ngựa",
+  "Horse injury records": "Hồ sơ chấn thương của ngựa"
 }

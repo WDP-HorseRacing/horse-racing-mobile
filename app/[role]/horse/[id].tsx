@@ -2,6 +2,7 @@ import { type Href, Redirect, router, useFocusEffect, useLocalSearchParams } fro
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { LineChart } from "react-native-gifted-charts";
 import { Text } from "@/components/common/LocalizedText";
 import { fitnessTrend, getHorse, raceResults, recoveryTrend, speedTrend } from "@/lib/raceos-data";
 import type { RoleId } from "@/lib/raceos-data";
@@ -11,11 +12,9 @@ import {
   Field,
   MiniChart,
   ProgressBar,
-  Metric,
   NativeInput,
   Panel,
   PrimaryButton,
-  StatusBadge,
   getUiStyles,
 } from "@/components/ui";
 import { KeyValue, TimelineItem, Screen, SectionTitle } from "@/components/common";
@@ -48,11 +47,11 @@ import { formatToDdMmYyyy } from "@/utils/horse-validation";
 import { HorseMeasurementsView } from "@/features/horses/components/HorseMeasurementsView";
 
 const tabsByRole: Record<RoleId, string[]> = {
-  trainer: ["Overview", "Training", "Health", "Medical", "Performance"],
-  vet: ["Overview", "Training", "Health", "Medical", "Injuries", "Treatment"],
-  groom: ["Overview", "Care"],
-  owner: ["Overview", "Training", "Health", "Medical", "Performance", "Racing", "Costs"],
-  manager: ["Overview", "Health", "Medical", "Performance", "Costs", "Timeline"],
+  trainer: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance"],
+  vet: ["Overview", "Training", "Health", "Medical", "Nutrition", "Injuries", "Treatment"],
+  groom: ["Overview", "Nutrition"],
+  owner: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance", "Racing", "Costs"],
+  manager: ["Overview", "Health", "Medical", "Nutrition", "Performance", "Costs", "Timeline"],
 };
 
 export default function HorseProfile() {
@@ -90,6 +89,7 @@ export default function HorseProfile() {
     return base.filter((item) => {
       if (["Health", "Medical", "Injuries", "Treatment"].includes(item))
         return permissionsResource.data?.canViewMedicalTab === true;
+      if (item === "Nutrition") return true;
       if (item === "Performance") return permissionsResource.data?.canViewPerformanceTab === true;
       if (item === "Training") return permissionsResource.data?.canViewTrainingTab === true;
       if (item === "Racing") return ["owner"].includes(roleId);
@@ -156,7 +156,7 @@ export default function HorseProfile() {
       token &&
         isUuid(id) &&
         ["manager", "owner", "trainer"].includes(roleId) &&
-        visibleTab === "Costs",
+        (visibleTab === "Costs" || visibleTab === "Nutrition"),
     ),
   );
   const loadPerformanceData = useCallback(async () => {
@@ -874,43 +874,93 @@ export default function HorseProfile() {
                   </Text>
                 ))}
               </Panel>
-              <PrimaryButton
-                label="Ownership history"
-                icon="people-outline"
-                onPress={() => router.push(`/${roleId}/horse/${horse.id}/ownership` as Href)}
-              />
-              <PrimaryButton
-                label="Stable care and feeding"
-                icon="leaf-outline"
-                onPress={() => router.push(`/${roleId}/horse/${horse.id}/stable-care` as Href)}
-              />
-              {["manager", "trainer", "owner"].includes(roleId) ? (
-                <PrimaryButton
-                  label="Care surcharges"
-                  icon="cash-outline"
-                  onPress={() =>
-                    router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
-                  }
-                />
-              ) : null}
-              {["trainer", "groom", "manager"].includes(roleId) && !horseResource.data.isDeleted ? (
-                <PrimaryButton
-                  label="Request examination"
-                  icon="medkit-outline"
-                  onPress={() =>
-                    router.push(`/${roleId}/medical/requests?horseId=${horse.id}` as Href)
-                  }
-                />
-              ) : null}
-              {permissionsResource.data?.canEditProfile &&
-              roleId === "manager" &&
-              !horseResource.data.isDeleted ? (
-                <PrimaryButton
-                  label="Edit horse profile"
-                  icon="create-outline"
-                  onPress={() => router.push(`/manager/edit-horse/${horse.id}` as Href)}
-                />
-              ) : null}
+              {/* Profile Management Actions Grid */}
+              <View style={[uiStyles.section, { marginTop: space.sm }]}>
+                <SectionTitle>Quản lý & Tác vụ hồ sơ</SectionTitle>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+                  {/* Ownership history */}
+                  <Pressable
+                    onPress={() => router.push(`/${roleId}/horse/${horse.id}/ownership` as Href)}
+                    style={styles.actionGridTile}
+                  >
+                    <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
+                      <Ionicons name="people-outline" size={20} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.actionGridTitle}>Lịch sử sở hữu</Text>
+                      <Text style={styles.actionGridSubtitle} numberOfLines={1}>
+                        Xem hợp đồng & chủ sở hữu
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                  </Pressable>
+
+                  {/* Manage barn, stall & Groom */}
+                  {((permissionsResource.data?.canAssignBarn && roleId === "manager") ||
+                    (permissionsResource.data?.canAssignStallAndGroom && roleId === "trainer")) &&
+                  !horseResource.data.isDeleted ? (
+                    <Pressable
+                      onPress={() => router.push(`/${roleId}/horse/${horse.id}/placement` as Href)}
+                      style={styles.actionGridTile}
+                    >
+                      <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(59, 130, 246, 0.12)" }]}>
+                        <Ionicons name="business-outline" size={20} color="#3B82F6" />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.actionGridTitle}>Chuồng, ô & Groom</Text>
+                        <Text style={styles.actionGridSubtitle} numberOfLines={1}>
+                          Phân công vị trí & nhân sự
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                    </Pressable>
+                  ) : null}
+
+                  {/* Edit profile */}
+                  {permissionsResource.data?.canEditProfile &&
+                  roleId === "manager" &&
+                  !horseResource.data.isDeleted ? (
+                    <Pressable
+                      onPress={() => router.push(`/manager/edit-horse/${horse.id}` as Href)}
+                      style={styles.actionGridTile}
+                    >
+                      <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(245, 158, 11, 0.12)" }]}>
+                        <Ionicons name="create-outline" size={20} color="#F59E0B" />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.actionGridTitle}>Chỉnh sửa hồ sơ</Text>
+                        <Text style={styles.actionGridSubtitle} numberOfLines={1}>
+                          Cập nhật thông tin & đặc điểm
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                    </Pressable>
+                  ) : null}
+
+                  {/* Lifecycle, delete or restore */}
+                  {roleId === "manager" &&
+                  (permissionsResource.data?.canChangeLifecycle ||
+                    permissionsResource.data?.canDelete ||
+                    permissionsResource.data?.canRestore) ? (
+                    <Pressable
+                      onPress={() => router.push(`/manager/lifecycle/${horse.id}` as Href)}
+                      style={styles.actionGridTile}
+                    >
+                      <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(139, 92, 246, 0.12)" }]}>
+                        <Ionicons name="repeat-outline" size={20} color="#8B5CF6" />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.actionGridTitle}>Vòng đời & Khôi phục</Text>
+                        <Text style={styles.actionGridSubtitle} numberOfLines={1}>
+                          Trạng thái hoạt động, giải nghệ
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+
               {permissionsResource.data?.canEditRaceAptitude && !horseResource.data.isDeleted ? (
                 <Panel style={{ gap: space.md }}>
                   <Field label="Race aptitude · Head Trainer">
@@ -945,25 +995,6 @@ export default function HorseProfile() {
                     }
                   />
                 </Panel>
-              ) : null}
-              {((permissionsResource.data?.canAssignBarn && roleId === "manager") ||
-                (permissionsResource.data?.canAssignStallAndGroom && roleId === "trainer")) &&
-              !horseResource.data.isDeleted ? (
-                <PrimaryButton
-                  label="Manage barn, stall and Groom"
-                  icon="business-outline"
-                  onPress={() => router.push(`/${roleId}/horse/${horse.id}/placement` as Href)}
-                />
-              ) : null}
-              {roleId === "manager" &&
-              (permissionsResource.data?.canChangeLifecycle ||
-                permissionsResource.data?.canDelete ||
-                permissionsResource.data?.canRestore) ? (
-                <PrimaryButton
-                  label="Lifecycle, delete or restore"
-                  icon="repeat"
-                  onPress={() => router.push(`/manager/lifecycle/${horse.id}` as Href)}
-                />
               ) : null}
             </>
           ) : (
@@ -1168,28 +1199,79 @@ export default function HorseProfile() {
             error={medicalResource.error}
             onRetry={() => void medicalResource.retry()}
           />
+
+          {/* Action Header: Yêu cầu khám thú y (Trainer, Groom, Manager) */}
+          {["trainer", "groom", "manager"].includes(roleId) && !horseResource.data.isDeleted ? (
+            <PrimaryButton
+              label="Yêu cầu khám thú y"
+              icon="medkit-outline"
+              onPress={() =>
+                router.push(`/${roleId}/medical/requests?horseId=${horse.id}` as Href)
+              }
+            />
+          ) : null}
+
+          {/* Vet Action Bar */}
           {roleId === "vet" ? (
-            <>
+            <View style={{ gap: space.sm }}>
               <PrimaryButton
-                label="Record examination"
+                label="Ghi nhận lần khám bệnh mới"
                 icon="medkit-outline"
                 onPress={() => router.push(`/vet/medical/visit?horseId=${horse.id}` as Href)}
               />
-              <PrimaryButton
-                label={
-                  horseResource.data.activeTrainingLock ? "Manage training lock" : "Lock training"
-                }
-                icon="lock-closed"
-                onPress={() => router.push(`/vet/lock/${horse.id}` as Href)}
-              />
-              <PrimaryButton
-                label="Manage care schedule"
-                icon="calendar-outline"
-                onPress={() => router.push(`/vet/medical/care?horseId=${horse.id}` as Href)}
-              />
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push(`/vet/lock/${horse.id}` as Href)}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    paddingVertical: 10,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  }}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={16}
+                    color={horseResource.data.activeTrainingLock ? colors.destructive : colors.foreground}
+                  />
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
+                    {horseResource.data.activeTrainingLock ? "Quản lý khóa tập" : "Khóa tập luyện"}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push(`/vet/medical/care?horseId=${horse.id}` as Href)}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    paddingVertical: 10,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  }}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: colors.primary }}>
+                    Lịch chăm sóc
+                  </Text>
+                </Pressable>
+              </View>
+
               {permissionsResource.data?.canChangeHealth ? (
-                <View style={uiStyles.section}>
-                  <SectionTitle>Update health status</SectionTitle>
+                <Panel style={{ gap: space.sm, marginTop: 4 }}>
+                  <SectionTitle>Cập nhật trạng thái sức khỏe</SectionTitle>
                   <Chips
                     options={["ELIGIBLE", "UNDER_OBSERVATION", "INJURED", "QUARANTINED"]}
                     value={healthStatusDraft || horseResource.data.healthStatus}
@@ -1197,149 +1279,488 @@ export default function HorseProfile() {
                   />
                   {healthStatusDraft && healthStatusDraft !== horseResource.data.healthStatus ? (
                     <>
-                      <Field label="Reason for this change">
+                      <Field label="Lý do thay đổi trạng thái">
                         <NativeInput
                           value={healthReason}
                           onChangeText={setHealthReason}
                           multiline
+                          placeholder="Nêu rõ lý do lâm sàng hoặc tình trạng chấn thương..."
                         />
                       </Field>
                       <PrimaryButton
                         style={{ marginTop: space.xs }}
-                        label={savingHealth ? "Saving…" : "Save health status"}
+                        label={savingHealth ? "Đang lưu…" : "Lưu trạng thái sức khỏe"}
                         disabled={savingHealth || !isValidRequiredText(healthReason, 500)}
                         onPress={() => void saveHealthStatus()}
                       />
                     </>
                   ) : null}
-                </View>
+                </Panel>
               ) : null}
-            </>
+            </View>
           ) : null}
+
           {medicalResource.data ? (
-            <View style={uiStyles.section}>
-              <SectionTitle>Medical cases</SectionTitle>
-              {medicalResource.data.cases.items.length ? (
-                medicalResource.data.cases.items.map((medicalCase) => (
+            <View style={{ gap: space.md, marginTop: space.xs }}>
+              {/* SECTION: Bệnh án điều trị (Medical Cases) */}
+              <View style={uiStyles.section}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <SectionTitle>Bệnh án điều trị</SectionTitle>
+                  <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
+                    {medicalResource.data.cases.items.length} ca bệnh
+                  </Text>
+                </View>
+
+                {medicalResource.data.cases.items.length ? (
+                  medicalResource.data.cases.items.map((medicalCase) => {
+                    const isOpen = medicalCase.status === "OPEN";
+                    return (
+                      <Pressable
+                        key={medicalCase.id}
+                        onPress={() =>
+                          router.push(`/${roleId}/medical/cases/${medicalCase.id}` as Href)
+                        }
+                      >
+                        <Panel style={{ gap: space.xs, padding: space.md }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                              <View
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 8,
+                                  backgroundColor: isOpen ? "rgba(239, 68, 68, 0.12)" : colors.surface,
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <Ionicons
+                                  name={isOpen ? "fitness" : "checkmark-done-circle"}
+                                  size={18}
+                                  color={isOpen ? colors.destructive : colors.fit}
+                                />
+                              </View>
+                              <Text style={[uiStyles.value, { fontSize: 15, fontWeight: "700" }]} numberOfLines={1}>
+                                {medicalCase.initialDiagnosis}
+                              </Text>
+                            </View>
+
+                            <View
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: radius.pill,
+                                backgroundColor: isOpen ? "rgba(239, 68, 68, 0.12)" : colors.elevated,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "700",
+                                  color: isOpen ? colors.destructive : colors.mutedForeground,
+                                }}
+                              >
+                                {isOpen ? "ĐANG ĐIỀU TRỊ" : "ĐÃ ĐÓNG"}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                            <Ionicons name="calendar-outline" size={12} color={colors.mutedForeground} />
+                            <Text style={uiStyles.muted}>
+                              Mở: {new Date(medicalCase.openedAt).toLocaleDateString()}
+                              {medicalCase.closedAt
+                                ? ` · Đóng: ${new Date(medicalCase.closedAt).toLocaleDateString()}`
+                                : ""}
+                            </Text>
+                          </View>
+
+                          {medicalCase.finalConclusion ? (
+                            <Text style={{ fontSize: 13, color: colors.foreground, marginTop: 2 }}>
+                              Kết luận: {medicalCase.finalConclusion}
+                            </Text>
+                          ) : null}
+
+                          {"totalCost" in medicalCase && medicalCase.totalCost != null ? (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+                              <Ionicons name="cash-outline" size={13} color={colors.primary} />
+                              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
+                                Chi phí: {medicalCase.totalCost.toLocaleString("vi-VN")} VND
+                              </Text>
+                            </View>
+                          ) : null}
+                        </Panel>
+                      </Pressable>
+                    );
+                  })
+                ) : (
+                  <AsyncStateView
+                    isLoading={false}
+                    error={null}
+                    onRetry={() => void medicalResource.retry()}
+                    empty
+                    emptyLabel="Chưa có bệnh án y tế nào được ghi nhận."
+                  />
+                )}
+              </View>
+
+              {/* SECTION: Lịch sử các lần khám (Medical Visits) */}
+              <View style={uiStyles.section}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <SectionTitle>Lịch sử các lần khám</SectionTitle>
+                  <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
+                    {medicalResource.data.records.length} lần khám
+                  </Text>
+                </View>
+
+                {medicalResource.data.records.length ? (
+                  medicalResource.data.records.slice(0, 12).map((record) => {
+                    const isIssue = record.conclusion === "ISSUE";
+                    return (
+                      <Pressable
+                        key={record.id}
+                        onPress={() => router.push(`/${roleId}/medical/visits/${record.id}` as Href)}
+                      >
+                        <Panel style={{ gap: space.xs, padding: space.md }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                              <View
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 8,
+                                  backgroundColor: isIssue ? "rgba(239, 68, 68, 0.12)" : "rgba(16, 185, 129, 0.12)",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <Ionicons
+                                  name={isIssue ? "warning-outline" : "medkit-outline"}
+                                  size={18}
+                                  color={isIssue ? colors.destructive : colors.primary}
+                                />
+                              </View>
+                              <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "700" }]} numberOfLines={1}>
+                                {record.conclusion === "ISSUE"
+                                  ? (record.diagnosis || "Phát hiện vấn đề sức khỏe")
+                                  : (record.diagnosis || record.kind?.replaceAll("_", " ") || "Khám định kỳ bình thường")}
+                              </Text>
+                            </View>
+
+                            <View
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: radius.pill,
+                                backgroundColor: isIssue ? "rgba(239, 68, 68, 0.12)" : colors.fitSoft,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "700",
+                                  color: isIssue ? colors.destructive : colors.fit,
+                                }}
+                              >
+                                {record.resultingStatus || (isIssue ? "Cần theo dõi" : "Bình thường")}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                            <Ionicons name="time-outline" size={12} color={colors.mutedForeground} />
+                            <Text style={uiStyles.muted}>
+                              {new Date(record.examDate).toLocaleString()}
+                              {record.voidedAt ? ` · Đã hủy: ${record.voidReason ?? ""}` : ""}
+                            </Text>
+                          </View>
+
+                          {/* Prescriptions preview */}
+                          {record.prescriptions && record.prescriptions.length > 0 ? (
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 6,
+                                backgroundColor: colors.surface,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: radius.sm,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                marginTop: 4,
+                              }}
+                            >
+                              <Ionicons name="medical-outline" size={13} color={colors.primary} />
+                              <Text style={{ fontSize: 12, color: colors.foreground, flex: 1 }} numberOfLines={1}>
+                                <Text style={{ fontWeight: "700" }}>Đơn thuốc ({record.prescriptions.length}): </Text>
+                                {record.prescriptions.map((p) => p.medicine).join(", ")}
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          {record.careInstructions ? (
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                              <Ionicons name="clipboard-outline" size={12} color={colors.mutedForeground} />
+                              <Text style={[uiStyles.muted, { fontSize: 12 }]} numberOfLines={2}>
+                                {record.careInstructions}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </Panel>
+                      </Pressable>
+                    );
+                  })
+                ) : (
+                  <Text style={uiStyles.muted}>Chưa có lần khám thú y nào được ghi nhận.</Text>
+                )}
+              </View>
+
+              {/* SECTION: Lịch chăm sóc & điều trị */}
+              <View style={uiStyles.section}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <SectionTitle>Lịch trình chăm sóc y tế</SectionTitle>
                   <Pressable
-                    key={medicalCase.id}
-                    onPress={() =>
-                      router.push(`/${roleId}/medical/cases/${medicalCase.id}` as Href)
-                    }
+                    onPress={() => router.push(`/${roleId}/medical/care?horseId=${horse.id}` as Href)}
                   >
-                    <Panel>
-                      <Text style={uiStyles.value}>{medicalCase.initialDiagnosis}</Text>
-                      <Text style={uiStyles.muted}>
-                        {medicalCase.status} · opened{" "}
-                        {new Date(medicalCase.openedAt).toLocaleDateString()}
-                      </Text>
-                      {medicalCase.closedAt ? (
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                      Mở chi tiết →
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {(medicalResource.data.careSchedules ?? []).length ? (
+                  (medicalResource.data.careSchedules ?? []).map((schedule) => (
+                    <Panel key={schedule.id} style={{ gap: space.xs, padding: space.md }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "700", flex: 1 }]} numberOfLines={1}>
+                          {schedule.type.replaceAll("_", " ")}
+                        </Text>
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: radius.pill,
+                            backgroundColor:
+                              schedule.status === "COMPLETED"
+                                ? colors.fitSoft
+                                : schedule.status === "CANCELLED"
+                                  ? colors.elevated
+                                  : "rgba(245, 158, 11, 0.12)",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: "700",
+                              color:
+                                schedule.status === "COMPLETED"
+                                  ? colors.fit
+                                  : schedule.status === "CANCELLED"
+                                    ? colors.mutedForeground
+                                    : "#F59E0B",
+                            }}
+                          >
+                            {schedule.status.replaceAll("_", " ")}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                        <Ionicons name="time-outline" size={12} color={colors.mutedForeground} />
                         <Text style={uiStyles.muted}>
-                          Closed {new Date(medicalCase.closedAt).toLocaleDateString()}
+                          Đến hạn: {new Date(schedule.dueAt).toLocaleString()}
+                          {schedule.completedAt ? ` · Xong: ${new Date(schedule.completedAt).toLocaleDateString()}` : ""}
                         </Text>
-                      ) : null}
-                      {medicalCase.finalConclusion ? (
-                        <Text>{medicalCase.finalConclusion}</Text>
-                      ) : null}
-                      {"totalCost" in medicalCase ? (
-                        <Text>
-                          Medical cost:{" "}
-                          {medicalCase.totalCost == null
-                            ? "Hidden or not yet closed"
-                            : `${medicalCase.totalCost.toLocaleString()} VND`}
+                      </View>
+                      {schedule.notes ? <Text style={{ fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>{schedule.notes}</Text> : null}
+                    </Panel>
+                  ))
+                ) : (
+                  <Text style={uiStyles.muted}>Chưa có lịch trình chăm sóc nào.</Text>
+                )}
+              </View>
+
+              {/* SECTION: Lịch sử thay đổi trạng thái sức khỏe */}
+              <View style={uiStyles.section}>
+                <SectionTitle>Lịch sử trạng thái sức khỏe</SectionTitle>
+                {medicalResource.data.healthHistory.length ? (
+                  medicalResource.data.healthHistory.map((item, index) => (
+                    <Panel key={`${item.changedAt}-${index}`} style={{ gap: space.xs, padding: space.md }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <View
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: radius.pill,
+                            backgroundColor: colors.elevated,
+                          }}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}>
+                            {item.from ?? "Khởi tạo"} → {item.to}
+                          </Text>
+                        </View>
+                        <Text style={[uiStyles.muted, { fontSize: 11 }]}>
+                          {new Date(item.changedAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      {item.reason ? (
+                        <Text style={{ fontSize: 13, color: colors.foreground, marginTop: 2 }}>
+                          Lý do: {item.reason}
                         </Text>
                       ) : null}
                     </Panel>
-                  </Pressable>
-                ))
-              ) : (
-                <AsyncStateView
-                  isLoading={false}
-                  error={null}
-                  onRetry={() => void medicalResource.retry()}
-                  empty
-                  emptyLabel="No medical cases are recorded."
-                />
-              )}
-              <SectionTitle>Medical visits</SectionTitle>
-              {medicalResource.data.records.length ? (
-                medicalResource.data.records.slice(0, 12).map((record) => (
-                  <Pressable
-                    key={record.id}
-                    onPress={() => router.push(`/${roleId}/medical/visits/${record.id}` as Href)}
-                  >
-                    <Panel>
-                      <Text style={uiStyles.value}>
-                        {record.conclusion ?? record.diagnosis ?? record.kind}
-                      </Text>
-                      <Text style={uiStyles.muted}>
-                        {new Date(record.examDate).toLocaleString()} · {record.resultingStatus}
-                        {record.voidedAt
-                          ? ` · voided: ${record.voidReason ?? "no reason returned"}`
-                          : ""}
-                      </Text>
-                      {record.careInstructions ? <Text>{record.careInstructions}</Text> : null}
-                    </Panel>
-                  </Pressable>
-                ))
-              ) : (
-                <Text style={uiStyles.muted}>No medical visits are recorded.</Text>
-              )}
-              <SectionTitle>Care schedule history</SectionTitle>
-              {(medicalResource.data.careSchedules ?? []).length ? (
-                (medicalResource.data.careSchedules ?? []).map((schedule) => (
-                  <Panel key={schedule.id}>
-                    <View style={uiStyles.row}>
-                      <Text style={[uiStyles.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
-                        {schedule.type.replaceAll("_", " ")}
-                      </Text>
-                      <Text style={[uiStyles.label, { flexShrink: 0 }]}>
-                        {schedule.status.replaceAll("_", " ")}
-                      </Text>
-                    </View>
-                    <Text style={uiStyles.muted}>
-                      Due {new Date(schedule.dueAt).toLocaleString()}
-                    </Text>
-                    {schedule.completedAt ? (
-                      <Text style={uiStyles.muted}>
-                        Completed {new Date(schedule.completedAt).toLocaleString()}
-                      </Text>
-                    ) : null}
-                    {schedule.cancelReason ? (
-                      <Text style={uiStyles.muted}>Cancelled: {schedule.cancelReason}</Text>
-                    ) : null}
-                    {schedule.notes ? <Text>{schedule.notes}</Text> : null}
-                  </Panel>
-                ))
-              ) : (
-                <Text style={uiStyles.muted}>No care schedules are recorded.</Text>
-              )}
-              <PrimaryButton
-                label="Open care schedule details"
-                icon="calendar-outline"
-                onPress={() => router.push(`/${roleId}/medical/care?horseId=${horse.id}` as Href)}
-              />
-              <SectionTitle>Health status history</SectionTitle>
-              {medicalResource.data.healthHistory.length ? (
-                medicalResource.data.healthHistory.map((item, index) => (
-                  <Panel key={`${item.changedAt}-${index}`}>
-                    <Text style={uiStyles.value}>
-                      {item.from ?? "Initial"} → {item.to}
-                    </Text>
-                    <Text style={uiStyles.muted}>
-                      {new Date(item.changedAt).toLocaleString()}
-                      {item.feature ? ` · ${item.feature}` : ""}
-                      {item.actorId ? ` · staff ${item.actorId.slice(0, 8)}` : " · system"}
-                    </Text>
-                    {item.reason ? <Text>{item.reason}</Text> : null}
-                  </Panel>
-                ))
-              ) : (
-                <Text style={uiStyles.muted}>No health status changes are recorded.</Text>
-              )}
+                  ))
+                ) : (
+                  <Text style={uiStyles.muted}>Chưa có ghi nhận thay đổi trạng thái sức khỏe.</Text>
+                )}
+              </View>
             </View>
           ) : null}
         </>
+      ) : null}
+
+      {/* SECTION: Dinh dưỡng & Chăm sóc chuồng (Nutrition Tab) */}
+      {(visibleTab === "Nutrition" || (roleId === "groom" && visibleTab === "Care")) && horseResource.data ? (
+        <View style={{ gap: space.md }}>
+          {/* Quick Access: Chuồng trại & Dinh dưỡng */}
+          <View style={uiStyles.section}>
+            <SectionTitle>Chăm sóc chuồng trại & Dinh dưỡng</SectionTitle>
+            <View style={{ gap: space.sm }}>
+              <Pressable
+                onPress={() =>
+                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Feeding plan` as Href)
+                }
+                style={styles.actionGridTile}
+              >
+                <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
+                  <Ionicons name="leaf-outline" size={20} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.actionGridTitle}>Khẩu phần & Kế hoạch dinh dưỡng</Text>
+                  <Text style={styles.actionGridSubtitle} numberOfLines={1}>
+                    Xem lịch ăn 4 bữa & khẩu phần ngũ cốc, cỏ khô
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+              </Pressable>
+
+              <Pressable
+                onPress={() =>
+                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Care tasks` as Href)
+                }
+                style={styles.actionGridTile}
+              >
+                <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(59, 130, 246, 0.12)" }]}>
+                  <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.actionGridTitle}>Nhiệm vụ chăm sóc định kỳ</Text>
+                  <Text style={styles.actionGridSubtitle} numberOfLines={1}>
+                    Chải lông, tắm rửa, kiểm tra móng & xoa bóp
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+              </Pressable>
+
+              {["manager", "trainer", "groom"].includes(roleId) ? (
+                <Pressable
+                  onPress={() =>
+                    router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Daily checklist` as Href)
+                  }
+                  style={styles.actionGridTile}
+                >
+                  <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(245, 158, 11, 0.12)" }]}>
+                    <Ionicons name="checkbox-outline" size={20} color="#F59E0B" />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.actionGridTitle}>Checklist chăm sóc hàng ngày</Text>
+                    <Text style={styles.actionGridSubtitle} numberOfLines={1}>
+                      Điểm danh & xác nhận công việc chuồng
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Care Surcharges (Phụ phí chăm sóc) */}
+          {["manager", "trainer", "owner"].includes(roleId) ? (
+            <View style={uiStyles.section}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <SectionTitle>Phụ phí chăm sóc đặc biệt</SectionTitle>
+                <Pressable
+                  onPress={() =>
+                    router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
+                  }
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                    Quản lý phụ phí →
+                  </Text>
+                </Pressable>
+              </View>
+
+              <AsyncStateView
+                isLoading={surchargesResource.isLoading}
+                error={surchargesResource.error}
+                onRetry={() => void surchargesResource.retry()}
+                empty={
+                  !surchargesResource.isLoading &&
+                  !surchargesResource.error &&
+                  (surchargesResource.data?.length ?? 0) === 0
+                }
+                emptyLabel="Không có phụ phí chăm sóc nào đang áp dụng cho ngựa này."
+              />
+
+              {(surchargesResource.data ?? []).map((surcharge) => (
+                <Panel key={surcharge.id} style={{ gap: space.xs, padding: space.md }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          backgroundColor: "rgba(16, 185, 129, 0.12)",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name="cash-outline" size={18} color={colors.primary} />
+                      </View>
+                      <Text style={[uiStyles.value, { fontSize: 14 }]} numberOfLines={1}>
+                        {surcharge.description}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
+                      {surcharge.dailyAmount.toLocaleString("vi-VN")} đ / ngày
+                    </Text>
+                  </View>
+
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <Ionicons name="calendar-outline" size={12} color={colors.mutedForeground} />
+                    <Text style={uiStyles.muted}>
+                      {surcharge.startDate} → {surcharge.endDate}
+                    </Text>
+                    <Text style={uiStyles.muted}>·</Text>
+                    <Text style={uiStyles.muted}>
+                      {surcharge.appliedByName ? `Bởi ${surcharge.appliedByName}` : "Chờ duyệt"}
+                    </Text>
+                  </View>
+                </Panel>
+              ))}
+
+              <PrimaryButton
+                label={roleId === "manager" ? "Thêm hoặc điều chỉnh phụ phí" : "Xem chi tiết phụ phí"}
+                icon="cash-outline"
+                onPress={() =>
+                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
+                }
+              />
+            </View>
+          ) : null}
+        </View>
       ) : null}
       {visibleTab === "Injuries" && horseResource.data ? (
         <>
@@ -1555,13 +1976,9 @@ export default function HorseProfile() {
 
                   {/* Speed history line chart */}
                   {performanceResource.data.summary.recentMetrics.length > 1 ? (
-                    <ChartSection
-                      title="Lịch sử biến thiên vận tốc (km/h)"
-                      data={performanceResource.data.summary.recentMetrics.map((point) => ({
-                        speed: Number((point.speedMps * 3.6).toFixed(1)),
-                      }))}
-                      valueKey="speed"
-                      color={colors.primary}
+                    <SpeedTrendChart
+                      metrics={performanceResource.data.summary.recentMetrics}
+                      color="#0284c7"
                     />
                   ) : null}
                 </>
@@ -1866,90 +2283,211 @@ export default function HorseProfile() {
             onRetry={() => void medicalResource.retry()}
           />
           {medicalResource.data ? (
-            <>
-              <Info
-                title="Medical costs · VND"
-                items={[
-                  [
-                    "Total of closed cases",
-                    medicalResource.data.cases.totalCost === undefined
-                      ? "Not returned for this role"
-                      : medicalResource.data.cases.totalCost.toLocaleString(),
-                  ],
-                  ["Medical cases", String(medicalResource.data.cases.items.length)],
-                  [
-                    "Other horse costs",
-                    "Daily fees and care surcharges appear in owner cost reports; supplies are reported for the club",
-                  ],
-                ]}
-              />
-              {medicalResource.data.cases.items.map((medicalCase) => (
-                <Panel key={medicalCase.id}>
-                  <Text style={uiStyles.value}>{medicalCase.initialDiagnosis}</Text>
-                  <Text style={uiStyles.muted}>
-                    {medicalCase.status} ·{" "}
-                    {medicalCase.closedAt
-                      ? new Date(medicalCase.closedAt).toLocaleDateString()
-                      : "Not closed"}
-                  </Text>
-                  {medicalCase.totalCost === undefined ? (
-                    <Text>Cost is not returned for this role.</Text>
-                  ) : (
-                    <Text>
-                      {medicalCase.totalCost == null
-                        ? "Hidden or not closed"
-                        : `${medicalCase.totalCost.toLocaleString()} VND`}
+            <View style={{ gap: space.md }}>
+              {/* Cost Summary Header Cards */}
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+                <View
+                  style={{
+                    flex: 1,
+                    minWidth: "47%",
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.md,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    padding: space.md,
+                    gap: 6,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <View
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 7,
+                        backgroundColor: "rgba(16, 185, 129, 0.12)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="cash-outline" size={16} color={colors.primary} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: colors.mutedForeground }}>
+                      Tổng chi phí y tế
                     </Text>
-                  )}
-                </Panel>
-              ))}
-            </>
-          ) : null}
-          {["manager", "owner", "trainer"].includes(roleId) ? (
-            <View style={{ gap: space.md, marginTop: space.md }}>
-              <Info
-                title="Care surcharges · VND"
-                items={[
-                  [
-                    "Active and scheduled surcharges",
-                    String(surchargesResource.data?.length ?? 0),
-                  ],
-                ]}
-              />
-              <AsyncStateView
-                isLoading={surchargesResource.isLoading}
-                error={surchargesResource.error}
-                onRetry={() => void surchargesResource.retry()}
-                empty={
-                  !surchargesResource.isLoading &&
-                  !surchargesResource.error &&
-                  (surchargesResource.data?.length ?? 0) === 0
-                }
-                emptyLabel="No surcharges are recorded for this horse."
-              />
-              {(surchargesResource.data ?? []).map((surcharge) => (
-                <Panel key={surcharge.id}>
-                  <Text style={uiStyles.value}>{surcharge.description}</Text>
-                  <Text style={[uiStyles.muted, { color: colors.primary, fontWeight: "700" }]}>
-                    {surcharge.dailyAmount.toLocaleString("vi-VN")} đ / {t("day")}
+                  </View>
+                  <Text style={{ fontSize: 18, fontWeight: "800", color: colors.foreground }}>
+                    {medicalResource.data.cases.totalCost != null
+                      ? `${medicalResource.data.cases.totalCost.toLocaleString("vi-VN")} đ`
+                      : "0 đ"}
                   </Text>
-                  <Text style={uiStyles.muted}>
-                    {surcharge.startDate} → {surcharge.endDate}
+                  <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                    {medicalResource.data.cases.items.length} ca bệnh đã ghi nhận
                   </Text>
-                  <Text style={uiStyles.muted}>
-                    {surcharge.appliedByName
-                      ? `${t("Applied by")} ${surcharge.appliedByName}`
-                      : t("Chờ Huấn luyện viên trưởng xác nhận")}
-                  </Text>
-                </Panel>
-              ))}
-              <PrimaryButton
-                label={roleId === "manager" ? "Thêm hoặc quản lý phụ phí" : "Xem chi tiết phụ phí"}
-                icon="cash-outline"
-                onPress={() =>
-                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
-                }
-              />
+                </View>
+
+                {["manager", "owner", "trainer"].includes(roleId) ? (
+                  <View
+                    style={{
+                      flex: 1,
+                      minWidth: "47%",
+                      backgroundColor: colors.surface,
+                      borderRadius: radius.md,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      padding: space.md,
+                      gap: 6,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 7,
+                          backgroundColor: "rgba(59, 130, 246, 0.12)",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name="receipt-outline" size={16} color="#3B82F6" />
+                      </View>
+                      <Text style={{ fontSize: 11, fontWeight: "600", color: colors.mutedForeground }}>
+                        Phụ phí hàng ngày
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 18, fontWeight: "800", color: colors.primary }}>
+                      {(surchargesResource.data ?? [])
+                        .reduce((sum, s) => sum + s.dailyAmount, 0)
+                        .toLocaleString("vi-VN")}{" "}
+                      đ/ngày
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                      {surchargesResource.data?.length ?? 0} khoản phụ phí đang tính
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Medical Cases Cost Breakdown */}
+              <View style={uiStyles.section}>
+                <SectionTitle>Chi phí các ca điều trị y tế</SectionTitle>
+                {medicalResource.data.cases.items.length ? (
+                  medicalResource.data.cases.items.map((medicalCase) => {
+                    const isOpen = medicalCase.status === "OPEN";
+                    return (
+                      <Pressable
+                        key={medicalCase.id}
+                        onPress={() =>
+                          router.push(`/${roleId}/medical/cases/${medicalCase.id}` as Href)
+                        }
+                      >
+                        <Panel style={{ gap: space.xs, padding: space.md }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                            <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "700", flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                              {medicalCase.initialDiagnosis}
+                            </Text>
+                            <View
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 2,
+                                borderRadius: radius.pill,
+                                backgroundColor: isOpen ? "rgba(239, 68, 68, 0.12)" : colors.elevated,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: "700",
+                                  color: isOpen ? colors.destructive : colors.mutedForeground,
+                                }}
+                              >
+                                {isOpen ? "ĐANG ĐIỀU TRỊ" : "ĐÃ ĐÓNG"}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                            <Text style={uiStyles.muted}>
+                              {medicalCase.closedAt
+                                ? `Đóng: ${new Date(medicalCase.closedAt).toLocaleDateString()}`
+                                : `Mở: ${new Date(medicalCase.openedAt).toLocaleDateString()}`}
+                            </Text>
+                            <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
+                              {medicalCase.totalCost != null
+                                ? `${medicalCase.totalCost.toLocaleString("vi-VN")} đ`
+                                : "Chưa chốt"}
+                            </Text>
+                          </View>
+                        </Panel>
+                      </Pressable>
+                    );
+                  })
+                ) : (
+                  <Text style={uiStyles.muted}>Chưa có ca điều trị y tế phát sinh chi phí.</Text>
+                )}
+              </View>
+
+              {/* Care Surcharges Section */}
+              {["manager", "owner", "trainer"].includes(roleId) ? (
+                <View style={uiStyles.section}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <SectionTitle>Phụ phí chuồng & chăm sóc đặc biệt</SectionTitle>
+                    <Pressable
+                      onPress={() =>
+                        router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
+                      }
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                        Quản lý phụ phí →
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <AsyncStateView
+                    isLoading={surchargesResource.isLoading}
+                    error={surchargesResource.error}
+                    onRetry={() => void surchargesResource.retry()}
+                    empty={
+                      !surchargesResource.isLoading &&
+                      !surchargesResource.error &&
+                      (surchargesResource.data?.length ?? 0) === 0
+                    }
+                    emptyLabel="Không có khoản phụ phí nào ghi nhận cho ngựa này."
+                  />
+
+                  {(surchargesResource.data ?? []).map((surcharge) => (
+                    <Panel key={surcharge.id} style={{ gap: space.xs, padding: space.md }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "700", flex: 1, minWidth: 0 }]} numberOfLines={1}>
+                          {surcharge.description}
+                        </Text>
+                        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
+                          {surcharge.dailyAmount.toLocaleString("vi-VN")} đ / ngày
+                        </Text>
+                      </View>
+
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                        <Ionicons name="calendar-outline" size={12} color={colors.mutedForeground} />
+                        <Text style={uiStyles.muted}>
+                          {surcharge.startDate} → {surcharge.endDate}
+                        </Text>
+                        <Text style={uiStyles.muted}>·</Text>
+                        <Text style={uiStyles.muted}>
+                          {surcharge.appliedByName ? `Bởi ${surcharge.appliedByName}` : "Chờ duyệt"}
+                        </Text>
+                      </View>
+                    </Panel>
+                  ))}
+
+                  <PrimaryButton
+                    label={roleId === "manager" ? "Thêm hoặc điều chỉnh phụ phí" : "Xem chi tiết phụ phí"}
+                    icon="cash-outline"
+                    onPress={() =>
+                      router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
+                    }
+                  />
+                </View>
+              ) : null}
             </View>
           ) : null}
         </>
@@ -2148,6 +2686,176 @@ export default function HorseProfile() {
   );
 }
 
+function SpeedTrendChart({
+  metrics,
+  color,
+}: {
+  metrics: { recordedAt: string; speedMps: number }[];
+  color: string;
+}) {
+  const { colors } = useTheme();
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const speedData = useMemo(() => {
+    return metrics.map((m, idx) => {
+      const speedKmh = Number((m.speedMps * 3.6).toFixed(1));
+      return {
+        value: speedKmh,
+        label:
+          idx === 0 || idx === metrics.length - 1 || idx % Math.ceil(metrics.length / 4) === 0
+            ? `${speedKmh}`
+            : "",
+        dataPointColor: color,
+        speedKmh,
+      };
+    });
+  }, [metrics, color]);
+
+  const stats = useMemo(() => {
+    if (!speedData.length) return null;
+    const vals = speedData.map((d) => d.value);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+    return { min, max, avg, count: vals.length };
+  }, [speedData]);
+
+  const yBounds = useMemo(() => {
+    if (!speedData.length) return { min: 0, max: 60, step: 15, span: 60 };
+    const vals = speedData.map((d) => d.value);
+    const minVal = Math.min(...vals);
+    const maxVal = Math.max(...vals);
+    const diff = maxVal - minVal;
+    const padding = diff === 0 ? Math.max(minVal * 0.1, 2) : Math.max(diff * 0.2, 2);
+    const chartMin = Math.max(0, Math.floor(minVal - padding));
+    const chartMax = Math.ceil(maxVal + padding);
+    const noOfSections = 4;
+    const rawSpan = Math.max(chartMax - chartMin, 4);
+    const step = Math.max(1, Math.ceil(rawSpan / noOfSections));
+    const span = step * noOfSections;
+    return { min: chartMin, max: chartMin + span, step, span };
+  }, [speedData]);
+
+  const chartWidth = Math.max(120, containerWidth - 45);
+
+  return (
+    <Panel style={{ gap: space.md, overflow: "hidden" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ gap: 2, flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
+            Lịch sử biến thiên vận tốc (km/h)
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
+            Tốc độ ghi nhận qua các thời điểm trong bài tập
+          </Text>
+        </View>
+        {stats ? (
+          <View
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              borderRadius: radius.pill,
+              backgroundColor: colors.fitSoft,
+              borderWidth: 1,
+              borderColor: color,
+            }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: "700", color }}>
+              TB: {stats.avg} km/h
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {stats ? (
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-around",
+            alignItems: "center",
+            backgroundColor: colors.elevated,
+            borderRadius: radius.sm,
+            paddingVertical: 8,
+            paddingHorizontal: 4,
+          }}
+        >
+          <View style={{ alignItems: "center", gap: 2 }}>
+            <Text style={{ fontSize: 10, color: colors.mutedForeground }}>Cao nhất</Text>
+            <Text style={{ fontSize: 13, fontWeight: "800", color }}>
+              {stats.max} km/h
+            </Text>
+          </View>
+          <View style={{ width: 1, height: 18, backgroundColor: colors.border }} />
+          <View style={{ alignItems: "center", gap: 2 }}>
+            <Text style={{ fontSize: 10, color: colors.mutedForeground }}>Trung bình</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+              {stats.avg} km/h
+            </Text>
+          </View>
+          <View style={{ width: 1, height: 18, backgroundColor: colors.border }} />
+          <View style={{ alignItems: "center", gap: 2 }}>
+            <Text style={{ fontSize: 10, color: colors.mutedForeground }}>Thấp nhất</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+              {stats.min} km/h
+            </Text>
+          </View>
+          <View style={{ width: 1, height: 18, backgroundColor: colors.border }} />
+          <View style={{ alignItems: "center", gap: 2 }}>
+            <Text style={{ fontSize: 10, color: colors.mutedForeground }}>Số điểm đo</Text>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+              {stats.count}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      <View
+        style={{
+          width: "100%",
+          height: 150,
+          justifyContent: "center",
+          alignItems: "center",
+          overflow: "hidden",
+        }}
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      >
+        {speedData.length >= 2 && chartWidth > 0 ? (
+          <LineChart
+            data={speedData}
+            width={chartWidth}
+            height={120}
+            color={color}
+            thickness={2.5}
+            startFillColor={color}
+            endFillColor={color}
+            startOpacity={0.25}
+            endOpacity={0.02}
+            areaChart
+            curved
+            curveType={0}
+            isAnimated
+            animationDuration={600}
+            noOfSections={4}
+            maxValue={yBounds.span}
+            yAxisOffset={yBounds.min}
+            stepValue={yBounds.step}
+            yAxisColor={colors.border}
+            xAxisColor={colors.border}
+            yAxisLabelWidth={34}
+            yAxisTextStyle={{ fontSize: 9, color: colors.mutedForeground }}
+            xAxisLabelTextStyle={{ fontSize: 9, color: colors.mutedForeground }}
+            rulesColor={colors.border}
+            rulesType="dashed"
+            showVerticalLines={false}
+            dataPointsColor={color}
+            dataPointsRadius={4}
+          />
+        ) : null}
+      </View>
+    </Panel>
+  );
+}
+
 function Info({ title, items }: { title: string; items: [string, string][] }) {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
@@ -2191,6 +2899,34 @@ function isUuid(value: string | string[] | undefined): value is string {
 }
 const getStyles = (colors: any) =>
   StyleSheet.create({
+    actionGridTile: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: space.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: space.sm,
+      width: "100%",
+    },
+    actionGridIconWrap: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    actionGridTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    actionGridSubtitle: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+      marginTop: 2,
+    },
     hero: { gap: space.lg },
     flex: { flex: 1, minWidth: 0, gap: 4 },
     name: { color: colors.foreground, fontSize: 25, fontWeight: "800" },

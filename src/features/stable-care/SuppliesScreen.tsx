@@ -174,7 +174,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
     setMode(item ? "item-edit" : "item-create");
   };
 
-  const openMovement = (item: SupplyItemDto, kind: "receive" | "use") => {
+  const openMovement = (item: SupplyItemDto, kind: "use" = "use") => {
     setSelectedItem(item);
     setQuantity("");
     setUnitPrice("0");
@@ -255,26 +255,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
             reorderThreshold: limit,
           });
         }
-      } else if (mode === "receive" && selectedItem) {
-        if (
-          !Number.isFinite(amount) ||
-          amount <= 0 ||
-          amount > 1_000_000_000 ||
-          !Number.isInteger(price) ||
-          price < 0 ||
-          price > 1_000_000_000
-        ) {
-          Alert.alert(
-            "Check receipt",
-            "Enter a positive quantity and a whole, non-negative VND unit price.",
-          );
-          return;
-        }
-        await suppliesService.receive(token, selectedItem.id, {
-          quantity: amount,
-          unitPrice: price,
-          ...(note.trim() ? { note: note.trim() } : {}),
-        });
       } else if (mode === "use" && selectedItem) {
         if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) {
           Alert.alert("Check usage", "Enter a quantity greater than zero.");
@@ -591,20 +571,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                   <View style={styles.cardActionsContainer}>
                     {/* TIER 1: Stock Movements */}
                     <View style={styles.cardMovementRow}>
-                      {isManager ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={t("Receive")}
-                          onPress={() => openMovement(item, "receive")}
-                          style={styles.receiveActionBtn}
-                        >
-                          <Ionicons name="download-outline" size={16} color={colors.primary} />
-                          <Text style={styles.receiveActionBtnText} numberOfLines={1}>
-                            {t("Receive")}
-                          </Text>
-                        </Pressable>
-                      ) : null}
-
                       {canUse ? (
                         <Pressable
                           accessibilityRole="button"
@@ -612,10 +578,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                           onPress={() => openMovement(item, "use")}
                           style={[
                             styles.useActionBtn,
-                            !isManager && {
-                              flex: canRequest ? 1 : undefined,
-                              width: canRequest ? undefined : "100%",
-                            },
+                            { flex: 1 },
                           ]}
                         >
                           <Ionicons
@@ -1215,7 +1178,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
         visible={
           mode === "item-create" ||
           mode === "item-edit" ||
-          mode === "receive" ||
           mode === "reject" ||
           mode === "fulfill" ||
           mode === "cancel-request"
@@ -1246,13 +1208,11 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                       ? "Add supply item"
                       : mode === "item-edit"
                         ? "Edit supply item"
-                        : mode === "receive"
-                          ? "Receive stock"
-                          : mode === "reject"
-                            ? "Reject request"
-                            : mode === "cancel-request"
-                              ? "Hủy đề xuất đã duyệt"
-                              : "Confirm supply issued",
+                        : mode === "reject"
+                          ? "Reject request"
+                          : mode === "cancel-request"
+                            ? "Hủy đề xuất đã duyệt"
+                            : "Confirm supply issued",
                   )}
                 </Text>
                 <Text style={styles.sheetSubtitle} numberOfLines={1}>
@@ -1322,28 +1282,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                       </Field>
                     </>
                   ) : null}
-                </>
-              ) : null}
-
-              {mode === "receive" ? (
-                <>
-                  <Field label={`Quantity received (${selectedItem?.unit ?? "unit"})`}>
-                    <NativeInput
-                      value={quantity}
-                      onChangeText={setQuantity}
-                      keyboardType="decimal-pad"
-                    />
-                  </Field>
-                  <Field label="Actual unit price (VND)">
-                    <NativeInput
-                      value={unitPrice}
-                      onChangeText={setUnitPrice}
-                      keyboardType="numeric"
-                    />
-                  </Field>
-                  <Field label="Note (optional)">
-                    <NativeInput value={note} onChangeText={setNote} multiline />
-                  </Field>
                 </>
               ) : null}
 

@@ -11,7 +11,6 @@ import {
   NativeInput,
   Panel,
   PrimaryButton,
-  SecondaryButton,
   getUiStyles,
 } from "@/components/ui";
 import { useAuth } from "@/context/AuthContext";
@@ -155,11 +154,12 @@ export default function MedicalVisitForm() {
     const medicalCase = caseId ? await medicalService.getCase(token!, caseId) : null;
     const resolvedHorseId = horseId || medicalCase?.horseId || "";
     if (!resolvedHorseId) throw new Error("A horse is required to record an examination.");
-    const [horse, requests, care, cases, injuryHistory] = await Promise.all([
+    const [horse, requests, care, cases, records, injuryHistory] = await Promise.all([
       horseService.get(token!, resolvedHorseId),
       medicalService.listHorseExamRequests(token!, resolvedHorseId),
       medicalService.getCareInstructions(token!, resolvedHorseId),
       medicalService.listHorseCases(token!, resolvedHorseId),
+      medicalService.listHorseRecords(token!, resolvedHorseId).catch(() => []),
       medicalService
         .listInjuries(token!, resolvedHorseId)
         .then((injuries) => ({ injuries, unavailable: false }))
@@ -170,6 +170,7 @@ export default function MedicalVisitForm() {
       requests,
       care,
       cases,
+      records,
       injuries: injuryHistory.injuries,
       injuryHistoryUnavailable: injuryHistory.unavailable,
       medicalCase,
@@ -194,6 +195,47 @@ export default function MedicalVisitForm() {
   const activeCaseId = caseId || openCase?.id || "";
   const carePrefill = resource.data?.care.current?.careInstructions ?? "";
   const finalCareInstructions = careInstructions.trim() || carePrefill;
+
+  // Lịch sử các đơn thuốc đã kê trước đó cho con ngựa (ưu tiên cùng ca bệnh nếu có)
+  const pastPrescriptions = useMemo(() => {
+    const list: {
+      id: string;
+      medicine: string;
+      dosage?: string;
+      frequency?: string;
+      startDate: string;
+      endDate?: string | null;
+      examDate: string;
+      diagnosis?: string | null;
+      isSameCase: boolean;
+    }[] = [];
+
+    for (const record of resource.data?.records ?? []) {
+      if (record.voidedAt) continue;
+      const isSameCase = Boolean(activeCaseId && record.caseId === activeCaseId);
+      for (const p of record.prescriptions ?? []) {
+        list.push({
+          id: p.id,
+          medicine: p.medicine,
+          dosage: p.dosage,
+          frequency: p.frequency,
+          startDate: p.startDate,
+          endDate: p.endDate,
+          examDate: record.examDate,
+          diagnosis: record.diagnosis ?? record.conclusion,
+          isSameCase,
+        });
+      }
+    }
+
+    return list.sort((a, b) => {
+      if (a.isSameCase && !b.isSameCase) return -1;
+      if (!a.isSameCase && b.isSameCase) return 1;
+      return new Date(b.examDate).getTime() - new Date(a.examDate).getTime();
+    });
+  }, [resource.data?.records, activeCaseId]);
+
+  const [showAllPastPrescriptions, setShowAllPastPrescriptions] = useState(false);
 
   if (!role) return <Redirect href="/" />;
   if (role !== "vet") return <Redirect href={`/${role}` as Href} />;
@@ -1006,38 +1048,6 @@ export default function MedicalVisitForm() {
               </View>
             ) : null}
 
-            {activeCaseId && !resource.data.injuryHistoryUnavailable && unhealedInjuries.length > 0 ? (
-              <View
-                style={{
-                  marginTop: space.sm,
-                  padding: space.sm,
-                  borderRadius: radius.md,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.injuredSoft,
-                  gap: space.xs,
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
-                  <Ionicons name="bandage-outline" size={18} color={colors.destructive} />
-                  <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 13, flex: 1 }}>
-                    {unhealedInjuries.length === 1
-                      ? "1 unhealed injury"
-                      : `${unhealedInjuries.length} unhealed injuries`}
-                  </Text>
-                </View>
-                <Text style={[uiStyles.muted, { fontSize: 12 }]}>
-                  Eligible updates the horse's health status. Update each injury to Healed separately before closing the case.
-                </Text>
-                <SecondaryButton
-                  label={recordInjury ? "Injury section is open" : "Show injury update section"}
-                  icon="create-outline"
-                  onPress={() => setRecordInjury(true)}
-                  disabled={recordInjury}
-                />
-              </View>
-            ) : null}
-
             {/* Collapsible Injury Marker Section */}
             <View style={{ marginTop: space.sm }}>
               {!opensCase ? (
@@ -1072,23 +1082,64 @@ export default function MedicalVisitForm() {
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => setRecordInjury(!recordInjury)}
-                    style={styles.injuryToggleCard}
+                    style={[
+                      styles.injuryToggleCard,
+                      activeCaseId && unhealedInjuries.length > 0
+                        ? {
+                            borderLeftWidth: 4,
+                            borderLeftColor: recordInjury ? colors.primary : (colors.monitor ?? "#d97706"),
+                            borderColor: recordInjury ? colors.primary : colors.border,
+                          }
+                        : null,
+                    ]}
                   >
                     <Ionicons
                       name={recordInjury ? "bandage" : "bandage-outline"}
                       size={20}
-                      color={recordInjury ? colors.destructive : colors.primary}
+                      color={
+                        recordInjury
+                          ? colors.primary
+                          : activeCaseId && unhealedInjuries.length > 0
+                            ? (colors.monitor ?? "#d97706")
+                            : colors.primary
+                      }
                     />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[uiStyles.value, { fontSize: 15 }]}>
-                        {activeCaseId ? "5. Injury recovery updates" : "5. Injury documentation (optional)"}
-                      </Text>
-                      <Text style={uiStyles.muted}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <Text style={[uiStyles.value, { fontSize: 15, fontWeight: "700" }]}>
+                          {activeCaseId ? "5. Cập nhật hồi phục chấn thương" : "5. Ghi nhận chấn thương (tùy chọn)"}
+                        </Text>
+                        {activeCaseId && unhealedInjuries.length > 0 ? (
+                          <View
+                            style={{
+                              backgroundColor: injuryUpdates.length > 0 ? (colors.fitSoft ?? "#dcfce7") : "#fef3c7",
+                              paddingHorizontal: 7,
+                              paddingVertical: 2,
+                              borderRadius: radius.pill,
+                              borderWidth: 1,
+                              borderColor: injuryUpdates.length > 0 ? colors.primary : "#fde68a",
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontWeight: "700",
+                                color: injuryUpdates.length > 0 ? colors.primary : "#b45309",
+                              }}
+                            >
+                              {injuryUpdates.length > 0
+                                ? `Đã chọn cập nhật ${injuryUpdates.length}/${unhealedInjuries.length}`
+                                : `Còn ${unhealedInjuries.length} chấn thương chưa lành`}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={[uiStyles.muted, { fontSize: 12 }]}>
                         {recordInjury
-                          ? "Review injury recovery status in the 3D map"
+                          ? "Đang mở sơ đồ chấn thương 3D và danh sách cập nhật hồi phục"
                           : activeCaseId
-                            ? "Tap to review unhealed injuries and update recovery"
-                            : "Tap to mark injury location"}
+                            ? "Chạm để xem sơ đồ 3D và cập nhật từng chấn thương thành Đã lành trước khi đóng bệnh án"
+                            : "Chạm để đánh dấu vị trí chấn thương trên mô hình 3D"}
                       </Text>
                     </View>
                     <Ionicons
@@ -1131,6 +1182,116 @@ export default function MedicalVisitForm() {
                 placeholder={carePrefill || "Rest, cold hosing, hand walking, diet instructions..."}
               />
             </Field>
+
+            {/* Lịch sử đơn thuốc cũ */}
+            {pastPrescriptions.length > 0 ? (
+              <Panel style={{ gap: space.sm, borderColor: `${colors.primary}40`, borderWidth: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="medical-outline" size={18} color={colors.primary} />
+                    <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "700" }]}>
+                      Lịch sử đơn thuốc cũ ({pastPrescriptions.length})
+                    </Text>
+                  </View>
+                  {pastPrescriptions.some((p) => p.isSameCase) ? (
+                    <View
+                      style={{
+                        backgroundColor: colors.fitSoft,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: radius.pill,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: colors.primary }}>
+                        Có thuốc cùng bệnh án
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <Text style={[uiStyles.muted, { fontSize: 12 }]}>
+                  Tham khảo đơn thuốc đã kê trước đây cho ngựa này. Chạm &quot;Áp dụng&quot; để tự động điền đơn thuốc mới.
+                </Text>
+
+                <View style={{ gap: space.xs, marginTop: 4 }}>
+                  {(showAllPastPrescriptions ? pastPrescriptions : pastPrescriptions.slice(0, 3)).map((p) => (
+                    <View
+                      key={p.id}
+                      style={{
+                        backgroundColor: colors.surface,
+                        borderRadius: radius.sm,
+                        borderWidth: 1,
+                        borderColor: p.isSameCase ? colors.primary : colors.border,
+                        padding: space.sm,
+                        gap: 4,
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
+                          {p.medicine}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            setMedicine(p.medicine);
+                            if (p.dosage) setDosage(p.dosage);
+                            if (p.frequency) setFrequency(p.frequency);
+                            if (p.endDate) setPrescriptionEnd(p.endDate);
+                            Alert.alert("Đã áp dụng đơn thuốc", `Đã điền thông tin thuốc "${p.medicine}".`);
+                          }}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 4,
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            backgroundColor: colors.fitSoft,
+                            borderRadius: radius.pill,
+                            borderWidth: 1,
+                            borderColor: colors.primary,
+                          }}
+                        >
+                          <Ionicons name="copy-outline" size={12} color={colors.primary} />
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>
+                            Áp dụng
+                          </Text>
+                        </Pressable>
+                      </View>
+
+                      <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
+                        {[p.dosage, p.frequency].filter(Boolean).join(" · ")}
+                      </Text>
+
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                        <Ionicons name="calendar-outline" size={11} color={colors.mutedForeground} />
+                        <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
+                          {formatDateTime(p.examDate)}
+                          {p.diagnosis ? ` · ${p.diagnosis}` : ""}
+                          {p.isSameCase ? " (Ca bệnh hiện tại)" : ""}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+
+                  {pastPrescriptions.length > 3 ? (
+                    <Pressable
+                      onPress={() => setShowAllPastPrescriptions((prev) => !prev)}
+                      style={{
+                        alignItems: "center",
+                        paddingVertical: 6,
+                        marginTop: 2,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: "600", color: colors.primary }}>
+                        {showAllPastPrescriptions
+                          ? "Thu gọn"
+                          : `Xem thêm ${pastPrescriptions.length - 3} đơn thuốc cũ khác →`}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </Panel>
+            ) : null}
 
             {/* Prescriptions */}
             <Panel style={{ gap: space.sm }}>
