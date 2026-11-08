@@ -17,8 +17,7 @@ export function OwnerDashboard() {
     <>
       <View style={uiStyles.metricGrid}>
         <Metric label="Avg fitness" value="64%" hint="three horses" tone="warning" />
-        <Metric label="Race ready" value={0} hint="next Sep 28" />
-        <Metric label="Prize YTD" value="$41.5k" hint="season" tone="good" />
+        <Metric label="Horses owned" value={mine.length} />
       </View>
       <View style={uiStyles.section}>
         {mine.map((horse) => (

@@ -132,7 +132,7 @@ export default function CreateTrainingClass() {
           <NativeInput value={maxHorses} onChangeText={setMaxHorses} keyboardType="number-pad" />
         </Field>
 
-        {/* Wrapped Race Aptitude Options - Never Cut Off */}
+        {/* Keep distance-focus options visible on narrow screens. */}
         <Field label={t("Sở trường cự ly (tùy chọn)")}>
           <View style={styles.aptitudeGrid}>
             {[

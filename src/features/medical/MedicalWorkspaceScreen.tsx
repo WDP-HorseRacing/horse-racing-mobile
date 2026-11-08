@@ -20,13 +20,13 @@ import type { RoleId } from "@/types/raceos";
 const HEALTH_OPTIONS: {
   raw: string;
   label: string;
-  tone: "fit" | "monitor" | "injured" | "raceReady" | "default";
+  tone: "fit" | "monitor" | "injured" | "quarantine" | "default";
 }[] = [
   { raw: "All health states", label: "Tất cả trạng thái", tone: "default" },
   { raw: "ELIGIBLE", label: "Đủ điều kiện", tone: "fit" },
   { raw: "UNDER_OBSERVATION", label: "Theo dõi", tone: "monitor" },
   { raw: "INJURED", label: "Chấn thương", tone: "injured" },
-  { raw: "QUARANTINED", label: "Cách ly", tone: "raceReady" },
+  { raw: "QUARANTINED", label: "Cách ly", tone: "quarantine" },
 ];
 
 function HealthBadge({
@@ -34,14 +34,14 @@ function HealthBadge({
   tone,
 }: {
   label: string;
-  tone: "fit" | "monitor" | "injured" | "raceReady" | "default";
+  tone: "fit" | "monitor" | "injured" | "quarantine" | "default";
 }) {
   const { colors } = useTheme();
   const palette = {
     fit: { bg: colors.fitSoft, color: colors.primary },
     monitor: { bg: colors.monitorSoft, color: colors.monitor },
     injured: { bg: colors.injuredSoft, color: colors.destructive },
-    raceReady: { bg: colors.raceReadySoft, color: colors.raceReady },
+    quarantine: { bg: colors.quarantineSoft, color: colors.quarantine },
     default: { bg: colors.muted, color: colors.foreground },
   }[tone];
 

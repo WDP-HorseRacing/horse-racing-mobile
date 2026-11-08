@@ -92,8 +92,7 @@ export function ManagerTrainerDashboard({
   const isBlocked = (h: HorseListItemDto) =>
     h.lifecycleStatus === "ACTIVE" &&
     (h.healthStatus === "INJURED" ||
-      h.healthStatus === "QUARANTINED" ||
-      (h.healthStatus === "ELIGIBLE" && !h.canRegisterRace));
+      h.healthStatus === "QUARANTINED");
 
   const isWatch = (h: HorseListItemDto) =>
     h.lifecycleStatus === "ACTIVE" && h.healthStatus === "UNDER_OBSERVATION";
@@ -298,7 +297,7 @@ export function ManagerTrainerDashboard({
         key: `watch-${horse.id}`,
         level: "info",
         title: `${horse.name} ${t("requires health monitoring")}`,
-        detail: t("Eligible for training, restricted from race entry"),
+        detail: t("Eligible for training; keep monitoring health status"),
         to: `/${role}/horse/${horse.id}` as Href,
         cta: t("Profile"),
       });

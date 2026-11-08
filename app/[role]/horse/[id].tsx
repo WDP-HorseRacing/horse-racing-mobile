@@ -4,7 +4,7 @@ import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LineChart } from "react-native-gifted-charts";
 import { Text } from "@/components/common/LocalizedText";
-import { fitnessTrend, getHorse, raceResults, recoveryTrend, speedTrend } from "@/lib/raceos-data";
+import { fitnessTrend, getHorse, recoveryTrend, speedTrend } from "@/lib/raceos-data";
 import type { RoleId } from "@/lib/raceos-data";
 import { useRaceOS } from "@/context/RaceOSContext";
 import {
@@ -39,7 +39,6 @@ import { medicalService } from "@/services/medical.service";
 import type { HealthStatusDto } from "@/services/medical.service";
 import { isValidRequiredText } from "@/features/medical/medical-validation";
 import { performanceService } from "@/services/performance.service";
-import { racingService } from "@/services/racing.service";
 import { auditService } from "@/services/audit.service";
 import { stableCareService } from "@/services/stable-care.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
@@ -50,7 +49,7 @@ const tabsByRole: Record<RoleId, string[]> = {
   trainer: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance"],
   vet: ["Overview", "Training", "Health", "Medical", "Nutrition", "Injuries", "Treatment"],
   groom: ["Overview", "Nutrition"],
-  owner: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance", "Racing", "Costs"],
+  owner: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance", "Costs"],
   manager: ["Overview", "Health", "Medical", "Nutrition", "Performance", "Costs", "Timeline"],
 };
 
@@ -92,7 +91,6 @@ export default function HorseProfile() {
       if (item === "Nutrition") return true;
       if (item === "Performance") return permissionsResource.data?.canViewPerformanceTab === true;
       if (item === "Training") return permissionsResource.data?.canViewTrainingTab === true;
-      if (item === "Racing") return ["owner"].includes(roleId);
       if (item === "Costs") return permissionsResource.data?.canViewMedicalTab === true;
       return true;
     });
@@ -182,19 +180,6 @@ export default function HorseProfile() {
       visibleTab === "Performance",
     ),
   );
-  const loadRaceResults = useCallback(
-    () => racingService.listHorseResults(token!, id),
-    [id, token],
-  );
-  const racingResource = useApiResource(
-    loadRaceResults,
-    Boolean(
-      token &&
-      isUuid(id) &&
-      ["manager", "trainer", "owner"].includes(roleId) &&
-      visibleTab === "Racing",
-    ),
-  );
   const loadCareInstructions = useCallback(
     () => medicalService.getCareInstructions(token!, id),
     [id, token],
@@ -221,7 +206,6 @@ export default function HorseProfile() {
       pedigreeResource.revalidate,
       medicalResource.revalidate,
       performanceResource.revalidate,
-      racingResource.revalidate,
       careResource.revalidate,
       auditResource.revalidate,
     ];
@@ -233,7 +217,6 @@ export default function HorseProfile() {
     pedigreeResource.revalidate,
     performanceResource.revalidate,
     permissionsResource.revalidate,
-    racingResource.revalidate,
     trainingResource.revalidate,
   ]);
   useFocusEffect(
@@ -334,7 +317,6 @@ export default function HorseProfile() {
         permissionsResource.isRefreshing ||
         medicalResource.isRefreshing ||
         performanceResource.isRefreshing ||
-        racingResource.isRefreshing ||
         careResource.isRefreshing
       }
       onRefresh={() =>
@@ -344,7 +326,6 @@ export default function HorseProfile() {
           permissionsResource.refresh(),
           medicalResource.refresh(),
           performanceResource.refresh(),
-          racingResource.refresh(),
           careResource.refresh(),
         ])
       }
@@ -678,7 +659,7 @@ export default function HorseProfile() {
                   ["Stall", horseResource.data.location?.stall?.code ?? t("Not assigned")],
                   ["Groom", horseResource.data.groom?.fullName ?? t("Not assigned")],
                   [
-                    "Race aptitude",
+                    "Distance focus",
                     horseResource.data.raceAptitude
                       ? formatEnum(t(horseResource.data.raceAptitude))
                       : t("Not recorded"),
@@ -852,27 +833,6 @@ export default function HorseProfile() {
                     • {formatEnum(t(reason))}
                   </Text>
                 ))}
-                <Text style={[uiStyles.value, { marginTop: space.xs }]}>
-                  Racing:{" "}
-                  <Text
-                    style={{
-                      color: horseResource.data.eligibility.racingEligible
-                        ? colors.fit
-                        : colors.injured,
-                      fontWeight: "700",
-                    }}
-                  >
-                    {horseResource.data.eligibility.racingEligible ? "Eligible" : "Restricted"}
-                  </Text>
-                </Text>
-                {horseResource.data.eligibility.racingReasons.map((reason) => (
-                  <Text
-                    key={`racing-${reason}`}
-                    style={[uiStyles.muted, { color: colors.mutedForeground }]}
-                  >
-                    • {formatEnum(t(reason))}
-                  </Text>
-                ))}
               </Panel>
               {/* Profile Management Actions Grid */}
               <View style={[uiStyles.section, { marginTop: space.sm }]}>
@@ -963,7 +923,7 @@ export default function HorseProfile() {
 
               {permissionsResource.data?.canEditRaceAptitude && !horseResource.data.isDeleted ? (
                 <Panel style={{ gap: space.md }}>
-                  <Field label="Race aptitude · Head Trainer">
+                  <Field label="Distance focus · Head Trainer">
                     <Chips
                       options={["SPRINTER", "MILER", "STAYER"]}
                       value={raceAptitudeValue}
@@ -972,7 +932,7 @@ export default function HorseProfile() {
                   </Field>
                   <PrimaryButton
                     style={{ marginTop: space.xs }}
-                    label={savingAptitude ? "Saving…" : "Save race aptitude"}
+                    label={savingAptitude ? "Saving…" : "Save distance focus"}
                     icon="checkmark"
                     disabled={savingAptitude || !raceAptitudeValue}
                     onPress={() =>
@@ -985,9 +945,9 @@ export default function HorseProfile() {
                           });
                           setRaceAptitudeDraft(null);
                           await horseResource.refresh();
-                          Alert.alert("Race aptitude updated", "Horse profile has been refreshed.");
+                          Alert.alert("Distance focus updated", "Horse profile has been refreshed.");
                         } catch (error) {
-                          Alert.alert("Could not update race aptitude", extractErrorMessage(error));
+                          Alert.alert("Could not update distance focus", extractErrorMessage(error));
                         } finally {
                           setSavingAptitude(false);
                         }
@@ -2228,53 +2188,6 @@ export default function HorseProfile() {
           ) : null}
         </>
       ) : null}
-      {visibleTab === "Racing" && horseResource.data ? (
-        <>
-          <Info
-            title="Racing eligibility"
-            items={[
-              [
-                "Can register",
-                horseResource.data.eligibility.racingEligible ? "Eligible" : "Restricted",
-              ],
-              [
-                "Reasons",
-                horseResource.data.eligibility.racingReasons
-                  .map((reason) => formatEnum(t(reason)))
-                  .join(", ") || "None returned",
-              ],
-            ]}
-          />
-          <AsyncStateView
-            isLoading={racingResource.isLoading}
-            error={racingResource.error}
-            onRetry={() => void racingResource.retry()}
-          />
-          {racingResource.data?.length ? (
-            racingResource.data.map((result) => (
-              <Panel key={result.registrationId}>
-                <Text style={uiStyles.value}>{result.raceName}</Text>
-                <Text style={uiStyles.muted}>
-                  {new Date(result.scheduledAt).toLocaleString()} · {result.raceStatus} ·{" "}
-                  {result.registrationStatus}
-                </Text>
-                <Text>
-                  {result.placing == null ? "Result not recorded" : `Place ${result.placing}`}
-                  {result.timeSeconds == null ? "" : ` · ${result.timeSeconds}s`}
-                </Text>
-              </Panel>
-            ))
-          ) : racingResource.data ? (
-            <AsyncStateView
-              isLoading={false}
-              error={null}
-              onRetry={() => void racingResource.retry()}
-              empty
-              emptyLabel="No race results are recorded for this horse."
-            />
-          ) : null}
-        </>
-      ) : null}
       {visibleTab === "Costs" && horseResource.data ? (
         <>
           <AsyncStateView
@@ -2577,32 +2490,6 @@ export default function HorseProfile() {
           />
         </>
       ) : null}
-      {visibleTab === "Racing" && !horseResource.data ? (
-        <View style={uiStyles.section}>
-          <SectionTitle>Racing</SectionTitle>
-          <Panel>
-            <Text style={uiStyles.value}>{horse.nextRace ?? "No entry scheduled"}</Text>
-            <Text style={uiStyles.muted}>
-              Readiness {horse.readiness} · fitness {horse.fitness}%
-            </Text>
-          </Panel>
-          {raceResults.map((result) => (
-            <Panel key={result.name}>
-              <View style={uiStyles.row}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={uiStyles.value} numberOfLines={1}>
-                    {result.name}
-                  </Text>
-                  <Text style={uiStyles.muted}>{result.date}</Text>
-                </View>
-                <Text style={{ ...uiStyles.value, color: colors.primary, flexShrink: 0 }}>
-                  {result.place} · {result.prize}
-                </Text>
-              </View>
-            </Panel>
-          ))}
-        </View>
-      ) : null}
       {visibleTab === "Costs" && !horseResource.data ? (
         <Info
           title="Cost of ownership"
@@ -2737,6 +2624,11 @@ function SpeedTrendChart({
   }, [speedData]);
 
   const chartWidth = Math.max(120, containerWidth - 45);
+  const initialSpacing = 14;
+  const endSpacing = 14;
+  const count = speedData.length;
+  const availableWidth = Math.max(40, chartWidth - initialSpacing - endSpacing);
+  const spacing = count > 1 ? availableWidth / (count - 1) : availableWidth;
 
   return (
     <Panel style={{ gap: space.md, overflow: "hidden" }}>
@@ -2824,6 +2716,10 @@ function SpeedTrendChart({
             data={speedData}
             width={chartWidth}
             height={120}
+            spacing={spacing}
+            initialSpacing={initialSpacing}
+            endSpacing={endSpacing}
+            disableScroll
             color={color}
             thickness={2.5}
             startFillColor={color}

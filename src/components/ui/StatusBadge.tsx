@@ -11,7 +11,6 @@ const getStatusPalette = (
   colors: ThemeColors,
 ): Record<HorseStatus, { color: string; background: string }> => ({
   FIT: { color: colors.fit, background: colors.fitSoft },
-  "RACE READY": { color: colors.raceReady, background: colors.raceReadySoft },
   TRAINING: { color: colors.training, background: colors.trainingSoft },
   MONITOR: { color: colors.monitor, background: colors.monitorSoft },
   INJURED: { color: colors.injured, background: colors.injuredSoft },

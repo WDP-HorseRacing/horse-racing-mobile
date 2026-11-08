@@ -21,7 +21,6 @@ const MOCK_ROLES: RoleAccess[] = [
       Health: { view: true, create: false, edit: false, delete: false, lock: false },
       Staff: { view: true, create: false, edit: false, delete: false },
       Inventory: { view: true, create: false, edit: false, delete: false },
-      Racing: { view: true, create: true, edit: true, delete: false, approve: false },
     },
   },
   {
@@ -36,7 +35,6 @@ const MOCK_ROLES: RoleAccess[] = [
       Health: { view: true, create: true, edit: true, delete: true, lock: true },
       Staff: { view: true, create: false, edit: false, delete: false },
       Inventory: { view: true, create: true, edit: true, delete: false },
-      Racing: { view: true, create: false, edit: false, delete: false },
     },
   },
   {
@@ -51,7 +49,6 @@ const MOCK_ROLES: RoleAccess[] = [
       Health: { view: true, create: false, edit: false, delete: false },
       Staff: { view: false, create: false, edit: false, delete: false },
       Inventory: { view: true, create: false, edit: false, delete: false },
-      Racing: { view: false, create: false, edit: false, delete: false },
     },
   },
   {
@@ -66,7 +63,6 @@ const MOCK_ROLES: RoleAccess[] = [
       Health: { view: true, create: false, edit: false, delete: false },
       Staff: { view: false, create: false, edit: false, delete: false },
       Inventory: { view: false, create: false, edit: false, delete: false },
-      Racing: { view: true, create: false, edit: false, delete: false, approve: true },
     },
   },
   {
@@ -81,7 +77,6 @@ const MOCK_ROLES: RoleAccess[] = [
       Health: { view: true, create: false, edit: false, delete: false },
       Staff: { view: true, create: true, edit: true, delete: true },
       Inventory: { view: true, create: true, edit: true, delete: true },
-      Racing: { view: true, create: false, edit: false, delete: false },
       Reports: { view: true, create: true, edit: true, delete: false },
       Operations: { view: true, create: true, edit: true, delete: true },
     },

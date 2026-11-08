@@ -401,7 +401,7 @@ export default function TrainingClassDetail() {
                     {formatTrainingStatus(payload.trainingClass.status)}
                   </Text>
                   <Text style={[ui.label, { flexShrink: 0 }]}>
-                    {payload.trainingClass.raceAptitude ?? "All race aptitudes"}
+                    {payload.trainingClass.raceAptitude ?? "All distance groups"}
                   </Text>
                 </View>
                 <Text style={ui.muted}>

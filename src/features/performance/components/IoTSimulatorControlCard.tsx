@@ -145,7 +145,7 @@ export function IoTSimulatorControlCard({
               },
             ]}
           >
-            {isStreaming ? "Đang phát trực tiếp (3s)" : "Đang dừng"}
+            {isStreaming ? "Đang phát trực tiếp (1s/lần)" : "Đang dừng"}
           </Text>
         </View>
       </View>

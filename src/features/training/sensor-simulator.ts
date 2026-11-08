@@ -74,27 +74,36 @@ export function startSimulation(
 
   const intervalMs = options?.intervalMs ?? 1000;
   let timer: ReturnType<typeof setInterval> | null = null;
-  let requestInFlight = false;
 
-  const sendPoint = async () => {
-    if (requestInFlight || !timer || activeSimulators.get(participantId) !== timer) return;
-    requestInFlight = true;
+  const sendPoint = () => {
+    if (!timer || activeSimulators.get(participantId) !== timer) return;
 
-    try {
-      const { point } = await sendTelemetryPoint(participantId, undefined, token);
-      if (activeSimulators.get(participantId) === timer) options?.onTick?.(point);
-    } catch (error) {
-      if (activeSimulators.get(participantId) !== timer) return;
-      stopSimulation(participantId);
-      options?.onError?.(error);
-    } finally {
-      requestInFlight = false;
+    // Generate normal telemetry point immediately
+    const normal = generateNormalMetric();
+    const point: SimTelemetryPoint = {
+      sourceId: "sim-device-01",
+      recordedAt: new Date().toISOString(),
+      heartRateBpm: normal.heartRateBpm,
+      speedMps: normal.speedMps,
+    };
+
+    // Immediately trigger local tick so UI & realtime chart update reliably every 1s without network lag
+    if (activeSimulators.get(participantId) === timer) {
+      options?.onTick?.(point);
+    }
+
+    // Asynchronously ingest point into backend API in background
+    if (token) {
+      performanceService.ingestMetric(participantId, point, token).catch((error) => {
+        // Log background sync error without killing the local simulator timer
+        console.warn("Background telemetry ingest failed:", error);
+      });
     }
   };
 
-  timer = setInterval(() => void sendPoint(), intervalMs);
+  timer = setInterval(() => sendPoint(), intervalMs);
   activeSimulators.set(participantId, timer);
-  void sendPoint();
+  sendPoint();
 }
 
 /**

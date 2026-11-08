@@ -439,10 +439,9 @@ test("horse health mapper keeps the backend health categories distinct", () => {
     lifecycleStatus: "ACTIVE",
     location: { barn: null, stall: null, placementStatus: "UNPLACED" },
     photoUrl: null,
-    canRegisterRace: false,
     isDeleted: false,
   });
-  assert.equal(summary.status, "LOCKED");
+  assert.equal(summary.status, "FIT");
   assert.equal(summary.barnName, "Not assigned");
 });
 

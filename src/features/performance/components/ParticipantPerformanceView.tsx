@@ -85,7 +85,6 @@ export function ParticipantPerformanceView({
   const [emittedCount, setEmittedCount] = useState(0);
   const [lastPoint, setLastPoint] = useState<PerformanceMetricPointDto | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [showAllMetrics, setShowAllMetrics] = useState(false);
 
   // Sync when initial data updates from API
   useEffect(() => {
@@ -241,12 +240,6 @@ export function ParticipantPerformanceView({
       setIsSending(false);
     }
   }, [participantId, token, updateMetricsAndSummary]);
-
-  // Metrics history list
-  const displayedMetrics = useMemo(() => {
-    const reversed = [...metrics].reverse();
-    return showAllMetrics ? reversed : reversed.slice(0, 30);
-  }, [metrics, showAllMetrics]);
 
   // Derived lowest recorded heart rate
   const minHeartRateBpm = useMemo(() => {
@@ -520,99 +513,6 @@ export function ParticipantPerformanceView({
               ) : null}
             </View>
           )}
-
-          {/* Recorded Metrics Timeline Table */}
-          <View style={ui.section}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <SectionTitle>Lịch sử điểm đo ({metrics.length})</SectionTitle>
-              {metrics.length > 30 && (
-                <SecondaryButton
-                  label={showAllMetrics ? "Thu gọn (30 điểm)" : `Xem tất cả (${metrics.length})`}
-                  onPress={() => setShowAllMetrics((v) => !v)}
-                  style={{ paddingVertical: 4, paddingHorizontal: 10 }}
-                />
-              )}
-            </View>
-
-            {displayedMetrics.length ? (
-              displayedMetrics.map((point, index) => {
-                const isCritical = point.alertLevel === "CRITICAL" || point.heartRateBpm >= 240;
-                const isWarning =
-                  point.alertLevel === "WARNING" ||
-                  (point.heartRateBpm >= 180 && !isCritical);
-
-                const alertBg = isCritical
-                  ? colors.injuredSoft
-                  : isWarning
-                    ? colors.monitorSoft
-                    : colors.fitSoft;
-
-                const alertColor = isCritical
-                  ? colors.destructive
-                  : isWarning
-                    ? colors.monitor
-                    : colors.fit;
-
-                const alertText = isCritical
-                  ? "NGUY CẤP"
-                  : isWarning
-                    ? "CẢNH BÁO"
-                    : "BÌNH THƯỜNG";
-
-                return (
-                  <Panel
-                    key={`${point.recordedAt}:${index}`}
-                    style={{
-                      gap: 6,
-                      borderLeftWidth: 3,
-                      borderLeftColor: alertColor,
-                    }}
-                  >
-                    <View style={ui.row}>
-                      <Text style={[ui.value, { flex: 1, minWidth: 0 }]} numberOfLines={1}>
-                        {formatDateTime(point.recordedAt)}
-                      </Text>
-                      <View
-                        style={{
-                          backgroundColor: alertBg,
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 4,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontWeight: "800",
-                            color: alertColor,
-                            letterSpacing: 0.3,
-                          }}
-                        >
-                          {alertText}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <Text style={{ fontSize: 14, fontWeight: "700", color: alertColor }}>
-                        ❤️ {point.heartRateBpm} bpm
-                      </Text>
-                      <Text style={ui.muted}>
-                        ⚡ {point.speedMps.toFixed(2)} m/s ({(point.speedMps * 3.6).toFixed(1)} km/h)
-                      </Text>
-                    </View>
-                  </Panel>
-                );
-              })
-            ) : (
-              <AsyncStateView
-                isLoading={false}
-                error={null}
-                onRetry={onRefresh}
-                empty
-                emptyLabel="Chưa có dữ liệu cảm biến nào được ghi nhận cho buổi tập này."
-              />
-            )}
-          </View>
         </View>
       )}
     </Screen>

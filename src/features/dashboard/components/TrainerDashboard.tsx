@@ -33,7 +33,6 @@ export function TrainerDashboard() {
           hint="1 locked · 1 injured"
           tone="warning"
         />
-        <Metric label="Race ready" value={2} hint="Autumn Sprint" tone="good" />
       </View>
       <View style={uiStyles.section}>
         <SectionTitle>Stable fitness trend</SectionTitle>

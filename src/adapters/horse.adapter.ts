@@ -24,11 +24,10 @@ export type HorseListItemDto = {
     placementStatus: string;
   };
   photoUrl: string | null;
-  canRegisterRace: boolean;
   isDeleted: boolean;
 };
 
-export type HorseDetailDto = Omit<HorseListItemDto, "photoUrl" | "canRegisterRace"> & {
+export type HorseDetailDto = Omit<HorseListItemDto, "photoUrl"> & {
   microchipId: string | null;
   mediaId: string | null;
   ownerId: string | null;
@@ -47,9 +46,7 @@ export type HorseDetailDto = Omit<HorseListItemDto, "photoUrl" | "canRegisterRac
   activeTrainingLock: boolean;
   eligibility: {
     trainingEligible: boolean;
-    racingEligible: boolean;
     trainingReasons: string[];
-    racingReasons: string[];
     reasons: string[];
   };
   dateOfDeath: string | null;
@@ -143,10 +140,6 @@ export type HorseSummary = {
 export type HorseSummaryDto = HorseSummary;
 
 export function mapHorseSummary(horse: HorseListItemDto): HorseSummary {
-  const hasActiveTrainingLock =
-    horse.healthStatus === "ELIGIBLE" &&
-    horse.lifecycleStatus === "ACTIVE" &&
-    !horse.canRegisterRace;
   return {
     id: horse.id,
     name: horse.name,
@@ -154,7 +147,7 @@ export function mapHorseSummary(horse: HorseListItemDto): HorseSummary {
     breed: horse.breed ?? "—",
     gender: horse.gender ?? "—",
     healthStatus: horse.healthStatus,
-    status: hasActiveTrainingLock ? "LOCKED" : mapHealthStatus(horse.healthStatus),
+    status: mapHealthStatus(horse.healthStatus),
     barnName: horse.location?.barn?.name ?? "Not assigned",
     stallCode: horse.location?.stall?.code ?? "Not assigned",
     lifecycleStatus: horse.lifecycleStatus,

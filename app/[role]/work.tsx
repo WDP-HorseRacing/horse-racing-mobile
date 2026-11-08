@@ -18,11 +18,9 @@ import { useTheme } from "@/hooks/useTheme";
 import { groomService } from "@/services/groom.service";
 import { horseService } from "@/services/horse.service";
 import { medicalService } from "@/services/medical.service";
-import { racingService } from "@/services/racing.service";
 import { trainingService } from "@/services/training.service";
 import { usersService } from "@/services/users.service";
 import { suppliesService } from "@/services/supplies.service";
-import { mapOwnerRaceResult, type OwnerRaceResultView } from "@/adapters/racing.adapter";
 import type { TrainingSessionView } from "@/adapters/training.adapter";
 import type { SupplyItemDto, SupplyRequestDto } from "@/adapters/supplies.adapter";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
@@ -32,7 +30,6 @@ type WorkPayload =
   | { role: "groom"; today: GroomTodayDto }
   | { role: "trainer"; sessions: TrainingSessionView[] }
   | { role: "vet"; dashboard: MedicalDashboardDto }
-  | { role: "owner"; results: OwnerRaceResultView[] }
   | {
       role: "manager";
       horses: HorseListItemDto[];
@@ -46,9 +43,10 @@ export default function Work() {
   const validRole: RoleId | null = isRole(role) ? role : null;
   const { token } = useAuth();
   const load = useCallback(() => loadRoleWork(token!, validRole!), [token, validRole]);
-  const resource = useApiResource(load, Boolean(token && validRole));
+  const resource = useApiResource(load, Boolean(token && validRole && validRole !== "owner"));
 
   if (!validRole) return <Redirect href="/" />;
+  if (validRole === "owner") return <Redirect href="/owner/training" />;
 
   const completeTask = async (taskId: string) => {
     if (resource.data?.role !== "groom") return;
@@ -78,8 +76,6 @@ export default function Work() {
       {resource.data?.role === "trainer" ? <TrainerWork sessions={resource.data.sessions} /> : null}
 
       {resource.data?.role === "vet" ? <VetWork dashboard={resource.data.dashboard} /> : null}
-
-      {resource.data?.role === "owner" ? <OwnerWork results={resource.data.results} /> : null}
 
       {resource.data?.role === "manager" ? (
         <ManagerWork
@@ -112,19 +108,6 @@ async function loadRoleWork(token: string, role: RoleId): Promise<WorkPayload> {
           pendingRequests: [],
         })),
       };
-    case "owner": {
-      const horses = await horseService.list(token);
-      const resultsByHorse = await Promise.all(
-        horses.map(async (horse) => {
-          const results = await racingService.listHorseResults(token, horse.id);
-          return results.map((result) => mapOwnerRaceResult(horse.id, horse.name, result));
-        }),
-      );
-      return {
-        role,
-        results: resultsByHorse.flat().sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)),
-      };
-    }
     case "manager": {
       const [horses, staff, items, requests] = await Promise.all([
         horseService.list(token),
@@ -342,42 +325,6 @@ function VetWork({ dashboard }: { dashboard: MedicalDashboardDto }) {
         ) : null}
       </View>
     </>
-  );
-}
-
-function OwnerWork({ results }: { results: OwnerRaceResultView[] }) {
-  const uiStyles = getUiStyles(useTheme().colors);
-  return (
-    <View style={uiStyles.section}>
-      <SectionTitle>Race results for your horses</SectionTitle>
-      {results.map((result) => (
-        <Panel key={result.registrationId}>
-          <View style={uiStyles.row}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={uiStyles.value} numberOfLines={1}>
-                {result.horseName}
-              </Text>
-              <Text style={uiStyles.muted} numberOfLines={1}>
-                {result.raceName} · {result.scheduledAtLabel}
-              </Text>
-              <Text style={uiStyles.label}>{result.registrationStatus.replaceAll("_", " ")}</Text>
-            </View>
-            <Text style={[uiStyles.value, { flexShrink: 0 }]}>
-              {result.placing ? `#${result.placing}` : "—"}
-            </Text>
-          </View>
-        </Panel>
-      ))}
-      {!results.length ? (
-        <AsyncStateView
-          isLoading={false}
-          error={null}
-          onRetry={() => undefined}
-          empty
-          emptyLabel="No race results have been recorded for your horses."
-        />
-      ) : null}
-    </View>
   );
 }
 

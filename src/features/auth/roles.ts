@@ -136,12 +136,11 @@ export const roles: Record<RoleId, RoleConfig> = {
     label: "Horse Owner",
     person: "Marlow Bloodstock",
     scope: "3 horses owned",
-    workLabel: "Racing",
+    workLabel: "Training",
     nav: [
       { label: "Home", icon: "home-outline", path: "/owner" },
       { label: "Horses", icon: "grid-outline", path: "/owner/horses" },
       { label: "Training", icon: "calendar-outline", path: "/owner/training" },
-      { label: "Racing", icon: "trophy-outline", path: "/owner/racing" },
       { label: "More", icon: "ellipsis-horizontal", action: "more" },
     ],
     secondary: [

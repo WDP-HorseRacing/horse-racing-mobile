@@ -2,12 +2,10 @@ import { createContext, useContext, useMemo, useState, type PropsWithChildren } 
 import {
   groomTasks,
   horses as initialHorses,
-  raceRegistrations as initialRaceRegistrations,
   trainingPlans as initialTrainingPlans,
   trials as initialTrials,
   trainerRemarks as initialTrainerRemarks,
   type Horse,
-  type RaceRegistration,
   type Task,
   type TrainingPlan,
   type TrainingSession,
@@ -39,7 +37,6 @@ type RaceOSState = {
   plans: TrainingPlan[];
   trials: Trial[];
   trainerRemarks: TrainerRemark[];
-  raceRegistrations: RaceRegistration[];
   incidents: Incident[];
   examinations: Record<string, Examination>;
   lockedHorseIds: string[];
@@ -48,7 +45,6 @@ type RaceOSState = {
   completeTask: (id: string) => void;
   saveTrainingPlan: (plan: TrainingPlan) => void;
   saveTrainingSession: (planId: string, phaseId: string, session: TrainingSession) => void;
-  registerRace: (registration: RaceRegistration) => void;
   reportIncident: (incident: Omit<Incident, "id">) => void;
   saveExamination: (exam: Examination) => void;
   lockHorse: (horseId: string) => void;
@@ -62,8 +58,6 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
   const [plans, setPlans] = useState<TrainingPlan[]>(initialTrainingPlans);
   const [trials] = useState<Trial[]>(initialTrials);
   const [trainerRemarks] = useState<TrainerRemark[]>(initialTrainerRemarks);
-  const [raceRegistrations, setRaceRegistrations] =
-    useState<RaceRegistration[]>(initialRaceRegistrations);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [examinations, setExaminations] = useState<Record<string, Examination>>({});
   const [lockedHorseIds, setLockedHorseIds] = useState(["thunder-king"]);
@@ -75,7 +69,6 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
       plans,
       trials,
       trainerRemarks,
-      raceRegistrations,
       incidents,
       examinations,
       lockedHorseIds,
@@ -116,14 +109,6 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
                 },
           ),
         ),
-      registerRace: (registration) =>
-        setRaceRegistrations((current) =>
-          current.some(
-            (item) => item.horseId === registration.horseId && item.raceId === registration.raceId,
-          )
-            ? current
-            : [...current, registration],
-        ),
       reportIncident: (incident) =>
         setIncidents((current) => [{ ...incident, id: `incident-${Date.now()}` }, ...current]),
       saveExamination: (exam) =>
@@ -139,7 +124,6 @@ export function RaceOSProvider({ children }: PropsWithChildren) {
       plans,
       trials,
       trainerRemarks,
-      raceRegistrations,
       incidents,
       examinations,
       lockedHorseIds,

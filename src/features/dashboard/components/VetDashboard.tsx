@@ -42,8 +42,8 @@ function HealthStatusBadge({
         };
       case "QUARANTINED":
         return {
-          bg: colors.raceReadySoft,
-          color: colors.raceReady,
+          bg: colors.quarantineSoft,
+          color: colors.quarantine,
           label: t("Quarantined"),
         };
       case "UNDER_OBSERVATION":

@@ -79,7 +79,6 @@ export type HorseLifecyclePreviewDto = {
   allowed: boolean;
   blockedReason: string | null;
   classesWithdrawn: number;
-  raceRegistrationsWithdrawn: number;
   stallReleased: string | null;
   groomEnded: string | null;
   barnCleared: string | null;

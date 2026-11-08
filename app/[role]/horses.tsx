@@ -25,7 +25,6 @@ const HEALTH_FILTERS = [
   "LOCKED",
   "UNDER_OBSERVATION",
   "INJURED",
-  "QUARANTINED",
 ] as const;
 const LIFECYCLE_FILTERS = ["All", "ACTIVE", "RETIRED", "TRANSFERRED", "DECEASED"] as const;
 const GENDER_FILTERS = ["All", "MALE", "FEMALE", "GELDING"] as const;
@@ -79,8 +78,10 @@ export default function Horses() {
   const appliedFilters = useMemo<HorseListFilters>(
     () => ({
       ...filters,
-      ...(health && health !== "LOCKED"
-        ? { healthStatus: health as HorseListFilters["healthStatus"] }
+      ...(health
+        ? {
+            healthStatus: (health === "LOCKED" ? "QUARANTINED" : health) as HorseListFilters["healthStatus"],
+          }
         : {}),
     }),
     [filters, health],
@@ -107,15 +108,9 @@ export default function Horses() {
   const barnsResource = useApiResource(loadBarns, Boolean(token) && !isOwner);
   const horses = useMemo(() => {
     let list = filterHorsesBySearch(resource.data ?? [], search);
-    if (health && health !== "LOCKED") {
-      list = list.filter((h) => h.healthStatus === health);
-    } else if (health === "LOCKED") {
-      list = list.filter(
-        (h) =>
-          !h.isDeleted &&
-          h.lifecycleStatus === "ACTIVE" &&
-          !h.canRegisterRace,
-      );
+    if (health) {
+      const healthStatus = health === "LOCKED" ? "QUARANTINED" : health;
+      list = list.filter((h) => h.healthStatus === healthStatus);
     }
     const sorted = [...list];
     if (sortBy === "name_asc") {
@@ -155,7 +150,7 @@ export default function Horses() {
       ...(health ? [`${t("Health status")}: ${t(health)}`] : []),
       ...(filters.lifecycleStatus ? [`${t("Lifecycle")}: ${t(filters.lifecycleStatus)}`] : []),
       ...(filters.gender ? [`${t("Gender")}: ${t(filters.gender)}`] : []),
-      ...(filters.raceAptitude ? [`${t("Race aptitude")}: ${t(filters.raceAptitude)}`] : []),
+      ...(filters.raceAptitude ? [`${t("Distance focus")}: ${t(filters.raceAptitude)}`] : []),
       ...(filters.placementStatus ? [`${t("Placement")}: ${t(filters.placementStatus)}`] : []),
       ...(filters.barnId
         ? [
@@ -378,7 +373,7 @@ export default function Horses() {
                 }
               />
               <FilterGroup
-                title="Race aptitude"
+                title="Distance focus"
                 values={[...APTITUDE_FILTERS]}
                 value={filterDraft.raceAptitude ?? "All"}
                 onChange={(value) =>

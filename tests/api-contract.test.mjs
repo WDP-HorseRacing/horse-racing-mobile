@@ -406,7 +406,7 @@ test("Mobile request body JSON field types agree with Backend DTO schemas", () =
   assert.deepEqual(mismatches, []);
 });
 
-test("Mobile calls to contract-only routes stay visible as known runtime gaps", () => {
+test("Mobile does not call contract-only race management routes", () => {
   const actual = matchedCalls
     .flatMap(({ call, match }) => {
       if (!match) return [];
@@ -416,7 +416,7 @@ test("Mobile calls to contract-only routes stay visible as known runtime gaps", 
         : [];
     })
     .sort();
-  assert.deepEqual(actual, ["GET /races", "POST /races/{id}/registrations"]);
+  assert.deepEqual(actual, []);
 });
 
 test("Mobile and Backend repositories expose matching OpenAPI version prefix", () => {

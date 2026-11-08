@@ -9,6 +9,7 @@ import type { PerformanceMetricPointDto } from "@/services/performance.service";
 import { formatTime } from "@/utils/formatters";
 
 type Mode = "heartRate" | "speed" | "dual";
+type Scope = "live" | "all";
 
 type Props = {
   data: PerformanceMetricPointDto[];
@@ -23,6 +24,7 @@ export function PerformanceTelemetryChart({
 }: Props) {
   const { colors } = useTheme();
   const [mode, setMode] = useState<Mode>("heartRate");
+  const [scope, setScope] = useState<Scope>("live");
   const [containerWidth, setContainerWidth] = useState(0);
 
   // Derive sorted chronological metrics
@@ -31,6 +33,14 @@ export function PerformanceTelemetryChart({
       (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime(),
     );
   }, [data]);
+
+  // If live mode is selected, show sliding window of latest 25 points (25 seconds)
+  const visibleMetrics = useMemo(() => {
+    if (scope === "live" && sortedMetrics.length > 25) {
+      return sortedMetrics.slice(-25);
+    }
+    return sortedMetrics;
+  }, [sortedMetrics, scope]);
 
   // Calculations for Heart Rate & Speed
   const stats = useMemo(() => {
@@ -89,22 +99,29 @@ export function PerformanceTelemetryChart({
   const yAxisLabelWidth = 36;
   const chartWidth = Math.max(120, effectiveContainerWidth - yAxisLabelWidth - 16);
 
+  // Exact mathematically bounded spacing to guarantee NO overflow
+  const count = visibleMetrics.length;
+  const initialSpacing = 14;
+  const endSpacing = 14;
+  const availableWidth = Math.max(40, chartWidth - initialSpacing - endSpacing);
+  const spacing = count > 1 ? availableWidth / (count - 1) : availableWidth;
+
   // Step interval for X-axis labels
   const labelInterval = useMemo(() => {
-    if (sortedMetrics.length <= 6) return 1;
-    if (sortedMetrics.length <= 15) return 3;
-    if (sortedMetrics.length <= 30) return 5;
-    return Math.ceil(sortedMetrics.length / 5);
-  }, [sortedMetrics.length]);
+    if (count <= 6) return 1;
+    if (count <= 15) return 3;
+    if (count <= 30) return 5;
+    return Math.ceil(count / 5);
+  }, [count]);
 
   // Map Data for Heart Rate Chart
   const hrChartData = useMemo(() => {
-    return sortedMetrics.map((point, index) => {
+    return visibleMetrics.map((point, index) => {
       const isCritical = point.heartRateBpm >= 240;
       const isWarning = point.heartRateBpm >= 180 && !isCritical;
       const shouldShowLabel =
         index === 0 ||
-        index === sortedMetrics.length - 1 ||
+        index === count - 1 ||
         index % labelInterval === 0;
 
       return {
@@ -115,52 +132,52 @@ export function PerformanceTelemetryChart({
           : isWarning
             ? colors.monitor
             : colors.fit,
-        dataPointRadius: isCritical ? 5 : isWarning ? 4 : 2,
+        dataPointRadius: isCritical ? 5 : isWarning ? 4 : count > 35 ? 0 : 3,
         textColor: colors.mutedForeground,
         raw: point,
       };
     });
-  }, [sortedMetrics, labelInterval, colors]);
+  }, [visibleMetrics, count, labelInterval, colors]);
 
   // Map Data for Speed Chart
   const speedChartData = useMemo(() => {
-    return sortedMetrics.map((point, index) => {
+    return visibleMetrics.map((point, index) => {
       const shouldShowLabel =
         index === 0 ||
-        index === sortedMetrics.length - 1 ||
+        index === count - 1 ||
         index % labelInterval === 0;
 
       return {
         value: Number(point.speedMps.toFixed(2)),
         label: shouldShowLabel ? formatTime(point.recordedAt) : "",
         dataPointColor: colors.training,
-        dataPointRadius: 3,
+        dataPointRadius: count > 35 ? 0 : 3,
         textColor: colors.mutedForeground,
         raw: point,
       };
     });
-  }, [sortedMetrics, labelInterval, colors]);
+  }, [visibleMetrics, count, labelInterval, colors]);
 
   // Map Data for Dual Line Chart (Normalized or direct)
   const dualDataHr = hrChartData;
   const dualDataSpeed = useMemo(() => {
     // To show speed meaningfully on a HR chart (0-250), multiply speed by 12 (15 m/s -> 180 equivalent)
-    return sortedMetrics.map((point, index) => {
+    return visibleMetrics.map((point, index) => {
       const shouldShowLabel =
         index === 0 ||
-        index === sortedMetrics.length - 1 ||
+        index === count - 1 ||
         index % labelInterval === 0;
 
       return {
         value: Number((point.speedMps * 12).toFixed(1)),
         label: shouldShowLabel ? formatTime(point.recordedAt) : "",
         dataPointColor: colors.training,
-        dataPointRadius: 2,
+        dataPointRadius: count > 35 ? 0 : 2,
         textColor: colors.mutedForeground,
         raw: point,
       };
     });
-  }, [sortedMetrics, labelInterval, colors]);
+  }, [visibleMetrics, count, labelInterval, colors]);
 
   // Y-axis scaling for Heart Rate (clean 0 - 280 BPM scale)
   const latestMetric = sortedMetrics[sortedMetrics.length - 1];
@@ -293,6 +310,63 @@ export function PerformanceTelemetryChart({
         </View>
       </View>
 
+      {/* Scope Switcher: Live Window vs Full Session */}
+      {sortedMetrics.length > 25 ? (
+        <View style={styles.scopeRow}>
+          <Pressable
+            onPress={() => setScope("live")}
+            style={[
+              styles.scopeBtn,
+              scope === "live" && {
+                backgroundColor: colors.fitSoft,
+                borderColor: colors.primary,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.scopeLiveDot,
+                { backgroundColor: scope === "live" ? colors.primary : colors.mutedForeground },
+              ]}
+            />
+            <Text
+              style={[
+                styles.scopeText,
+                {
+                  color: scope === "live" ? colors.primary : colors.mutedForeground,
+                  fontWeight: scope === "live" ? "700" : "500",
+                },
+              ]}
+            >
+              Trực tiếp (25s gần nhất)
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setScope("all")}
+            style={[
+              styles.scopeBtn,
+              scope === "all" && {
+                backgroundColor: colors.surface,
+                borderColor: colors.borderStrong,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.scopeText,
+                {
+                  color: scope === "all" ? colors.foreground : colors.mutedForeground,
+                  fontWeight: scope === "all" ? "700" : "500",
+                },
+              ]}
+            >
+              Toàn buổi ({sortedMetrics.length} điểm)
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {/* Empty State vs Active Chart */}
       {!sortedMetrics.length ? (
         <View style={styles.emptyContainer}>
@@ -328,15 +402,20 @@ export function PerformanceTelemetryChart({
       ) : (
         <View style={{ gap: space.sm }}>
           {/* Main Chart Graphic */}
-          <View style={{ height: height + 24, width: "100%" }}>
+          <View style={[styles.chartWrapper, { height: height + 24 }]}>
             {mode === "heartRate" ? (
               <LineChart
+                key={`chart-hr-${scope}-${count}-${visibleMetrics[count - 1]?.recordedAt ?? ""}`}
                 areaChart
                 curved
                 curvature={0.15}
                 data={hrChartData}
                 width={chartWidth}
                 height={height}
+                spacing={spacing}
+                initialSpacing={initialSpacing}
+                endSpacing={endSpacing}
+                showVerticalLines={false}
                 startFillColor={currentActiveColor}
                 startOpacity={0.28}
                 endFillColor={currentActiveColor}
@@ -350,10 +429,11 @@ export function PerformanceTelemetryChart({
                   width: 50,
                   textAlign: "center",
                 }}
-                yAxisColor="transparent"
-                xAxisColor="transparent"
+                yAxisLabelWidth={yAxisLabelWidth}
+                yAxisColor={colors.border}
+                xAxisColor={colors.border}
                 rulesColor={colors.border}
-                rulesType="solid"
+                rulesType="dashed"
                 showXAxisIndices={false}
                 maxValue={hrMax}
                 noOfSections={hrSections}
@@ -369,13 +449,14 @@ export function PerformanceTelemetryChart({
                   type: "dashed",
                   dashWidth: 4,
                   dashGap: 4,
-                  labelText: " Nguy cấp (240)",
+                  width: chartWidth,
+                  labelText: "Nguy cấp (240 bpm)",
                   labelTextStyle: {
                     color: colors.destructive,
                     fontSize: 9,
                     fontWeight: "800",
-                    top: -12,
-                    right: 4,
+                    top: -14,
+                    left: 10,
                   },
                 }}
                 // Warning Threshold Reference Line (180 BPM)
@@ -387,13 +468,14 @@ export function PerformanceTelemetryChart({
                   type: "dashed",
                   dashWidth: 4,
                   dashGap: 4,
-                  labelText: " Cảnh báo (180)",
+                  width: chartWidth,
+                  labelText: "Cảnh báo (180 bpm)",
                   labelTextStyle: {
                     color: colors.monitor,
                     fontSize: 9,
                     fontWeight: "700",
-                    top: -12,
-                    right: 4,
+                    top: -14,
+                    left: 10,
                   },
                 }}
                 // Interactive Pointer Tooltip
@@ -438,12 +520,17 @@ export function PerformanceTelemetryChart({
               />
             ) : mode === "speed" ? (
               <LineChart
+                key={`chart-speed-${scope}-${count}-${visibleMetrics[count - 1]?.recordedAt ?? ""}`}
                 areaChart
                 curved
                 curvature={0.15}
                 data={speedChartData}
                 width={chartWidth}
                 height={height}
+                spacing={spacing}
+                initialSpacing={initialSpacing}
+                endSpacing={endSpacing}
+                showVerticalLines={false}
                 startFillColor={colors.training}
                 startOpacity={0.3}
                 endFillColor={colors.training}
@@ -457,10 +544,11 @@ export function PerformanceTelemetryChart({
                   width: 50,
                   textAlign: "center",
                 }}
-                yAxisColor="transparent"
-                xAxisColor="transparent"
+                yAxisLabelWidth={yAxisLabelWidth}
+                yAxisColor={colors.border}
+                xAxisColor={colors.border}
                 rulesColor={colors.border}
-                rulesType="solid"
+                rulesType="dashed"
                 showXAxisIndices={false}
                 yAxisOffset={0}
                 maxValue={speedMax}
@@ -504,12 +592,17 @@ export function PerformanceTelemetryChart({
               />
             ) : (
               <LineChart
+                key={`chart-dual-${scope}-${count}-${visibleMetrics[count - 1]?.recordedAt ?? ""}`}
                 curved
                 curvature={0.15}
                 data={dualDataHr}
                 data2={dualDataSpeed}
                 width={chartWidth}
                 height={height}
+                spacing={spacing}
+                initialSpacing={initialSpacing}
+                endSpacing={endSpacing}
+                showVerticalLines={false}
                 color1={currentActiveColor}
                 color2={colors.training}
                 thickness1={2.2}
@@ -521,10 +614,11 @@ export function PerformanceTelemetryChart({
                   width: 50,
                   textAlign: "center",
                 }}
-                yAxisColor="transparent"
-                xAxisColor="transparent"
+                yAxisLabelWidth={yAxisLabelWidth}
+                yAxisColor={colors.border}
+                xAxisColor={colors.border}
                 rulesColor={colors.border}
-                rulesType="solid"
+                rulesType="dashed"
                 showXAxisIndices={false}
                 maxValue={hrMax}
                 noOfSections={hrSections}
@@ -688,6 +782,37 @@ const styles = StyleSheet.create({
     padding: space.md,
     gap: space.md,
     borderWidth: 1,
+    overflow: "hidden",
+  },
+  chartWrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  scopeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: -4,
+  },
+  scopeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  scopeLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  scopeText: {
+    fontSize: 11,
   },
   topRow: {
     flexDirection: "row",

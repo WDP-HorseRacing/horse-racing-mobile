@@ -406,9 +406,6 @@ function PreviewCard({ preview }: { preview: Preview }) {
           {data.classesWithdrawn ? (
             <Text>Training classes withdrawn: {data.classesWithdrawn}</Text>
           ) : null}
-          {data.raceRegistrationsWithdrawn ? (
-            <Text>Future race registrations withdrawn: {data.raceRegistrationsWithdrawn}</Text>
-          ) : null}
           {data.stallReleased ? <Text>Stall released: {data.stallReleased}</Text> : null}
           {data.groomEnded ? <Text>Groom assignment ended: {data.groomEnded}</Text> : null}
           {data.barnCleared ? <Text>Barn cleared: {data.barnCleared}</Text> : null}

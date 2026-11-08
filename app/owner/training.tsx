@@ -1,5 +1,5 @@
 import { type Href, router } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
-import type { TrainingSessionView } from "@/adapters/training.adapter";
+import { mapOwnerTrialVideos, type TrainingSessionView } from "@/adapters/training.adapter";
 import { trainingService } from "@/services/training.service";
 import { formatDistance } from "@/utils/formatters";
 import { radius, space } from "@/config/theme";
@@ -29,6 +29,7 @@ export default function OwnerTraining() {
     .filter((session) => session.status === "completed")
     .slice()
     .reverse();
+  const trials = useMemo(() => mapOwnerTrialVideos(sessions), [sessions]);
   const visibleSessions = tab === "Schedule" ? upcomingSessions : completedSessions;
 
   return (
@@ -39,33 +40,87 @@ export default function OwnerTraining() {
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
-      <Chips options={["Schedule", "History"]} value={tab} onChange={setTab} />
-      <View style={uiStyles.section}>
-        <SectionTitle>
-          {tab === "Schedule" ? "Upcoming / Today" : "Completed sessions"}
-        </SectionTitle>
-        <AsyncStateView
-          isLoading={resource.isLoading}
-          error={resource.error}
-          onRetry={() => void resource.retry()}
-          empty={Boolean(resource.data && visibleSessions.length === 0)}
-          emptyLabel={
-            tab === "Schedule" ? "No upcoming training sessions." : "No completed sessions."
-          }
-        />
-        {visibleSessions.map((session) => (
-          <OwnerSessionRow key={session.participantId} session={session} />
-        ))}
-        {tab === "History" ? (
-          <View style={{ marginTop: space.lg }}>
-            <PrimaryButton
-              label="View Head Trainer Remarks"
-              icon="document-text-outline"
-              onPress={() => router.push("/owner/remarks")}
-            />
-          </View>
-        ) : null}
-      </View>
+      <Chips options={["Schedule", "History", "Trial videos"]} value={tab} onChange={setTab} />
+      {tab === "Trial videos" ? (
+        <View style={uiStyles.section}>
+          <SectionTitle>Trial videos</SectionTitle>
+          <AsyncStateView
+            isLoading={resource.isLoading}
+            error={resource.error}
+            onRetry={() => void resource.retry()}
+            empty={Boolean(resource.data && trials.length === 0)}
+            emptyLabel="No trial videos are available for your horses."
+          />
+          {trials.map((trial) => (
+            <Pressable
+              key={trial.id}
+              onPress={() =>
+                router.push(
+                  `/owner/trial/${trial.participantId}?attemptNo=${trial.attemptNo}` as Href,
+                )
+              }
+              style={{
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: radius.md,
+                padding: space.md,
+                flexDirection: "row",
+                gap: space.md,
+              }}
+            >
+              <View
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: radius.sm,
+                  backgroundColor: colors.background,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="play-circle" size={32} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, justifyContent: "center" }}>
+                <Text style={uiStyles.value}>{trial.horseName}</Text>
+                <Text style={uiStyles.muted}>
+                  {trial.sessionTitle} · {trial.date}
+                </Text>
+                <Text style={uiStyles.label}>
+                  Attempt {trial.attemptNo} · {trial.elapsedLabel}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <View style={uiStyles.section}>
+          <SectionTitle>
+            {tab === "Schedule" ? "Upcoming / Today" : "Completed sessions"}
+          </SectionTitle>
+          <AsyncStateView
+            isLoading={resource.isLoading}
+            error={resource.error}
+            onRetry={() => void resource.retry()}
+            empty={Boolean(resource.data && visibleSessions.length === 0)}
+            emptyLabel={
+              tab === "Schedule" ? "No upcoming training sessions." : "No completed sessions."
+            }
+          />
+          {visibleSessions.map((session) => (
+            <OwnerSessionRow key={session.participantId} session={session} />
+          ))}
+          {tab === "History" ? (
+            <View style={{ marginTop: space.lg }}>
+              <PrimaryButton
+                label="View Head Trainer Remarks"
+                icon="document-text-outline"
+                onPress={() => router.push("/owner/remarks")}
+              />
+            </View>
+          ) : null}
+        </View>
+      )}
     </Screen>
   );
 }

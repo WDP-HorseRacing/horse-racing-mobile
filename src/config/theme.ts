@@ -50,8 +50,8 @@ export const lightColors = {
   training: "#0284C7",
   trainingSoft: "#F0F9FF",
 
-  raceReady: "#9333EA",
-  raceReadySoft: "#FAF5FF",
+  quarantine: "#9333EA",
+  quarantineSoft: "#FAF5FF",
 
   // Chart colors
   chart1: "#059669",
@@ -130,9 +130,9 @@ export const darkColors = {
 
   trainingSoft: "#46A6EF26",
 
-  raceReady: "#B08AF0",
+  quarantine: "#B08AF0",
 
-  raceReadySoft: "#B08AF026",
+  quarantineSoft: "#B08AF026",
 
   // Chart colors
   chart1: "#4FCD88",

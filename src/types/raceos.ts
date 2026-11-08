@@ -1,4 +1,4 @@
-export type HorseStatus = "FIT" | "MONITOR" | "INJURED" | "LOCKED" | "TRAINING" | "RACE READY";
+export type HorseStatus = "FIT" | "MONITOR" | "INJURED" | "LOCKED" | "TRAINING";
 export type RoleId = "trainer" | "groom" | "vet" | "owner" | "manager";
 export type Readiness = "Low" | "Moderate" | "High";
 export type RaceAptitude = "SPRINTER" | "MILER" | "STAYER";
@@ -23,7 +23,6 @@ export type Horse = {
   color: string;
   sire: string;
   dam: string;
-  nextRace?: string;
   recovery?: number;
   note?: string;
 };
@@ -81,7 +80,7 @@ export type InventoryItem = {
 export type StaffMember = { name: string; role: string; status: string; scope: string };
 
 export type PermissionCategory =
-  "Horses" | "Training" | "Health" | "Staff" | "Inventory" | "Racing" | "Reports" | "Operations";
+  "Horses" | "Training" | "Health" | "Staff" | "Inventory" | "Reports" | "Operations";
 
 export type ActionPermission = {
   view: boolean;
@@ -110,31 +109,6 @@ export type AuditEntry = {
   object: string;
   time: string;
   result: string;
-};
-export type Race = {
-  id: string;
-  name: string;
-  date: string;
-  track: string;
-  venue: string;
-  distanceM: number;
-  entries: number;
-  purse: string;
-};
-export type RaceRegistration = {
-  id: string;
-  horseId: string;
-  raceId: string;
-  submittedByRole: RoleId;
-  status: "submitted" | "approved" | "rejected";
-  createdAt: string;
-};
-export type RaceResult = {
-  name: string;
-  date: string;
-  horse: string;
-  place: string;
-  prize: string;
 };
 export type FinancePoint = { m: string; cost: number; revenue: number };
 export type FlowStep = { role: string; action: string; detail: string; critical?: boolean };
@@ -220,9 +194,6 @@ export type RaceOSFixture = {
   inventory: InventoryItem[];
   staff: StaffMember[];
   auditLog: AuditEntry[];
-  races: Race[];
-  raceRegistrations: RaceRegistration[];
-  raceResults: RaceResult[];
   clubFinance: FinancePoint[];
   flowSteps: FlowStep[];
   trainingWeek: TrainingDay[];

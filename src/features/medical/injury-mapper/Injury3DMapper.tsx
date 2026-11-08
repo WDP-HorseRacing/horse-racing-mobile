@@ -422,6 +422,16 @@ export function Injury3DMapper({
     setSelectedMarkerId("");
   };
 
+  const undoLastDraft = () => {
+    if (!drafts.length) return;
+    const lastDraft = drafts[drafts.length - 1];
+    postToViewer({ type: "REMOVE_DRAFT_MARKER", id: lastDraft.id });
+    onDraftsChange(drafts.slice(0, -1));
+    if (selectedMarkerId === lastDraft.id) {
+      setSelectedMarkerId("");
+    }
+  };
+
   return (
     <>
       <Panel style={styles.launchPanel}>
@@ -509,6 +519,17 @@ export function Injury3DMapper({
                 </Text>
               </View>
               <View style={styles.headerRightActions}>
+                {allowNew && drafts.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Hoàn tác điểm vừa đánh dấu"
+                    onPress={undoLastDraft}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    style={[styles.headerButton, { borderColor: colors.primary }]}
+                  >
+                    <Ionicons name="arrow-undo" size={18} color={colors.primary} />
+                  </Pressable>
+                ) : null}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t("Reset camera")}
@@ -653,6 +674,61 @@ export function Injury3DMapper({
                     <Text style={uiStyles.muted}>{t("Loading bundled 3D horse…")}</Text>
                   </>
                 )}
+              </View>
+            ) : null}
+
+            {/* Floating Undo Button (Top Left of 3D Canvas) */}
+            {allowNew && drafts.length > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Hoàn tác điểm vừa đánh dấu"
+                onPress={undoLastDraft}
+                style={styles.floatingUndoBtn}
+              >
+                <Ionicons name="arrow-undo" size={13} color={colors.foreground} />
+                <Text style={styles.floatingUndoText}>
+                  Hoàn tác ({drafts.length})
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {/* Floating Quick Action Bar for Selected Draft Marker (Bottom of 3D Canvas) */}
+            {selectedDraft ? (
+              <View style={styles.floatingDraftActionPill}>
+                <View style={styles.floatingDraftInfo}>
+                  <Ionicons name="location" size={16} color={colors.primary} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.floatingDraftTitle} numberOfLines={1}>
+                      {formatEnum(t(selectedDraft.bodyRegion))}
+                    </Text>
+                    <Text style={styles.floatingDraftSubtitle} numberOfLines={1}>
+                      {selectedDraft.injuryType
+                        ? formatEnum(t(selectedDraft.injuryType))
+                        : "Điểm nháp vừa chọn"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.floatingDraftActionGroup}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Xóa điểm chấn thương này"
+                    onPress={removeSelectedDraft}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    style={styles.floatingDeleteBtn}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Bỏ chọn điểm"
+                    onPress={() => setSelectedMarkerId("")}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    style={styles.floatingDismissBtn}
+                  >
+                    <Ionicons name="close" size={16} color={colors.mutedForeground} />
+                  </Pressable>
+                </View>
               </View>
             ) : null}
           </View>
@@ -1162,12 +1238,99 @@ const getStyles = (colors: any) =>
       backgroundColor: "#f4f3ef",
       borderWidth: 1,
       borderColor: colors.border,
+      position: "relative",
     },
     viewerFrameKeyboard: {
       flex: 0,
       minHeight: 110,
       height: 110,
       marginVertical: 2,
+    },
+    floatingUndoBtn: {
+      position: "absolute",
+      top: 10,
+      left: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 4,
+      elevation: 4,
+      zIndex: 20,
+    },
+    floatingUndoText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    floatingDraftActionPill: {
+      position: "absolute",
+      bottom: 12,
+      left: 12,
+      right: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.18,
+      shadowRadius: 8,
+      elevation: 6,
+      zIndex: 20,
+    },
+    floatingDraftInfo: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      flex: 1,
+      minWidth: 0,
+      marginRight: 8,
+    },
+    floatingDraftTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    floatingDraftSubtitle: {
+      fontSize: 11,
+      color: colors.mutedForeground,
+    },
+    floatingDraftActionGroup: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    floatingDeleteBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: radius.pill,
+      backgroundColor: "#fee2e2",
+      borderWidth: 1,
+      borderColor: "#fca5a5",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    floatingDismissBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: radius.pill,
+      backgroundColor: colors.muted,
+      alignItems: "center",
+      justifyContent: "center",
     },
     webView: { flex: 1, backgroundColor: "#f4f3ef" },
     loadingOverlay: {

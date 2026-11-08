@@ -20,7 +20,6 @@
       "color": "Bay",
       "sire": "Northern Gale",
       "dam": "Silk Verdict",
-      "nextRace": "Sep 28 · Autumn Sprint",
       "recovery": 65,
       "note": "Training locked by veterinarian — abnormal heart-rate response."
     },
@@ -87,8 +86,7 @@
       "hr": 154,
       "color": "Black",
       "sire": "Quartz Hall",
-      "dam": "Nightfold",
-      "nextRace": "Oct 05 · Club Mile"
+      "dam": "Nightfold"
     },
     {
       "id": "golden-hour",
@@ -98,7 +96,7 @@
       "sex": "Filly",
       "weight": 480,
       "stall": "B01",
-      "status": "RACE READY",
+      "status": "FIT",
       "fitness": 92,
       "readiness": "High",
       "raceAptitude": "SPRINTER",
@@ -109,8 +107,7 @@
       "hr": 92,
       "color": "Palomino",
       "sire": "Hour of Gold",
-      "dam": "Lantern Bay",
-      "nextRace": "Sep 28 · Autumn Sprint"
+      "dam": "Lantern Bay"
     },
     {
       "id": "iron-verdict",
@@ -162,7 +159,7 @@
       "sex": "Colt",
       "weight": 494,
       "stall": "B04",
-      "status": "RACE READY",
+      "status": "FIT",
       "fitness": 89,
       "readiness": "High",
       "raceAptitude": "SPRINTER",
@@ -173,8 +170,7 @@
       "hr": 89,
       "color": "Bay",
       "sire": "Ledger Hall",
-      "dam": "Brave Season",
-      "nextRace": "Sep 28 · Autumn Sprint"
+      "dam": "Brave Season"
     }
   ],
   "fitnessTrend": [
@@ -696,62 +692,6 @@
       "object": "Role: Groom → incident.create",
       "time": "Yesterday",
       "result": "Success"
-    }
-  ],
-  "races": [
-    {
-      "id": "autumn-sprint",
-      "name": "Autumn Sprint",
-      "date": "Sep 28",
-      "track": "Meadowline · 1,200 m",
-      "venue": "Meadowline",
-      "distanceM": 1200,
-      "entries": 3,
-      "purse": "$48,000"
-    },
-    {
-      "id": "club-mile",
-      "name": "Club Mile",
-      "date": "Oct 05",
-      "track": "Meadowline · 1,600 m",
-      "venue": "Meadowline",
-      "distanceM": 1600,
-      "entries": 2,
-      "purse": "$72,000"
-    },
-    {
-      "id": "harvest-cup",
-      "name": "Harvest Cup",
-      "date": "Oct 19",
-      "track": "Ridgemont · 2,000 m",
-      "venue": "Ridgemont",
-      "distanceM": 2000,
-      "entries": 1,
-      "purse": "$120,000"
-    }
-  ],
-  "raceRegistrations": [],
-  "raceResults": [
-    {
-      "name": "Summer Dash",
-      "date": "Aug 24",
-      "horse": "Golden Hour",
-      "place": "1st",
-      "prize": "$24,000"
-    },
-    {
-      "name": "Evening Plate",
-      "date": "Aug 10",
-      "horse": "Brave Ledger",
-      "place": "3rd",
-      "prize": "$6,500"
-    },
-    {
-      "name": "Coastal Mile",
-      "date": "Jul 27",
-      "horse": "Night Quartz",
-      "place": "2nd",
-      "prize": "$11,000"
     }
   ],
   "clubFinance": [
