@@ -1,5 +1,6 @@
 import { router, type Href } from "expo-router";
-import { Pressable, View } from "react-native";
+import { useState } from "react";
+import { Alert, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
@@ -21,6 +22,9 @@ import type { MedicalDashboardDto } from "@/adapters/medical.adapter";
 import type { SupplyItemDto } from "@/adapters/supplies.adapter";
 import type { TrainingClassDto, TrainingSessionDto } from "@/services/training.service";
 import { groomService } from "@/services/groom.service";
+import { mediaService, type LocalMediaAsset } from "@/services/media.service";
+import { ChecklistEvidenceSheet } from "@/features/stable-care/ChecklistEvidenceSheet";
+import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDate, formatDateTime, formatDistance, formatQuantity } from "@/utils/formatters";
 import {
   ManagerTrainerDashboard,
@@ -59,6 +63,8 @@ export function RoleDashboard({
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   const { t } = useI18n();
+  const [evidenceTaskId, setEvidenceTaskId] = useState<string | null>(null);
+  const [evidenceSaving, setEvidenceSaving] = useState(false);
 
   if (payload.kind === "manager_ops" || payload.kind === "trainer_ops") {
     return (
@@ -204,18 +210,42 @@ export function RoleDashboard({
       (s) => s.lowStock || (s.reorderThreshold > 0 && s.quantityOnHand <= s.reorderThreshold),
     );
 
-    const completeTask = async (taskId: string) => {
+    const completeTask = async (taskId: string): Promise<void | boolean> => {
       const task = tasks.find((item) => item.id === taskId);
       if (!task?.sourceId) return;
-      if (task.sourceType === "checklist")
-        await groomService.tickChecklistItem(token, task.sourceId, true);
-      else if (task.sourceType === "training" && task.sourceAction === "check-in")
+      if (task.sourceType === "checklist") {
+        setEvidenceTaskId(task.id);
+        return false;
+      } else if (task.sourceType === "training" && task.sourceAction === "check-in")
         await groomService.checkIn(token, task.sourceId);
       else if (task.sourceType === "training" && task.sourceAction === "ready")
         await groomService.markReady(token, task.sourceId);
       else if (task.sourceType === "care")
         await groomService.completeCareSchedule(token, task.sourceId);
       await onRefresh();
+      return;
+    };
+
+    const selectedEvidenceTask = tasks.find((task) => task.id === evidenceTaskId);
+    const completeChecklistWithEvidence = async (photo: LocalMediaAsset | null) => {
+      if (!selectedEvidenceTask?.sourceId) return;
+      setEvidenceSaving(true);
+      try {
+        const evidenceMediaId = photo
+          ? await mediaService.uploadChecklistEvidence(token, photo)
+          : undefined;
+        await groomService.tickChecklistItem(
+          token,
+          selectedEvidenceTask.sourceId,
+          evidenceMediaId ? { evidenceMediaId } : { done: true },
+        );
+        await onRefresh();
+        setEvidenceTaskId(null);
+      } catch (error) {
+        Alert.alert(t("Could not update checklist"), extractErrorMessage(error));
+      } finally {
+        setEvidenceSaving(false);
+      }
     };
 
     return (
@@ -517,6 +547,12 @@ export function RoleDashboard({
             />
           ) : null}
         </View>
+        <ChecklistEvidenceSheet
+          visible={Boolean(evidenceTaskId)}
+          saving={evidenceSaving}
+          onClose={() => setEvidenceTaskId(null)}
+          onComplete={completeChecklistWithEvidence}
+        />
       </>
     );
   }

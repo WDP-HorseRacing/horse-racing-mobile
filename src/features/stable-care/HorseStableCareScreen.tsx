@@ -30,6 +30,11 @@ import {
   type HorseCareTaskDto,
   type HorseSurchargeDto,
 } from "@/services/stable-care.service";
+import { mediaService, type LocalMediaAsset } from "@/services/media.service";
+import {
+  ChecklistEvidenceLink,
+  ChecklistEvidenceSheet,
+} from "@/features/stable-care/ChecklistEvidenceSheet";
 import { suppliesService } from "@/services/supplies.service";
 import { horseService } from "@/services/horse.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
@@ -1137,6 +1142,8 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
   const [to, setTo] = useState(todayDate());
   const [range, setRange] = useState({ from: daysAgoDate(6), to: todayDate() });
   const [regenerating, setRegenerating] = useState(false);
+  const [evidenceItemId, setEvidenceItemId] = useState<string | null>(null);
+  const [savingItemId, setSavingItemId] = useState<string | null>(null);
   const load = useCallback(
     () => stableCareService.listChecklists(token!, horseId, range.from, range.to),
     [horseId, range.from, range.to, token],
@@ -1167,12 +1174,25 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
     }
   };
 
-  const toggle = async (itemId: string, done: boolean) => {
+  const toggle = async (
+    itemId: string,
+    done: boolean,
+    evidencePhoto?: LocalMediaAsset | null,
+  ): Promise<boolean> => {
+    setSavingItemId(itemId);
     try {
-      await stableCareService.tickChecklistItem(token!, itemId, { done });
+      const evidenceMediaId = evidencePhoto
+        ? await mediaService.uploadChecklistEvidence(token!, evidencePhoto)
+        : null;
+      const input = evidenceMediaId ? { evidenceMediaId } : { done };
+      await stableCareService.tickChecklistItem(token!, itemId, input);
       await resource.refresh();
+      return true;
     } catch (error) {
       Alert.alert(t("Could not update checklist"), extractErrorMessage(error));
+      return false;
+    } finally {
+      setSavingItemId(null);
     }
   };
   const handlePresetRange = (days: number) => {
@@ -1337,6 +1357,12 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
                         : t("Not completed")}
                       {item.note ? ` · ${item.note}` : ""}
                     </Text>
+                    <ChecklistEvidenceLink
+                      token={token}
+                      mediaId={item.evidenceMediaId}
+                      photoUrl={item.evidencePhotoUrl}
+                      style={{ marginTop: 4 }}
+                    />
                   </View>
                   {role === "groom" &&
                   checklist.checklistDate === today &&
@@ -1345,7 +1371,10 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
                     <SecondaryButton
                       label={item.done ? "Undo" : "Done"}
                       style={{ flexShrink: 0 }}
-                      onPress={() => void toggle(item.id, !item.done)}
+                      disabled={savingItemId === item.id}
+                      onPress={() =>
+                        item.done ? void toggle(item.id, false) : setEvidenceItemId(item.id)
+                      }
                     />
                   ) : null}
                 </View>
@@ -1362,6 +1391,16 @@ function DailyChecklistTab({ role, horseId }: { role: string; horseId: string })
           )}
         </Text>
       ) : null}
+      <ChecklistEvidenceSheet
+        visible={Boolean(evidenceItemId)}
+        saving={Boolean(evidenceItemId && savingItemId === evidenceItemId)}
+        onClose={() => setEvidenceItemId(null)}
+        onComplete={async (photo) => {
+          if (!evidenceItemId) return;
+          const completed = await toggle(evidenceItemId, true, photo);
+          if (completed) setEvidenceItemId(null);
+        }}
+      />
     </View>
   );
 }

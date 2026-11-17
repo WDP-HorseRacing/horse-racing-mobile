@@ -1,5 +1,11 @@
 import type { GroomTodayDto } from "@/adapters/groom.adapter";
-import type { DailyChecklistDto, FeedingMeal, IncidentDto } from "@/services/stable-care.service";
+import type {
+  DailyChecklistDto,
+  FeedingMeal,
+  IncidentDto,
+  TickChecklistItemInput,
+} from "@/services/stable-care.service";
+import { stableCareService } from "@/services/stable-care.service";
 import { apiRequest } from "@/services/api-client";
 
 export const groomService = {
@@ -37,12 +43,8 @@ export const groomService = {
     };
   },
 
-  tickChecklistItem(token: string, itemId: string, done: boolean, note?: string | null) {
-    return apiRequest<DailyChecklistDto>(`/checklist-items/${encodeURIComponent(itemId)}`, {
-      method: "PATCH",
-      token,
-      body: { done, ...(note !== undefined ? { note } : {}) },
-    });
+  tickChecklistItem(token: string, itemId: string, input: TickChecklistItemInput) {
+    return stableCareService.tickChecklistItem(token, itemId, input);
   },
 
   checkIn(token: string, participantId: string) {

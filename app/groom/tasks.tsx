@@ -18,6 +18,11 @@ import { useApiResource } from "@/hooks/useApiResource";
 import { useTheme } from "@/hooks/useTheme";
 import { groomService } from "@/services/groom.service";
 import { orderedMeals, stableCareService } from "@/services/stable-care.service";
+import { mediaService, type LocalMediaAsset } from "@/services/media.service";
+import {
+  ChecklistEvidenceLink,
+  ChecklistEvidenceSheet,
+} from "@/features/stable-care/ChecklistEvidenceSheet";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatDateTime, formatTime } from "@/utils/formatters";
 import { radius, space } from "@/config/theme";
@@ -38,6 +43,7 @@ export default function GroomTasks() {
   const [noteItemId, setNoteItemId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [evidenceItemId, setEvidenceItemId] = useState<string | null>(null);
 
   const horses = useMemo(() => resource.data?.horses ?? [], [resource.data?.horses]);
   const tracked = useMemo(() => horses.flatMap((horse) => horse.checklist?.items ?? []), [horses]);
@@ -49,17 +55,30 @@ export default function GroomTasks() {
     return horses.filter((h) => h.horseId === selectedHorseId);
   }, [horses, selectedHorseId]);
 
-  const updateChecklist = async (itemId: string, nextDone: boolean, itemNote?: string | null) => {
-    if (!token) return;
+  const updateChecklist = async (
+    itemId: string,
+    nextDone: boolean,
+    itemNote?: string | null,
+    evidencePhoto?: LocalMediaAsset | null,
+  ): Promise<boolean> => {
+    if (!token) return false;
     setBusyId(itemId);
     try {
-      await stableCareService.tickChecklistItem(token, itemId, {
-        done: nextDone,
-        ...(itemNote !== undefined ? { note: itemNote } : {}),
-      });
+      const evidenceMediaId = evidencePhoto
+        ? await mediaService.uploadChecklistEvidence(token, evidencePhoto)
+        : null;
+      const input = evidenceMediaId
+        ? { evidenceMediaId }
+        : {
+            done: nextDone,
+            ...(itemNote !== undefined ? { note: itemNote } : {}),
+          };
+      await stableCareService.tickChecklistItem(token, itemId, input);
       await resource.refresh();
+      return true;
     } catch (error) {
       Alert.alert(t("Could not update checklist"), extractErrorMessage(error));
+      return false;
     } finally {
       setBusyId(null);
     }
@@ -317,7 +336,11 @@ export default function GroomTasks() {
                                   horse.checklist?.status === "INCOMPLETE" ||
                                   horse.checklist?.status === "CANCELLED"
                                 }
-                                onPress={() => void updateChecklist(item.id, !item.done)}
+                                onPress={() =>
+                                  item.done
+                                    ? void updateChecklist(item.id, false)
+                                    : setEvidenceItemId(item.id)
+                                }
                                 style={styles.checkboxTouch}
                               >
                                 {isBusy ? (
@@ -412,6 +435,15 @@ export default function GroomTasks() {
                               <View style={styles.noteBubble}>
                                 <Ionicons name="create-outline" size={13} color={colors.primary} />
                                 <Text style={styles.noteText}>{item.note}</Text>
+                              </View>
+                            ) : null}
+                            {Boolean(item.evidenceMediaId || item.evidencePhotoUrl) ? (
+                              <View style={styles.todoEvidenceRow}>
+                                <ChecklistEvidenceLink
+                                  token={token}
+                                  mediaId={item.evidenceMediaId}
+                                  photoUrl={item.evidencePhotoUrl}
+                                />
                               </View>
                             ) : null}
                           </View>
@@ -536,6 +568,16 @@ export default function GroomTasks() {
           />
         </Field>
       </BottomSheetModal>
+      <ChecklistEvidenceSheet
+        visible={Boolean(evidenceItemId)}
+        saving={Boolean(evidenceItemId && busyId === evidenceItemId)}
+        onClose={() => setEvidenceItemId(null)}
+        onComplete={async (photo) => {
+          if (!evidenceItemId) return;
+          const completed = await updateChecklist(evidenceItemId, true, undefined, photo);
+          if (completed) setEvidenceItemId(null);
+        }}
+      />
     </Screen>
   );
 }
@@ -747,5 +789,11 @@ const getStyles = (colors: any) =>
     todoExpandedText: {
       fontSize: 12,
       color: colors.mutedForeground,
+    },
+    todoEvidenceRow: {
+      paddingLeft: 52,
+      paddingRight: space.sm,
+      paddingBottom: space.sm,
+      marginTop: 2,
     },
   });

@@ -51,7 +51,7 @@ function resolveStorageUrl(url: string): ResolvedStorageUrl {
 async function uploadImageAsset(
   token: string,
   asset: LocalMediaAsset,
-  purpose: "HORSE_PHOTO" | "INCIDENT_PHOTO",
+  purpose: "HORSE_PHOTO" | "INCIDENT_PHOTO" | "CHECKLIST_EVIDENCE",
   onProgress?: (percent: number) => void,
 ): Promise<string> {
   let normalizedMime = asset.mimeType?.toLowerCase().split(";")[0]?.trim();
@@ -250,6 +250,14 @@ export const mediaService = {
     onProgress?: (percent: number) => void,
   ): Promise<string> {
     return uploadImageAsset(token, asset, "INCIDENT_PHOTO", onProgress);
+  },
+
+  async uploadChecklistEvidence(
+    token: string,
+    asset: LocalMediaAsset,
+    onProgress?: (percent: number) => void,
+  ): Promise<string> {
+    return uploadImageAsset(token, asset, "CHECKLIST_EVIDENCE", onProgress);
   },
 
   async downloadUrl(token: string, mediaId: string) {

@@ -21,6 +21,13 @@
       "expo-router",
       "expo-video",
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow HorseRacing to take checklist evidence photos.",
+          "photosPermission": "Allow HorseRacing to access photos for checklist evidence."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "defaultChannel": "default"

@@ -1,6 +1,6 @@
 import { type Href, Redirect, router, useLocalSearchParams } from "expo-router";
-import { useCallback } from "react";
-import { Pressable, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Alert, Pressable, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import { Metric, Panel, getUiStyles } from "@/components/ui";
@@ -21,6 +21,9 @@ import { medicalService } from "@/services/medical.service";
 import { trainingService } from "@/services/training.service";
 import { usersService } from "@/services/users.service";
 import { suppliesService } from "@/services/supplies.service";
+import { mediaService, type LocalMediaAsset } from "@/services/media.service";
+import { ChecklistEvidenceSheet } from "@/features/stable-care/ChecklistEvidenceSheet";
+import { extractErrorMessage } from "@/utils/errorHandler";
 import type { TrainingSessionView } from "@/adapters/training.adapter";
 import type { SupplyItemDto, SupplyRequestDto } from "@/adapters/supplies.adapter";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
@@ -42,18 +45,47 @@ export default function Work() {
   const { role } = useLocalSearchParams<{ role: string }>();
   const validRole: RoleId | null = isRole(role) ? role : null;
   const { token } = useAuth();
+  const { t } = useI18n();
+  const [evidenceTaskId, setEvidenceTaskId] = useState<string | null>(null);
+  const [evidenceSaving, setEvidenceSaving] = useState(false);
   const load = useCallback(() => loadRoleWork(token!, validRole!), [token, validRole]);
   const resource = useApiResource(load, Boolean(token && validRole && validRole !== "owner"));
 
   if (!validRole) return <Redirect href="/" />;
   if (validRole === "owner") return <Redirect href="/owner/training" />;
 
-  const completeTask = async (taskId: string) => {
+  const completeTask = async (taskId: string): Promise<void | boolean> => {
     if (resource.data?.role !== "groom") return;
     const task = mapGroomTodayToTasks(resource.data.today).find((item) => item.id === taskId);
     if (!task?.sourceId) return;
+    if (task.sourceType === "checklist") {
+      setEvidenceTaskId(task.id);
+      return false;
+    }
     await completeGroomTask(token!, task);
     await resource.refresh();
+    return;
+  };
+
+  const selectedEvidenceTask =
+    resource.data?.role === "groom" && evidenceTaskId
+      ? mapGroomTodayToTasks(resource.data.today).find((task) => task.id === evidenceTaskId)
+      : undefined;
+  const completeChecklistWithEvidence = async (photo: LocalMediaAsset | null) => {
+    if (!selectedEvidenceTask?.sourceId || !token) return;
+    setEvidenceSaving(true);
+    try {
+      const evidenceMediaId = photo
+        ? await mediaService.uploadChecklistEvidence(token, photo)
+        : undefined;
+      await completeGroomTask(token, selectedEvidenceTask, evidenceMediaId);
+      await resource.refresh();
+      setEvidenceTaskId(null);
+    } catch (error) {
+      Alert.alert(t("Could not update checklist"), extractErrorMessage(error));
+    } finally {
+      setEvidenceSaving(false);
+    }
   };
 
   return (
@@ -85,6 +117,12 @@ export default function Work() {
           requests={resource.data.requests}
         />
       ) : null}
+      <ChecklistEvidenceSheet
+        visible={Boolean(evidenceTaskId)}
+        saving={evidenceSaving}
+        onClose={() => setEvidenceTaskId(null)}
+        onComplete={completeChecklistWithEvidence}
+      />
     </Screen>
   );
 }
@@ -122,10 +160,18 @@ async function loadRoleWork(token: string, role: RoleId): Promise<WorkPayload> {
   }
 }
 
-async function completeGroomTask(token: string, task: Task) {
+async function completeGroomTask(
+  token: string,
+  task: Task,
+  evidenceMediaId?: string,
+) {
   if (!task.sourceId) return;
   if (task.sourceType === "checklist") {
-    await groomService.tickChecklistItem(token, task.sourceId, true);
+    await groomService.tickChecklistItem(
+      token,
+      task.sourceId,
+      evidenceMediaId ? { evidenceMediaId } : { done: true },
+    );
   } else if (task.sourceType === "training" && task.sourceAction === "check-in") {
     await groomService.checkIn(token, task.sourceId);
   } else if (task.sourceType === "training" && task.sourceAction === "ready") {
@@ -140,7 +186,7 @@ function GroomWork({
   onComplete,
 }: {
   today: GroomTodayDto;
-  onComplete: (id: string) => Promise<void>;
+  onComplete: (id: string) => Promise<void | boolean>;
 }) {
   const uiStyles = getUiStyles(useTheme().colors);
   const tasks = mapGroomTodayToTasks(today);

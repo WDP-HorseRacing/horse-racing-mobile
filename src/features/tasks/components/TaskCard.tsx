@@ -14,7 +14,7 @@ export function TaskCard({
   onComplete,
 }: {
   task: Task;
-  onComplete: (id: string) => void | Promise<void>;
+  onComplete: (id: string) => void | boolean | Promise<void | boolean>;
 }) {
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -74,8 +74,10 @@ export function TaskCard({
         disabled={task.done || task.actionable === false}
         onPress={async () => {
           try {
-            await onComplete(task.id);
-            Alert.alert("Task updated", "The task status has been refreshed.");
+            const completed = await onComplete(task.id);
+            if (completed !== false) {
+              Alert.alert("Task updated", "The task status has been refreshed.");
+            }
           } catch (error) {
             Alert.alert(
               "Could not update task",

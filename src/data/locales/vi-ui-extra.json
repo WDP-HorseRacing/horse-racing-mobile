@@ -2894,5 +2894,13 @@
   "Seconds": "Giây",
   "buổi/tuần": "buổi/tuần",
   "Khá": "Khá",
-  "Horse injury records": "Hồ sơ chấn thương của ngựa"
+  "Horse injury records": "Hồ sơ chấn thương của ngựa",
+  "Complete checklist task": "Hoàn tất công việc",
+  "Upload evidence and complete": "Tải ảnh bằng chứng và hoàn tất",
+  "Complete without photo": "Hoàn tất không cần ảnh",
+  "Attach an optional photo to show this task has been completed.": "Có thể đính kèm ảnh để xác nhận công việc đã hoàn thành.",
+  "Could not load evidence photo": "Không thể tải ảnh bằng chứng",
+  "View evidence photo": "Xem ảnh bằng chứng",
+  "Evidence photo": "Ảnh bằng chứng",
+  "Permission to use the camera is required to take photos.": "Cần cấp quyền sử dụng máy ảnh để chụp ảnh."
 }

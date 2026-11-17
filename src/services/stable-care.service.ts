@@ -71,7 +71,12 @@ export type ChecklistItemDto = {
   doneAt: string | null;
   doer: { id: string; fullName: string } | null;
   note: string | null;
+  evidenceMediaId?: string | null;
+  evidencePhotoUrl?: string | null;
 };
+export type TickChecklistItemInput =
+  | { done: boolean; note?: string | null }
+  | { evidenceMediaId: string; note?: string | null };
 export type DailyChecklistDto = {
   id: string;
   horseId: string;
@@ -242,7 +247,11 @@ export const stableCareService = {
       },
     );
   },
-  tickChecklistItem(token: string, itemId: string, input: { done: boolean; note?: string | null }) {
+  tickChecklistItem(
+    token: string,
+    itemId: string,
+    input: TickChecklistItemInput,
+  ) {
     return apiRequest<DailyChecklistDto>(`/checklist-items/${encodeURIComponent(itemId)}`, {
       method: "PATCH",
       token,
