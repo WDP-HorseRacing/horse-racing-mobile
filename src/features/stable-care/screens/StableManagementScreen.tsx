@@ -51,11 +51,11 @@ import { formatEnum } from "@/utils/formatters";
 import { clubDate } from "@/utils/horse-validation";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/types/raceos";
-import { StallActionModal } from "./components/modals/StallActionModal";
-import { CreateBarnModal } from "./components/modals/CreateBarnModal";
-import { CreateStallModal } from "./components/modals/CreateStallModal";
-import { EditBarnModal } from "./components/modals/EditBarnModal";
-import { EditStallModal } from "./components/modals/EditStallModal";
+import { StallActionModal } from "../components/modals/StallActionModal";
+import { CreateBarnModal } from "../components/modals/CreateBarnModal";
+import { CreateStallModal } from "../components/modals/CreateStallModal";
+import { EditBarnModal } from "../components/modals/EditBarnModal";
+import { EditStallModal } from "../components/modals/EditStallModal";
 
 function suggestNextStallCode(barnName: string, existingStalls: StallDto[]): string {
   const prefixMatch = barnName.match(/Khu\s*([A-Za-z0-9]+)/i);

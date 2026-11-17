@@ -1,1 +1,1 @@
-export { default } from "@/features/stable-care/HorseStableCareScreen";
+export { default } from "@/features/stable-care/screens/HorseStableCareScreen";

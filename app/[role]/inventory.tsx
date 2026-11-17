@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { SuppliesScreen } from "@/features/stable-care/SuppliesScreen";
+import { SuppliesScreen } from "@/features/stable-care/screens/SuppliesScreen";
 import { isRole } from "@/features/auth/roles";
 import { useAuth } from "@/context/AuthContext";
 

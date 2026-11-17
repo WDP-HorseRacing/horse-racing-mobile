@@ -1,5 +1,5 @@
 import { Redirect, type Href } from "expo-router";
-import { StableManagementScreen } from "@/features/stable-care/StableManagementScreen";
+import { StableManagementScreen } from "@/features/stable-care/screens/StableManagementScreen";
 import { useAuth } from "@/context/AuthContext";
 
 export default function TrainerStable() {

@@ -1716,8 +1716,8 @@ function HorseSurchargesTab({ role, horseId }: { role: string; horseId: string }
   );
 }
 
-export { CareTaskTypesScreen } from "./screens/CareTaskTypesScreen";
-export { UnappliedSurchargesScreen } from "./screens/UnappliedSurchargesScreen";
+export { CareTaskTypesScreen } from "./CareTaskTypesScreen";
+export { UnappliedSurchargesScreen } from "./UnappliedSurchargesScreen";
 
 function todayDate(): string {
   return clubDate();

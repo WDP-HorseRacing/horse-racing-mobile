@@ -44,7 +44,7 @@ import type { RoleId } from "@/types/raceos";
 import { formatDateTime, formatQuantity } from "@/utils/formatters";
 import { showApiError } from "@/utils/errorHandler";
 import { normalizeVietnamese } from "@/utils/horse-validation";
-import { SupplyDetailsModal } from "./components/modals/SupplyDetailsModal";
+import { SupplyDetailsModal } from "../components/modals/SupplyDetailsModal";
 
 type ScreenMode =
   | "item-create"

@@ -1,1 +1,1 @@
-export { default } from "@/features/stable-care/IncidentsScreen";
+export { default } from "@/features/stable-care/screens/IncidentsScreen";
