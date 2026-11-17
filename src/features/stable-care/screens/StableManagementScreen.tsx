@@ -56,6 +56,9 @@ import { CreateBarnModal } from "../components/modals/CreateBarnModal";
 import { CreateStallModal } from "../components/modals/CreateStallModal";
 import { EditBarnModal } from "../components/modals/EditBarnModal";
 import { EditStallModal } from "../components/modals/EditStallModal";
+import { CareHorseCard } from "../components/CareHorseCard";
+import { UnassignedHorsesSection } from "../components/UnassignedHorsesSection";
+import { GroomWorkloadSection } from "../components/GroomWorkloadSection";
 
 function suggestNextStallCode(barnName: string, existingStalls: StallDto[]): string {
   const prefixMatch = barnName.match(/Khu\s*([A-Za-z0-9]+)/i);
@@ -1012,396 +1015,38 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
             </Panel>
           ) : (
             <View style={{ gap: space.sm }}>
-              {horsesInCurrentBarn.map((horse) => {
-                const summary = careSummaries[horse.id];
-                const stallCode = horse.location.stall?.code ?? "—";
-                const groomName = summary?.groomName;
-                const checklistStatus = summary?.checklistStatus ?? "NOT_GENERATED";
-                const progress = summary?.checklistProgress;
-                const hasFeeding = summary?.feedingPlanStatus === "ACTIVE";
-                const incidentsCount = summary?.openIncidentsCount ?? 0;
-
-                return (
-                  <View key={horse.id} style={styles.careHorseCard}>
-                    {/* Card Header: Stall Code + Horse Name + Health */}
-                    <View style={styles.careHorseCardHeader}>
-                      <View style={styles.stallCodeBadge}>
-                        <Text style={styles.stallCodeBadgeText}>
-                          {t("Stall")} {stallCode}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0, marginHorizontal: space.xs }}>
-                        <Text style={styles.careHorseName} numberOfLines={1}>
-                          {horse.name}
-                        </Text>
-                        <Text style={uiStyles.muted} numberOfLines={1}>
-                          {[horse.breed, horse.gender, horse.microchipId]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </Text>
-                      </View>
-                      {renderHealthBadge(horse.healthStatus)}
-                    </View>
-
-                    {/* 4 Care Aspects: Groom, Checklist, Feeding, Incidents */}
-                    <View style={styles.careAspectsGrid}>
-                      {/* 1. Assigned Groom */}
-                      <View style={styles.careAspectItem}>
-                        <View style={styles.careAspectLabelRow}>
-                          <Ionicons
-                            name="person-outline"
-                            size={13}
-                            color={colors.mutedForeground}
-                          />
-                          <Text style={styles.careAspectLabel}>{t("Groom")}</Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.careAspectValue,
-                            !groomName && { color: colors.destructive },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {groomName ?? t("Unassigned Groom")}
-                        </Text>
-                      </View>
-
-                      {/* 2. Today's Checklist */}
-                      <View style={styles.careAspectItem}>
-                        <View style={styles.careAspectLabelRow}>
-                          <Ionicons
-                            name="checkbox-outline"
-                            size={13}
-                            color={colors.mutedForeground}
-                          />
-                          <Text style={styles.careAspectLabel}>{t("Checklist")}</Text>
-                        </View>
-                        {renderChecklistCareBadge(checklistStatus, progress)}
-                      </View>
-
-                      {/* 3. Feeding Plan */}
-                      <View style={styles.careAspectItem}>
-                        <View style={styles.careAspectLabelRow}>
-                          <Ionicons
-                            name="restaurant-outline"
-                            size={13}
-                            color={colors.mutedForeground}
-                          />
-                          <Text style={styles.careAspectLabel}>{t("Feeding plan")}</Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.careAspectValue,
-                            hasFeeding
-                              ? { color: colors.primary }
-                              : { color: colors.mutedForeground },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {hasFeeding
-                            ? `${t("Active")} (${summary?.feedingPlanMealsCount ?? 0} ${t("meals")})`
-                            : t("No plan")}
-                        </Text>
-                      </View>
-
-                      {/* 4. Incidents */}
-                      <View style={styles.careAspectItem}>
-                        <View style={styles.careAspectLabelRow}>
-                          <Ionicons
-                            name="warning-outline"
-                            size={13}
-                            color={colors.mutedForeground}
-                          />
-                          <Text style={styles.careAspectLabel}>{t("Incidents")}</Text>
-                        </View>
-                        <Text
-                          style={[
-                            styles.careAspectValue,
-                            incidentsCount > 0
-                              ? { color: colors.destructive }
-                              : { color: colors.primary },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {incidentsCount > 0
-                            ? `${incidentsCount} ${t("open incident(s)")}`
-                            : t("Normal")}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Action Buttons for Horse Care */}
-                    <View style={styles.careCardActionsRow}>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() =>
-                          router.push(`/${role}/horse/${horse.id}/stable-care` as Href)
-                        }
-                        style={styles.careActionBtnPrimary}
-                      >
-                        <Ionicons
-                          name="restaurant-outline"
-                          size={14}
-                          color={colors.primaryForeground}
-                        />
-                        <Text style={styles.careActionBtnPrimaryText}>{t("Diet & Care")}</Text>
-                      </Pressable>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() =>
-                          router.push(`/${role}/horse/${horse.id}/placement` as Href)
-                        }
-                        style={styles.careActionBtnSecondary}
-                      >
-                        <Ionicons name="people-outline" size={14} color={colors.foreground} />
-                        <Text style={styles.careActionBtnSecondaryText}>
-                          {t("Stall & Groom")}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              })}
+              {horsesInCurrentBarn.map((horse) => (
+                <CareHorseCard
+                  key={horse.id}
+                  horse={horse}
+                  summary={careSummaries[horse.id]}
+                  role={role}
+                  styles={styles}
+                  renderHealthBadge={renderHealthBadge}
+                  renderChecklistCareBadge={renderChecklistCareBadge}
+                />
+              ))}
             </View>
           )}
         </View>
       )}
 
-          {/* Section: Awaiting Placement / Pending Horses */}
-          <View style={[uiStyles.section, { marginTop: space.md }]}>
-            <View style={uiStyles.row}>
-              <SectionTitle>{t("Awaiting placement")}</SectionTitle>
-              <View style={styles.pendingCountPill}>
-                <Text style={styles.pendingCountPillText}>
-                  {totalAwaitingPlacement} {t("horses")}
-                </Text>
-              </View>
-            </View>
+          <UnassignedHorsesSection
+            unassignedTab={unassignedTab}
+            setUnassignedTab={setUnassignedTab}
+            pendingBarnHorses={pendingBarnHorses}
+            pendingStallHorses={pendingStallHorses}
+            pendingGroomHorses={pendingGroomHorses}
+            totalAwaitingPlacement={totalAwaitingPlacement}
+            role={role}
+            styles={styles}
+            renderHealthBadge={renderHealthBadge}
+          />
 
-            {/* Segmented control to prevent overlap and distinguish placement tiers */}
-            <View style={styles.segmentContainer}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setUnassignedTab("barn")}
-                style={[styles.segmentBtn, unassignedTab === "barn" && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    unassignedTab === "barn" && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  {t("Awaiting barn")} ({pendingBarnHorses.length})
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setUnassignedTab("stall")}
-                style={[styles.segmentBtn, unassignedTab === "stall" && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    unassignedTab === "stall" && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  {t("Awaiting stall")} ({pendingStallHorses.length})
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setUnassignedTab("groom")}
-                style={[styles.segmentBtn, unassignedTab === "groom" && styles.segmentBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.segmentBtnText,
-                    unassignedTab === "groom" && styles.segmentBtnTextActive,
-                  ]}
-                >
-                  {t("Awaiting Groom")} ({pendingGroomHorses.length})
-                </Text>
-              </Pressable>
-            </View>
-
-            {unassignedTab === "barn" ? (
-              pendingBarnHorses.length === 0 ? (
-                <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
-                  <Ionicons name="checkmark-circle-outline" size={28} color={colors.primary} />
-                  <Text style={[uiStyles.muted, { marginTop: 4 }]}>
-                    {t("All horses assigned to barns")}
-                  </Text>
-                </Panel>
-              ) : (
-                <View style={{ gap: space.xs }}>
-                  {pendingBarnHorses.map((horse) => (
-                    <View key={horse.id} style={styles.unassignedCard}>
-                      <View style={styles.unassignedCardHeader}>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.unassignedHorseName} numberOfLines={1}>
-                            {horse.name}
-                          </Text>
-                          <Text style={uiStyles.muted} numberOfLines={1}>
-                            {[horse.breed, horse.gender, horse.microchipId]
-                              .filter(Boolean)
-                              .join(" · ") || t("No barn assigned")}
-                          </Text>
-                        </View>
-                        {renderHealthBadge(horse.healthStatus)}
-                      </View>
-                      <View style={styles.unassignedCardFooter}>
-                        <View style={styles.unassignedStatusNote}>
-                          <Ionicons name="alert-circle-outline" size={13} color={colors.monitor} />
-                          <Text
-                            style={[styles.unassignedStatusNoteText, { color: colors.monitor }]}
-                          >
-                            {t("waiting for barn assignment")}
-                          </Text>
-                        </View>
-                        <Pressable
-                          accessibilityRole="button"
-                          onPress={() =>
-                            router.push(`/${role}/horse/${horse.id}/placement` as Href)
-                          }
-                          style={styles.unassignedActionBtn}
-                        >
-                          <Ionicons
-                            name="business-outline"
-                            size={14}
-                            color={colors.primaryForeground}
-                          />
-                          <Text style={styles.unassignedActionBtnText}>{t("Assign barn")}</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )
-            ) : unassignedTab === "stall" ? (
-              pendingStallHorses.length === 0 ? (
-              <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
-                <Ionicons name="checkmark-circle-outline" size={28} color={colors.primary} />
-                <Text style={[uiStyles.muted, { marginTop: 4 }]}>
-                  {t("All horses assigned to stalls")}
-                </Text>
-              </Panel>
-            ) : (
-              <View style={{ gap: space.xs }}>
-                {pendingStallHorses.map((horse) => (
-                  <View key={horse.id} style={styles.unassignedCard}>
-                    <View style={styles.unassignedCardHeader}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.unassignedHorseName} numberOfLines={1}>
-                          {horse.name}
-                        </Text>
-                        <Text style={uiStyles.muted} numberOfLines={1}>
-                          {horse.location.barn?.name ?? t("Barn")}:{" "}
-                          {[horse.breed, horse.microchipId].filter(Boolean).join(" · ")}
-                        </Text>
-                      </View>
-                      {renderHealthBadge(horse.healthStatus)}
-                    </View>
-                    <View style={styles.unassignedCardFooter}>
-                      <View style={styles.unassignedStatusNote}>
-                        <Ionicons name="home-outline" size={13} color={colors.primary} />
-                        <Text style={[styles.unassignedStatusNoteText, { color: colors.primary }]}>
-                          {horse.location.barn?.name || t("Barn")} ·{" "}
-                          {t("waiting for stall placement")}
-                        </Text>
-                      </View>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => router.push(`/${role}/horse/${horse.id}/placement` as Href)}
-                        style={styles.unassignedActionBtn}
-                      >
-                        <Ionicons
-                          name="checkmark-outline"
-                          size={14}
-                          color={colors.primaryForeground}
-                        />
-                        <Text style={styles.unassignedActionBtnText}>{t("Assign stall")}</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )) : pendingGroomHorses.length === 0 ? (
-              <Panel style={{ paddingVertical: space.md, alignItems: "center" }}>
-                <Ionicons name="checkmark-circle-outline" size={28} color={colors.primary} />
-                <Text style={[uiStyles.muted, { marginTop: 4 }]}>
-                  {t("Tất cả ngựa đã có Groom chăm sóc")}
-                </Text>
-              </Panel>
-            ) : (
-              <View style={{ gap: space.xs }}>
-                {pendingGroomHorses.map((horse) => (
-                  <View key={horse.id} style={styles.unassignedCard}>
-                    <View style={styles.unassignedCardHeader}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.unassignedHorseName} numberOfLines={1}>
-                          {horse.name}
-                        </Text>
-                        <Text style={uiStyles.muted} numberOfLines={1}>
-                          {horse.location.barn?.name ?? t("Barn")} · {t("Stall")}{" "}
-                          {horse.location.stall?.code ?? "—"}
-                        </Text>
-                      </View>
-                      {renderHealthBadge(horse.healthStatus)}
-                    </View>
-                    <View style={styles.unassignedCardFooter}>
-                      <View style={styles.unassignedStatusNote}>
-                        <Ionicons name="people-outline" size={13} color={colors.monitor} />
-                        <Text style={[styles.unassignedStatusNoteText, { color: colors.monitor }]}>
-                          {t("Đã có ô, chờ phân công Groom")}
-                        </Text>
-                      </View>
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => router.push(`/${role}/horse/${horse.id}/placement` as Href)}
-                        style={styles.unassignedActionBtn}
-                      >
-                        <Ionicons
-                          name="person-add-outline"
-                          size={14}
-                          color={colors.primaryForeground}
-                        />
-                        <Text style={styles.unassignedActionBtnText}>{t("Giao Groom")}</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {/* Section: Groom Workload (for Trainer and Manager) */}
-          <View style={[uiStyles.section, { marginTop: space.md }]}>
-            <SectionTitle>Groom workload</SectionTitle>
-            {payload.grooms.length ? (
-              payload.grooms.map((groom) => (
-                <Panel key={groom.groomId}>
-                  <View style={uiStyles.row}>
-                    <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                      <Text style={[uiStyles.value, { fontSize: 16 }]} numberOfLines={1}>
-                        {groom.fullName}
-                      </Text>
-                      <Text style={uiStyles.muted} numberOfLines={1}>
-                        {t("Groom workload")}
-                      </Text>
-                    </View>
-                    <View style={styles.groomBadge}>
-                      <Ionicons name="shield-checkmark-outline" size={13} color={colors.primary} />
-                      <Text style={styles.groomBadgeText}>
-                        {groom.activeHorseCount} {t("active horses")}
-                      </Text>
-                    </View>
-                  </View>
-                </Panel>
-              ))
-            ) : (
-              <Text style={uiStyles.muted}>No active Grooms are available for assignment.</Text>
-            )}
-          </View>
+          <GroomWorkloadSection
+            grooms={payload.grooms}
+            styles={styles}
+          />
         </View>
       ) : null}
 
