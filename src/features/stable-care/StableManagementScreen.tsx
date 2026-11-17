@@ -51,6 +51,11 @@ import { formatEnum } from "@/utils/formatters";
 import { clubDate } from "@/utils/horse-validation";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/types/raceos";
+import { StallActionModal } from "./components/modals/StallActionModal";
+import { CreateBarnModal } from "./components/modals/CreateBarnModal";
+import { CreateStallModal } from "./components/modals/CreateStallModal";
+import { EditBarnModal } from "./components/modals/EditBarnModal";
+import { EditStallModal } from "./components/modals/EditStallModal";
 
 function suggestNextStallCode(barnName: string, existingStalls: StallDto[]): string {
   const prefixMatch = barnName.match(/Khu\s*([A-Za-z0-9]+)/i);
@@ -104,46 +109,15 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
   // Unassigned tab (Section 4.3): 'barn' = pending barn, 'stall' = pending stall, 'groom' = pending groom
   const [unassignedTab, setUnassignedTab] = useState<"barn" | "stall" | "groom">("barn");
 
-  // Create Barn modal state (Section 4.1)
+  // Modal states
   const [showCreateBarnModal, setShowCreateBarnModal] = useState(false);
-  const [newBarnName, setNewBarnName] = useState("");
-  const [newBarnCapacity, setNewBarnCapacity] = useState("9");
-  const [newBarnDescription, setNewBarnDescription] = useState("");
-  const [newBarnHeadTrainerId, setNewBarnHeadTrainerId] = useState("");
-  const [creatingBarn, setCreatingBarn] = useState(false);
-
-  // Edit Barn modal state
   const [showEditBarnModal, setShowEditBarnModal] = useState(false);
   const [editingBarn, setEditingBarn] = useState<BarnListItemDto | null>(null);
-  const [editBarnName, setEditBarnName] = useState("");
-  const [editBarnCapacity, setEditBarnCapacity] = useState("9");
-  const [editBarnDescription, setEditBarnDescription] = useState("");
-  const [editBarnHeadTrainerId, setEditBarnHeadTrainerId] = useState<string>("");
-  const [editBarnStatus, setEditBarnStatus] = useState<string>("ACTIVE");
-  const [savingBarn, setSavingBarn] = useState(false);
-
-  // Create Stall modal state (Section 4.2)
   const [showCreateStallModal, setShowCreateStallModal] = useState(false);
   const [targetBarnForStall, setTargetBarnForStall] = useState<BarnListItemDto | null>(null);
   const [newStallCode, setNewStallCode] = useState("");
-  const [newStallType, setNewStallType] = useState<"STANDARD" | "ISOLATION" | "RECOVERY">(
-    "STANDARD",
-  );
-  const [newStallDescription, setNewStallDescription] = useState("");
-  const [newStallHasCamera, setNewStallHasCamera] = useState(false);
-  const [creatingStall, setCreatingStall] = useState(false);
-
-  // Edit Stall modal state
   const [showEditStallModal, setShowEditStallModal] = useState(false);
   const [editingStall, setEditingStall] = useState<StallDto | null>(null);
-  const [editStallCode, setEditStallCode] = useState("");
-  const [editStallType, setEditStallType] = useState<"STANDARD" | "ISOLATION" | "RECOVERY">(
-    "STANDARD",
-  );
-  const [editStallDescription, setEditStallDescription] = useState("");
-  const [editStallHasCamera, setEditStallHasCamera] = useState(false);
-  const [savingStall, setSavingStall] = useState(false);
-  const [releasingStall, setReleasingStall] = useState(false);
 
   const loadTrainers = useCallback(() => usersService.list(token!), [token]);
   const trainersResource = useApiResource(loadTrainers, Boolean(token && role === "manager"));
@@ -493,39 +467,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
   };
 
   const openCreateBarnModal = () => {
-    setNewBarnName("");
-    setNewBarnCapacity("9");
-    setNewBarnDescription("");
-    setNewBarnHeadTrainerId("");
     setShowCreateBarnModal(true);
-  };
-
-  const handleCreateBarn = async () => {
-    if (!token || !newBarnName.trim()) return;
-    const cap = Number(newBarnCapacity);
-    if (newBarnCapacity.trim() && (!Number.isInteger(cap) || cap < 1 || cap > 9)) {
-      return Alert.alert(t("Capacity is 1–9 stalls"));
-    }
-    setCreatingBarn(true);
-    try {
-      const created = await stableService.createBarn(token, {
-        name: newBarnName.trim(),
-        capacity: newBarnCapacity.trim() ? cap : 9,
-        description: newBarnDescription.trim() || undefined,
-      });
-      if (newBarnHeadTrainerId) {
-        await stableService.updateBarn(token, created.id, {
-          headTrainerId: newBarnHeadTrainerId,
-        });
-      }
-      await resource.refresh();
-      setShowCreateBarnModal(false);
-      Alert.alert(t("Create barn"), `${t("Barn")} ${created.name} ${t("done").toLowerCase()}`);
-    } catch (error) {
-      Alert.alert(t("Create barn"), extractErrorMessage(error));
-    } finally {
-      setCreatingBarn(false);
-    }
   };
 
   const openCreateStallModal = (barn: BarnListItemDto) => {
@@ -533,72 +475,12 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
     const barnStalls = (payload?.stalls ?? []).filter((s) => s.barnId === barn.id);
     const suggested = suggestNextStallCode(barn.name, barnStalls);
     setNewStallCode(suggested);
-    setNewStallType("STANDARD");
-    setNewStallDescription("");
-    setNewStallHasCamera(false);
     setShowCreateStallModal(true);
-  };
-
-  const handleCreateStall = async () => {
-    if (!token || !targetBarnForStall || !newStallCode.trim()) return;
-    setCreatingStall(true);
-    try {
-      await stableService.createStall(token, {
-        barnId: targetBarnForStall.id,
-        code: newStallCode.trim(),
-        type: newStallType,
-        description: newStallDescription.trim() || undefined,
-        hasCamera: newStallHasCamera,
-      });
-      await resource.refresh();
-      setShowCreateStallModal(false);
-      Alert.alert(
-        t("Create stall"),
-        `${t("Stall")} ${newStallCode.trim()} ${t("done").toLowerCase()}`,
-      );
-    } catch (error) {
-      Alert.alert(t("Create stall"), extractErrorMessage(error));
-    } finally {
-      setCreatingStall(false);
-    }
   };
 
   const openEditBarn = (barn: BarnListItemDto) => {
     setEditingBarn(barn);
-    setEditBarnName(barn.name);
-    setEditBarnCapacity(String(barn.capacity ?? 9));
-    setEditBarnDescription(barn.description ?? "");
-    setEditBarnHeadTrainerId(barn.headTrainerId ?? "");
-    setEditBarnStatus(barn.status);
     setShowEditBarnModal(true);
-  };
-
-  const handleSaveBarn = async () => {
-    if (!token || !editingBarn || !editBarnName.trim()) return;
-    const cap = Number(editBarnCapacity);
-    if (editBarnCapacity.trim() && (!Number.isInteger(cap) || cap < 1 || cap > 9)) {
-      return Alert.alert(t("Capacity is 1–9 stalls"));
-    }
-    setSavingBarn(true);
-    try {
-      await stableService.updateBarn(token, editingBarn.id, {
-        name: editBarnName.trim(),
-        capacity: editBarnCapacity.trim() ? cap : undefined,
-        description: editBarnDescription.trim() || undefined,
-        headTrainerId: editBarnHeadTrainerId ? editBarnHeadTrainerId : null,
-        status: editBarnStatus,
-      });
-      await resource.refresh();
-      setShowEditBarnModal(false);
-      Alert.alert(
-        t("Cập nhật khu"),
-        `${t("Khu chuồng")} ${editBarnName.trim()} ${t("done").toLowerCase()}`,
-      );
-    } catch (error) {
-      Alert.alert(t("Cập nhật khu"), extractErrorMessage(error));
-    } finally {
-      setSavingBarn(false);
-    }
   };
 
   const confirmDeleteBarn = (barn: BarnListItemDto) => {
@@ -627,35 +509,7 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
 
   const openEditStallModal = (stall: StallDto) => {
     setEditingStall(stall);
-    setEditStallCode(stall.code);
-    setEditStallType((stall.type as "STANDARD" | "ISOLATION" | "RECOVERY") || "STANDARD");
-    setEditStallDescription(stall.description ?? "");
-    setEditStallHasCamera(Boolean(stall.hasCamera));
     setShowEditStallModal(true);
-  };
-
-  const handleSaveStall = async () => {
-    if (!token || !editingStall || !editStallCode.trim()) return;
-    setSavingStall(true);
-    try {
-      const updated = await stableService.updateStall(token, editingStall.id, {
-        code: editStallCode.trim(),
-        type: editStallType,
-        description: editStallDescription.trim() || undefined,
-        hasCamera: editStallHasCamera,
-      });
-      await resource.refresh();
-      setSelectedStall(updated);
-      setShowEditStallModal(false);
-      Alert.alert(
-        t("Cập nhật ô"),
-        `${t("Ô chuồng")} ${updated.code} ${t("done").toLowerCase()}`,
-      );
-    } catch (error) {
-      Alert.alert(t("Cập nhật ô"), extractErrorMessage(error));
-    } finally {
-      setSavingStall(false);
-    }
   };
 
   return (
@@ -1551,772 +1405,52 @@ export function StableManagementScreen({ role }: { role: RoleId }) {
         </View>
       ) : null}
 
-      {/* Interactive Stall Action Modal for Trainer & Manager */}
-      <Modal
-        visible={Boolean(selectedStall)}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setSelectedStall(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedStall(null)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            {selectedStall ? (
-              <>
-                {/* Modal Header */}
-                <View style={styles.modalHeaderRow}>
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text style={styles.modalTitle}>
-                      {t("Stall")} {selectedStall.code}
-                    </Text>
-                    <Text style={uiStyles.muted}>
-                      {formatEnum(selectedStall.type)}
-                      {selectedStall.hasCamera ? ` · ${t("Camera monitoring")}` : ""}
-                    </Text>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t("Close")}
-                    onPress={() => setSelectedStall(null)}
-                    style={styles.modalCloseBtn}
-                  >
-                    <Ionicons name="close" size={20} color={colors.foreground} />
-                  </Pressable>
-                </View>
+      <StallActionModal
+        stall={selectedStall}
+        onClose={() => setSelectedStall(null)}
+        selectedHorseInModal={selectedHorseInModal}
+        role={role}
+        token={token}
+        pendingInCurrentBarn={pendingInCurrentBarn}
+        onRefresh={resource.refresh}
+        onEditStall={openEditStallModal}
+        onStallUpdated={setSelectedStall}
+        renderHealthBadge={renderHealthBadge}
+      />
 
-                {/* If stall is occupied by a horse */}
-                {selectedHorseInModal ? (
-                  <View style={{ gap: space.sm }}>
-                    <View style={styles.modalHorseCard}>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.modalHorseName}>{selectedHorseInModal.name}</Text>
-                          <Text style={uiStyles.muted}>
-                            {[
-                              selectedHorseInModal.breed,
-                              selectedHorseInModal.gender,
-                              selectedHorseInModal.microchipId,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </Text>
-                        </View>
-                        {renderHealthBadge(selectedHorseInModal.healthStatus)}
-                      </View>
-
-                      <View style={styles.modalHorseInfoRow}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={uiStyles.muted}>Aptitude</Text>
-                          <Text style={[uiStyles.value, { fontSize: 14 }]}>
-                            {selectedHorseInModal.raceAptitude
-                              ? formatEnum(selectedHorseInModal.raceAptitude)
-                              : "—"}
-                          </Text>
-                        </View>
-                        {selectedHorseInModal.lifecycleStatus ? (
-                          <View style={{ flex: 1 }}>
-                            <Text style={uiStyles.muted}>Status</Text>
-                            <Text style={[uiStyles.value, { fontSize: 14 }]}>
-                              {formatEnum(selectedHorseInModal.lifecycleStatus)}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-
-                    {/* Action buttons */}
-                    <View style={{ gap: space.xs, marginTop: space.xs }}>
-                      {role === "trainer" || role === "manager" ? (
-                        <PrimaryButton
-                          label="Diet & Feeding"
-                          icon="restaurant-outline"
-                          onPress={() => {
-                            const horseId = selectedHorseInModal.id;
-                            setSelectedStall(null);
-                            router.push(`/${role}/horse/${horseId}/stable-care` as Href);
-                          }}
-                        />
-                      ) : null}
-                      <SecondaryButton
-                        label="Manage stall and Groom"
-                        icon="people-outline"
-                        onPress={() => {
-                          const horseId = selectedHorseInModal.id;
-                          setSelectedStall(null);
-                          router.push(`/${role}/horse/${horseId}/placement` as Href);
-                        }}
-                      />
-                      <SecondaryButton
-                        label="Open horse profile"
-                        icon="open-outline"
-                        onPress={() => {
-                          const horseId = selectedHorseInModal.id;
-                          setSelectedStall(null);
-                          router.push(`/${role}/horse/${horseId}` as Href);
-                        }}
-                      />
-                      {role === "trainer" || role === "manager" ? (
-                        <SecondaryButton
-                          label={releasingStall ? t("Đang gỡ…") : t("Gỡ khỏi ô")}
-                          icon="log-out-outline"
-                          disabled={releasingStall}
-                          onPress={() => {
-                            Alert.alert(
-                              t("Gỡ ngựa khỏi ô"),
-                              `${t("Bạn có chắc muốn gỡ ngựa")} ${selectedHorseInModal.name} ${t("khỏi ô")} ${selectedStall.code}? ${t("Ngựa sẽ trở về danh sách Chờ xếp ô.")}`,
-                              [
-                                { text: t("Cancel"), style: "cancel" },
-                                {
-                                  text: t("Gỡ khỏi ô"),
-                                  style: "destructive",
-                                  onPress: async () => {
-                                    setReleasingStall(true);
-                                    try {
-                                      await horseService.releaseStall(token!, selectedHorseInModal.id);
-                                      await resource.refresh();
-                                      setSelectedStall(null);
-                                      Alert.alert(t("Thành công"), t("Đã gỡ ngựa khỏi ô chuồng."));
-                                    } catch (err) {
-                                      Alert.alert(t("Gỡ khỏi ô"), extractErrorMessage(err));
-                                    } finally {
-                                      setReleasingStall(false);
-                                    }
-                                  },
-                                },
-                              ],
-                            );
-                          }}
-                        />
-                      ) : null}
-                    </View>
-                  </View>
-                ) : (
-                  /* If stall is available / vacant */
-                  <View style={{ gap: space.sm }}>
-                    <Panel style={{ backgroundColor: colors.fitSoft, borderColor: colors.fit }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Ionicons name="checkmark-circle" size={20} color={colors.fit} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.fit }}>
-                            {selectedStall.status === "AVAILABLE"
-                              ? t("Available")
-                              : t("Maintenance")}
-                          </Text>
-                          <Text style={uiStyles.muted}>
-                            {selectedStall.status === "AVAILABLE"
-                              ? "Ready for horse assignment"
-                              : "This stall is unavailable during maintenance."}
-                          </Text>
-                        </View>
-                      </View>
-                    </Panel>
-
-                    {/* Pending horses in this barn available to be placed */}
-                    {pendingInCurrentBarn.length > 0 ? (
-                      <View style={{ gap: space.xs }}>
-                        <Text style={styles.subGroupHeader}>
-                          {t("Barn assigned, waiting for stall")} ({pendingInCurrentBarn.length})
-                        </Text>
-                        {pendingInCurrentBarn.map((pendingHorse) => (
-                          <View key={pendingHorse.id} style={styles.unassignedHorseCard}>
-                            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                              <Text style={styles.unassignedHorseName}>{pendingHorse.name}</Text>
-                              <Text style={uiStyles.muted} numberOfLines={1}>
-                                {pendingHorse.breed ?? "Horse"}
-                              </Text>
-                            </View>
-                            <PrimaryButton
-                              label="Assign stall and Groom"
-                              icon="checkmark-outline"
-                              onPress={() => {
-                                setSelectedStall(null);
-                                router.push(`/${role}/horse/${pendingHorse.id}/placement` as Href);
-                              }}
-                              style={{ paddingHorizontal: 12, paddingVertical: 6 }}
-                            />
-                          </View>
-                        ))}
-                      </View>
-                    ) : (
-                      <View style={{ paddingVertical: space.sm }}>
-                        <Text
-                          style={[uiStyles.muted, { textAlign: "center", marginBottom: space.sm }]}
-                        >
-                          No horses are currently waiting for a stall in this barn.
-                        </Text>
-                        <SecondaryButton
-                          label="View all horses"
-                          icon="grid-outline"
-                          onPress={() => {
-                            setSelectedStall(null);
-                            router.push(`/${role}/horses` as Href);
-                          }}
-                        />
-                      </View>
-                    )}
-
-                    {role === "manager" ? (
-                      <View style={{ gap: space.xs, marginTop: space.sm }}>
-                        <SecondaryButton
-                          label={t("Sửa thông tin ô")}
-                          icon="create-outline"
-                          onPress={() => openEditStallModal(selectedStall)}
-                        />
-                        {selectedStall.status === "AVAILABLE" ? (
-                          <SecondaryButton
-                            label={t("Chuyển sang bảo trì")}
-                            icon="construct-outline"
-                            onPress={async () => {
-                              try {
-                                const updated = await stableService.updateStall(token!, selectedStall.id, {
-                                  status: "MAINTENANCE",
-                                });
-                                await resource.refresh();
-                                setSelectedStall(updated);
-                                Alert.alert(t("Bảo trì ô"), t("Đã chuyển ô chuồng sang trạng thái bảo trì."));
-                              } catch (err) {
-                                Alert.alert(t("Bảo trì ô"), extractErrorMessage(err));
-                              }
-                            }}
-                          />
-                        ) : selectedStall.status === "MAINTENANCE" ? (
-                          <SecondaryButton
-                            label={t("Kết thúc bảo trì")}
-                            icon="checkmark-circle-outline"
-                            onPress={async () => {
-                              try {
-                                const updated = await stableService.updateStall(token!, selectedStall.id, {
-                                  status: "AVAILABLE",
-                                });
-                                await resource.refresh();
-                                setSelectedStall(updated);
-                                Alert.alert(t("Kết thúc bảo trì"), t("Ô chuồng đã sẵn sàng đón ngựa."));
-                              } catch (err) {
-                                Alert.alert(t("Kết thúc bảo trì"), extractErrorMessage(err));
-                              }
-                            }}
-                          />
-                        ) : null}
-                        <SecondaryButton
-                          label={t("Xóa ô chuồng")}
-                          icon="trash-outline"
-                          onPress={() => {
-                            Alert.alert(
-                              t("Xóa ô chuồng"),
-                              `${t("Bạn có chắc muốn xóa ô chuồng")} ${selectedStall.code}?`,
-                              [
-                                { text: t("Cancel"), style: "cancel" },
-                                {
-                                  text: t("Delete"),
-                                  style: "destructive",
-                                  onPress: async () => {
-                                    try {
-                                      await stableService.deleteStall(token!, selectedStall.id);
-                                      await resource.refresh();
-                                      setSelectedStall(null);
-                                      Alert.alert(t("Xóa ô chuồng"), t("Đã xóa ô chuồng thành công."));
-                                    } catch (err) {
-                                      Alert.alert(t("Xóa ô chuồng"), extractErrorMessage(err));
-                                    }
-                                  },
-                                },
-                              ],
-                            );
-                          }}
-                        />
-                      </View>
-                    ) : null}
-                  </View>
-                )}
-              </>
-            ) : null}
-          </Pressable>
-        </Pressable>
-      </Modal>
-      {/* Modal: Create Barn (Section 4.1) */}
-      <Modal
+      <CreateBarnModal
         visible={showCreateBarnModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          if (!creatingBarn) setShowCreateBarnModal(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => {
-              Keyboard.dismiss();
-              if (!creatingBarn) setShowCreateBarnModal(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={(e) => {
-                e.stopPropagation();
-                Keyboard.dismiss();
-              }}
-            >
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.modalTitle}>{t("Create barn")}</Text>
-                  <Text style={uiStyles.muted}>{t("Add a new barn zone")}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("Close")}
-                  disabled={creatingBarn}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setShowCreateBarnModal(false);
-                  }}
-                  style={styles.modalCloseBtn}
-                >
-                  <Ionicons name="close" size={20} color={colors.foreground} />
-                </Pressable>
-              </View>
+        onClose={() => setShowCreateBarnModal(false)}
+        token={token}
+        activeHeadTrainers={activeHeadTrainers}
+        onBarnCreated={resource.refresh}
+      />
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
-              >
-                <Field label={t("Barn name")}>
-                  <NativeInput
-                    value={newBarnName}
-                    onChangeText={setNewBarnName}
-                    placeholder={t("e.g. Barn D")}
-                  />
-                </Field>
-
-                <Field label={t("Capacity (max stalls)")}>
-                  <NativeInput
-                    value={newBarnCapacity}
-                    onChangeText={setNewBarnCapacity}
-                    placeholder={t("1–9 stalls (default is 9)")}
-                    keyboardType="numeric"
-                  />
-                </Field>
-
-                <Field label={t("Head Trainer phụ trách")}>
-                  <View style={{ gap: space.xs }}>
-                    <Chips
-                      options={[
-                        t("Không gán HLV"),
-                        ...activeHeadTrainers.map((ht) => ht.fullName),
-                      ]}
-                      value={
-                        activeHeadTrainers.find((ht) => ht.id === newBarnHeadTrainerId)?.fullName ??
-                        t("Không gán HLV")
-                      }
-                      onChange={(label) => {
-                        if (label === t("Không gán HLV")) {
-                          setNewBarnHeadTrainerId("");
-                        } else {
-                          const ht = activeHeadTrainers.find((t) => t.fullName === label);
-                          if (ht) setNewBarnHeadTrainerId(ht.id);
-                        }
-                      }}
-                    />
-                  </View>
-                </Field>
-
-                <Field label={t("Description")}>
-                  <NativeInput
-                    value={newBarnDescription}
-                    onChangeText={setNewBarnDescription}
-                    placeholder={t("Location, facilities…")}
-                    multiline
-                  />
-                </Field>
-
-                <View style={{ gap: space.xs, marginTop: space.xs }}>
-                  <PrimaryButton
-                    label={creatingBarn ? t("Creating…") : t("Create barn")}
-                    icon="add"
-                    disabled={creatingBarn || !newBarnName.trim()}
-                    onPress={() => void handleCreateBarn()}
-                  />
-                  <SecondaryButton
-                    label={t("Cancel")}
-                    disabled={creatingBarn}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setShowCreateBarnModal(false);
-                    }}
-                  />
-                </View>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal: Create Stall (Section 4.2) */}
-      <Modal
+      <CreateStallModal
         visible={showCreateStallModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          if (!creatingStall) setShowCreateStallModal(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => {
-              Keyboard.dismiss();
-              if (!creatingStall) setShowCreateStallModal(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={(e) => {
-                e.stopPropagation();
-                Keyboard.dismiss();
-              }}
-            >
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.modalTitle}>{t("Create stall")}</Text>
-                  <Text style={uiStyles.muted}>
-                    {t("Add stall to")} {targetBarnForStall?.name}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("Close")}
-                  disabled={creatingStall}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setShowCreateStallModal(false);
-                  }}
-                  style={styles.modalCloseBtn}
-                >
-                  <Ionicons name="close" size={20} color={colors.foreground} />
-                </Pressable>
-              </View>
+        onClose={() => setShowCreateStallModal(false)}
+        targetBarn={targetBarnForStall}
+        token={token}
+        suggestedCode={newStallCode}
+        onStallCreated={resource.refresh}
+      />
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
-              >
-                <Field label={t("Stall code")}>
-                  <NativeInput
-                    value={newStallCode}
-                    onChangeText={setNewStallCode}
-                    placeholder="A-01"
-                  />
-                </Field>
-
-                <Field label={t("Stall type")}>
-                  <Chips
-                    options={["STANDARD", "ISOLATION", "RECOVERY"]}
-                    value={newStallType}
-                    onChange={(val) => setNewStallType(val as any)}
-                  />
-                </Field>
-
-                <View style={styles.switchRow}>
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text style={styles.switchTitle}>{t("Stall has surveillance camera")}</Text>
-                    <Text style={uiStyles.muted}>{t("New stalls are available by default")}</Text>
-                  </View>
-                  <Switch
-                    value={newStallHasCamera}
-                    onValueChange={setNewStallHasCamera}
-                    disabled={creatingStall}
-                    trackColor={{ false: colors.border, true: colors.primary }}
-                  />
-                </View>
-
-                <Field label={t("Description")}>
-                  <NativeInput
-                    value={newStallDescription}
-                    onChangeText={setNewStallDescription}
-                    placeholder={t("Notes, camera angle…")}
-                    multiline
-                  />
-                </Field>
-
-                <View style={{ gap: space.xs, marginTop: space.xs }}>
-                  <PrimaryButton
-                    label={creatingStall ? t("Creating…") : t("Create stall")}
-                    icon="add"
-                    disabled={creatingStall || !newStallCode.trim()}
-                    onPress={() => void handleCreateStall()}
-                  />
-                  <SecondaryButton
-                    label={t("Cancel")}
-                    disabled={creatingStall}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setShowCreateStallModal(false);
-                    }}
-                  />
-                </View>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal: Edit Barn */}
-      <Modal
+      <EditBarnModal
         visible={showEditBarnModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          if (!savingBarn) setShowEditBarnModal(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => {
-              Keyboard.dismiss();
-              if (!savingBarn) setShowEditBarnModal(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={(e) => {
-                e.stopPropagation();
-                Keyboard.dismiss();
-              }}
-            >
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.modalTitle}>{t("Chỉnh sửa khu chuồng")}</Text>
-                  <Text style={uiStyles.muted}>{editingBarn?.name}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("Close")}
-                  disabled={savingBarn}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setShowEditBarnModal(false);
-                  }}
-                  style={styles.modalCloseBtn}
-                >
-                  <Ionicons name="close" size={20} color={colors.foreground} />
-                </Pressable>
-              </View>
+        onClose={() => setShowEditBarnModal(false)}
+        barn={editingBarn}
+        token={token}
+        activeHeadTrainers={activeHeadTrainers}
+        onBarnSaved={resource.refresh}
+      />
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
-              >
-                <Field label={t("Barn name")}>
-                  <NativeInput
-                    value={editBarnName}
-                    onChangeText={setEditBarnName}
-                    placeholder={t("e.g. Barn A")}
-                  />
-                </Field>
-
-                <Field label={t("Capacity (1–9 stalls)")}>
-                  <NativeInput
-                    value={editBarnCapacity}
-                    onChangeText={setEditBarnCapacity}
-                    keyboardType="number-pad"
-                    placeholder="9"
-                  />
-                </Field>
-
-                <Field label={t("Trạng thái khu")}>
-                  <Chips
-                    options={["ACTIVE", "MAINTENANCE", "CLOSED"]}
-                    value={editBarnStatus}
-                    onChange={(val) => setEditBarnStatus(val)}
-                  />
-                </Field>
-
-                <Field label={t("Head Trainer phụ trách")}>
-                  <View style={{ gap: space.xs }}>
-                    <Chips
-                      options={[
-                        t("Không gán HLV"),
-                        ...activeHeadTrainers.map((ht) => ht.fullName),
-                      ]}
-                      value={
-                        activeHeadTrainers.find((ht) => ht.id === editBarnHeadTrainerId)?.fullName ??
-                        t("Không gán HLV")
-                      }
-                      onChange={(label) => {
-                        if (label === t("Không gán HLV")) {
-                          setEditBarnHeadTrainerId("");
-                        } else {
-                          const ht = activeHeadTrainers.find((t) => t.fullName === label);
-                          if (ht) setEditBarnHeadTrainerId(ht.id);
-                        }
-                      }}
-                    />
-                  </View>
-                </Field>
-
-                <Field label={t("Description")}>
-                  <NativeInput
-                    value={editBarnDescription}
-                    onChangeText={setEditBarnDescription}
-                    placeholder={t("Description")}
-                    multiline
-                  />
-                </Field>
-
-                <View style={{ gap: space.xs, marginTop: space.xs }}>
-                  <PrimaryButton
-                    label={savingBarn ? t("Saving…") : t("Save changes")}
-                    icon="checkmark"
-                    disabled={savingBarn || !editBarnName.trim()}
-                    onPress={() => void handleSaveBarn()}
-                  />
-                  <SecondaryButton
-                    label={t("Cancel")}
-                    disabled={savingBarn}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setShowEditBarnModal(false);
-                    }}
-                  />
-                </View>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal: Edit Stall */}
-      <Modal
+      <EditStallModal
         visible={showEditStallModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          if (!savingStall) setShowEditStallModal(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ flex: 1 }}
-        >
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => {
-              Keyboard.dismiss();
-              if (!savingStall) setShowEditStallModal(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalContent}
-              onPress={(e) => {
-                e.stopPropagation();
-                Keyboard.dismiss();
-              }}
-            >
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.modalTitle}>{t("Sửa ô chuồng")}</Text>
-                  <Text style={uiStyles.muted}>{editingStall?.code}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t("Close")}
-                  disabled={savingStall}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setShowEditStallModal(false);
-                  }}
-                  style={styles.modalCloseBtn}
-                >
-                  <Ionicons name="close" size={20} color={colors.foreground} />
-                </Pressable>
-              </View>
-
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ gap: space.md, paddingBottom: space.md }}
-              >
-                <Field label={t("Stall code")}>
-                  <NativeInput
-                    value={editStallCode}
-                    onChangeText={setEditStallCode}
-                    placeholder="A-01"
-                  />
-                </Field>
-
-                <Field label={t("Stall type")}>
-                  <Chips
-                    options={["STANDARD", "ISOLATION", "RECOVERY"]}
-                    value={editStallType}
-                    onChange={(val) => setEditStallType(val as "STANDARD" | "ISOLATION" | "RECOVERY")}
-                  />
-                </Field>
-
-                <View style={styles.switchRow}>
-                  <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Text style={styles.switchTitle}>{t("Stall has surveillance camera")}</Text>
-                    <Text style={uiStyles.muted}>{t("Giám sát camera 24/7")}</Text>
-                  </View>
-                  <Switch
-                    value={editStallHasCamera}
-                    onValueChange={setEditStallHasCamera}
-                    disabled={savingStall}
-                    trackColor={{ false: colors.border, true: colors.primary }}
-                  />
-                </View>
-
-                <Field label={t("Description")}>
-                  <NativeInput
-                    value={editStallDescription}
-                    onChangeText={setEditStallDescription}
-                    placeholder={t("Notes, camera angle…")}
-                    multiline
-                  />
-                </Field>
-
-                <View style={{ gap: space.xs, marginTop: space.xs }}>
-                  <PrimaryButton
-                    label={savingStall ? t("Saving…") : t("Save changes")}
-                    icon="checkmark"
-                    disabled={savingStall || !editStallCode.trim()}
-                    onPress={() => void handleSaveStall()}
-                  />
-                  <SecondaryButton
-                    label={t("Cancel")}
-                    disabled={savingStall}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setShowEditStallModal(false);
-                    }}
-                  />
-                </View>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
+        onClose={() => setShowEditStallModal(false)}
+        stall={editingStall}
+        token={token}
+        onStallSaved={resource.refresh}
+      />
     </Screen>
   );
 }
