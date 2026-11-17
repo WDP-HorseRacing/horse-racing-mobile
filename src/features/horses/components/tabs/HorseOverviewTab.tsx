@@ -65,6 +65,9 @@ export function HorseOverviewTab({
   const [savingAptitude, setSavingAptitude] = useState(false);
 
   const raceAptitudeValue = raceAptitudeDraft ?? horseData?.raceAptitude ?? "";
+  const latestWeight = horseData?.latestMeasurements?.find(
+    (measurement: { type: string; value: number }) => measurement.type === "WEIGHT",
+  )?.value;
 
   const saveDistanceFocus = async () => {
     if (!token || !horseData || !raceAptitudeValue || savingAptitude) return;
@@ -176,7 +179,7 @@ export function HorseOverviewTab({
               ? formatEnum(t(horseData.raceAptitude))
               : t("Not recorded"),
           ],
-          ["Latest weight", mockHorse.weight ? formatWeight(mockHorse.weight) : t("Not recorded")],
+          ["Latest weight", latestWeight != null ? formatWeight(latestWeight) : t("Not recorded")],
           [
             "Lifecycle reason",
             horseData.lifecycleReason
