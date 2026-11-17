@@ -3,7 +3,7 @@ import { router, type Href } from "expo-router";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { Panel, getUiStyles } from "@/components/ui";
 import { Text } from "@/components/common/LocalizedText";
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 import { useTheme } from "@/hooks/useTheme";
 
 type HorseInjuriesTabProps = {

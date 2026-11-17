@@ -7,11 +7,9 @@ import { Panel, ProgressBar, getUiStyles } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { radius, space } from "@/config/theme";
 import { formatDateTime } from "@/utils/formatters";
-import { fitnessTrend, speedTrend } from "@/lib/raceos-data";
-import { ChartSection, SpeedTrendChart } from "./HorseTabHelpers";
+import { SpeedTrendChart } from "./HorseTabHelpers";
 
 export type HorsePerformanceTabProps = {
-  isRealData: boolean;
   performanceResource: {
     isLoading: boolean;
     error: unknown;
@@ -21,37 +19,11 @@ export type HorsePerformanceTabProps = {
 };
 
 export function HorsePerformanceTab({
-  isRealData,
   performanceResource,
 }: HorsePerformanceTabProps) {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
   const styles = getStyles(colors);
-
-  if (!isRealData) {
-    return (
-      <>
-        <ChartSection
-          title="Top speed"
-          data={speedTrend}
-          valueKey="speed"
-          color={colors.primary}
-        />
-        <ChartSection
-          title="Peak heart rate"
-          data={speedTrend}
-          valueKey="hr"
-          color={colors.destructive}
-        />
-        <ChartSection
-          title="Weekly distance"
-          data={fitnessTrend}
-          valueKey="load"
-          color={colors.training}
-        />
-      </>
-    );
-  }
 
   return (
     <>

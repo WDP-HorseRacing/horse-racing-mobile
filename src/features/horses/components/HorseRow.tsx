@@ -4,24 +4,22 @@ import { router, type Href } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { radius, space } from "@/config/theme";
-import type { Horse, RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
+import type { HorseSummary } from "@/adapters/horse.adapter";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
-import { formatWeight } from "@/utils/formatters";
 
 export function HorseRow({
   horse,
   role,
   photoUrl,
-  horseId: _horseId,
   location,
   aptitude,
   lifecycleStatus,
 }: {
-  horse: Horse;
+  horse: HorseSummary;
   role: RoleId;
   photoUrl?: string | null;
-  horseId?: string;
   location?: string;
   aptitude?: string | null;
   lifecycleStatus?: string;
@@ -30,13 +28,15 @@ export function HorseRow({
   const styles = getStyles(colors);
   const { t } = useI18n();
 
-  const genderLabel = horse.sex ? t(horse.sex) : null;
-  const ageLabel = horse.age ? `${horse.age} ${t("yo") === "yo" ? "tuổi" : t("yo")}` : null;
+  const genderLabel = horse.gender ? t(horse.gender) : null;
+  const ageLabel =
+    horse.age !== null ? `${horse.age} ${t("yo") === "yo" ? "tuổi" : t("yo")}` : null;
   const aptitudeLabel = aptitude ? t(aptitude) : horse.raceAptitude ? t(horse.raceAptitude) : null;
-  const weightLabel = horse.weight && horse.weight > 0 ? formatWeight(horse.weight) : null;
   const displayLocation =
     location ??
-    (horse.stall && horse.stall !== "Not assigned" ? `Ô ${horse.stall}` : t("Pending stall"));
+    ([horse.barnName, horse.stallCode ? `Ô ${horse.stallCode}` : null]
+      .filter(Boolean)
+      .join(" · ") || t("Pending stall"));
 
   return (
     <Pressable
@@ -91,11 +91,6 @@ export function HorseRow({
           {aptitudeLabel ? (
             <View style={styles.metaPill}>
               <Text style={styles.metaPillText}>{aptitudeLabel}</Text>
-            </View>
-          ) : null}
-          {weightLabel ? (
-            <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{weightLabel}</Text>
             </View>
           ) : null}
           {lifecycleStatus && lifecycleStatus !== "ACTIVE" ? (

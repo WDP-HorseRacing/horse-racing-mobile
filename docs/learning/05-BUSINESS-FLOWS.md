@@ -1,6 +1,6 @@
 # 05 — Luồng nghiệp vụ đầu-cuối
 
-Tài liệu theo dõi hành vi từ màn hình đến service/state. “API thật” ở đây nghĩa là mobile có request đến contract endpoint; không phải kết luận đã kiểm chứng server hay dữ liệu production. Các luồng dùng fixture/local state được ghi riêng.
+Tài liệu theo dõi hành vi từ màn hình đến service/state. “API thật” ở đây nghĩa là mobile có request đến contract endpoint; không phải kết luận đã kiểm chứng server hay dữ liệu production. Local state chỉ dùng cho form/UI và telemetry simulator được nêu riêng.
 
 ## 1. Đăng nhập, khôi phục và thoát
 
@@ -29,13 +29,13 @@ Client gửi `POST /auth/logout` với refresh token và device token nếu có,
 
 Dashboard đang dùng `app/[role]/index.tsx` và các component/API hiện hành. Các truy vấn manager được tải song song cho horse, barn, stall, medical, checkups, costs, incidents, stock, pending supply và class; một số truy vấn tùy chọn bắt lỗi rồi dùng mảng/số rỗng. Trainer lấy barn và medical; groom lấy lịch hôm nay và supplies; vet lấy dữ liệu medical; owner lấy horse list. Vì vậy một ô 0 hoặc danh sách rỗng có thể là dữ liệu thực hoặc fallback khi endpoint lỗi.
 
-`src/features/dashboard/components/*Dashboard.tsx` chứa các dashboard cũ dựa trên fixture. Không coi chúng là nguồn dữ liệu dashboard đang chạy nếu route hiện tại không dùng chúng.
+Các dashboard đang dùng payload tải từ service/API. Một số truy vấn phụ bắt lỗi rồi dùng danh sách hoặc số rỗng; cần phân biệt fallback sau lỗi với response rỗng từ server.
 
 ## 3. Tìm kiếm và mở hồ sơ ngựa
 
 Danh sách tại `app/[role]/horses.tsx` quản lý tìm kiếm, filter, sort và gọi `horseService.list`. Service tải trang theo `meta.totalPages`; adapter biến DTO thành view model. Trainer/groom có filter mặc định theo barn/ngựa liên quan; filter khác gồm sức khỏe, lifecycle, giới tính, aptitude, barn và placement.
 
-Khi mở hồ sơ, `app/[role]/horse/[id].tsx` phân biệt ID API dạng UUID với nhánh demo. ID API tải horse, permission, dữ liệu theo tab và các service liên quan. Một số tab/biểu đồ vẫn có fixture/local fallback; không phải mọi phần của hồ sơ đều là endpoint thật. Hồ sơ mẫu có thể được dựng từ `src/data/fixtures/raceos.json` và không tự chứng minh có bản ghi trên server.
+Khi mở hồ sơ, `app/[role]/horse/[id].tsx` chỉ chấp nhận ID UUID và tải horse, permission, dữ liệu theo tab qua service/API. ID không phải UUID quay về danh sách ngựa; không còn nhánh hồ sơ mẫu.
 
 ## 4. Thêm hoặc chỉnh sửa hồ sơ, vị trí và vòng đời
 
@@ -70,7 +70,7 @@ Incident có thể chọn ảnh, upload media trước để lấy `photoMediaId
 
 Trainer có thể quản lý subject/plan/class, enroll horse, tạo hoặc cập nhật session, điểm danh, đánh dấu ready/start/complete/stop, và ghi evaluation/trial result/time trial. Service ở `training.service.ts` gom endpoint domain. `listAllVisibleSessions` trước tiên lấy ngựa nhìn thấy rồi lấy session cho từng ngựa; số request tăng theo số ngựa (N+1 pattern).
 
-Trang tham gia buổi tập có thể hiển thị performance metrics qua REST và Socket.IO. Simulator tạo metric giả trên thiết bị để demo; không nhầm metric simulator với dữ liệu cảm biến vật lý.
+Trang tham gia buổi tập có thể hiển thị performance metrics qua REST và Socket.IO. Simulator tạo metric theo code rồi gửi ingest tới backend; không nhầm metric simulator với dữ liệu cảm biến vật lý.
 
 ## 9. Supplies, phí, báo cáo và thông báo
 
@@ -78,18 +78,18 @@ Supplies hỗ trợ item/stock, receipt, usage, lot/movement và request. Reques
 
 Notifications tải theo cursor/limit và hỗ trợ đánh dấu đã đọc. Push-device registration gửi token thiết bị lên `/me/devices`; nhánh đăng ký push được triển khai cho Android. Không khẳng định push backend đã gửi/nhận thành công chỉ từ client code.
 
-## 10. Live screen: demo cục bộ và realtime
+## 10. Realtime telemetry và simulator
 
-`app/[role]/live/[id].tsx` đang dùng `liveSeries` hardcode và timer tăng điểm theo khoảng 1.6 giây. Màn này là mock visualization, không phải websocket stream.
+Route live chart cũ dùng chuỗi fixture và đã bị gỡ. Luồng telemetry còn lại nằm trong màn chi tiết buổi tập và participant performance.
 
-Màn performance của participant dùng `performance.service.ts`, Socket.IO client và `sensor-simulator.ts`. Socket kết nối `/events` bằng auth token trong socket auth và nghe `performance.metrics`; simulator cũng có callback local mỗi tick và có thể gửi ingest lên backend khi có token. Đây là hai cơ chế khác nhau, cần phân biệt khi demo. Nếu server echo lại chính metric ingest trên socket, component có nguy cơ thêm trùng vì không thấy dedupe theo timestamp/source; điều này phụ thuộc hành vi server.
+Màn performance của participant dùng `performance.service.ts`, Socket.IO client và `sensor-simulator.ts`. Socket kết nối `/events` bằng auth token trong socket auth và nghe `performance.metrics`; simulator tạo tick cục bộ rồi gửi ingest lên backend khi có token. Đây là mô phỏng thiết bị, không phải cảm biến phần cứng. Nếu server echo lại chính metric ingest trên socket, component có nguy cơ thêm trùng vì không thấy dedupe theo timestamp/source; điều này phụ thuộc hành vi server.
 
 ## 11. Phân biệt trạng thái dữ liệu
 
 | Tình huống | Dấu hiệu trong source | Cách mô tả chính xác |
 |---|---|---|
 | API-backed | Service gọi `apiRequest` đến endpoint | Mobile có tích hợp contract; backend chưa được audit |
-| Fixture/mock | `src/data/fixtures`, hardcoded series, sample metric | Dữ liệu minh họa/demo |
+| Telemetry simulator | `sensor-simulator.ts` tạo metric và gọi ingest backend | Số đo được mô phỏng; không phải thiết bị vật lý |
 | Device-local | AsyncStorage keys | Chỉ tồn tại trên thiết bị cục bộ theo key |
 | Fallback sau lỗi | `.catch(() => [])`, giá trị mặc định | UI có thể trông như dữ liệu rỗng; lỗi không nhất thiết được hiển thị |
 
@@ -219,7 +219,7 @@ Nếu upload xong nhưng checklist PATCH lỗi, media có thể chưa được g
 | Flow / actor | Điều kiện trước | Hành động và request | Trạng thái khi thành công | Nhánh lỗi cần giải thích |
 |---|---|---|---|---|
 | Login / mọi role | Có credential và network; app phải hiểu role server trả về | Submit → `POST /auth/login` → `GET /auth/me` | Session lưu local, route theo mapped role | Invalid credential/network/unsupported role không hoàn tất login; server token policy chưa xác minh |
-| Horse list/profile / role có route | Session/token; ID thật cho API branch | GET pages/detail/permissions → adapter → UI | List/profile cập nhật theo server response | Pagination/error; một số screen có fixture fallback; empty có thể là fallback |
+| Horse list/profile / role có route | Session/token; ID UUID từ backend | GET pages/detail/permissions → adapter → UI | List/profile cập nhật theo server response | ID không phải UUID chuyển về danh sách; API errors có thể được một số dashboard phụ bắt thành empty |
 | Placement / manager | Horse và capability/action phù hợp trong UI | Preview barn → user xác nhận → PUT barn/placement/stall/groom | Screen refresh profile/list sau mutation | Blocked preview không commit; update lỗi phải giữ/refresh authoritative state |
 | Medical visit / vet | Horse/case context tải được; form hợp lệ; marker hợp lệ nếu có injury | POST standalone record hoặc follow-up visit | Record/case response; sidecar ghi nếu có marker | API error không tạo success state; nếu sidecar lỗi sau API success thì record/marker diverge |
 | Close medical case / vet | Case mở và close preview được tải | Nhập conclusion/lock decision → POST close; correction dùng PATCH conclusion | Response case mới, UI chuyển về detail/list | Preview không đảm bảo close commit; lock release/server rules cần backend xác nhận |

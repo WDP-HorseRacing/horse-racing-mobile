@@ -62,13 +62,7 @@ async function loadWorkStats(token: string, role: RoleId, userId: string): Promi
       ];
     }
     case "vet": {
-      const medical = await medicalService.getDashboard(token).catch(() => ({
-        herd: { counts: { QUARANTINED: 0, INJURED: 0, UNDER_OBSERVATION: 0, ELIGIBLE: 0 }, horses: [] },
-        checkups: [],
-        careSchedules: [],
-        openCases: [],
-        pendingRequests: [],
-      }));
+      const medical = await medicalService.getDashboard(token);
       const overdue = medical.checkups.filter((item) => item.daysLeft < 0).length;
       return [
         {

@@ -13,7 +13,6 @@ import { useI18n } from "@/context/I18nContext";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/types/raceos";
 import {
-  mapHorseSummaryToPrototype,
   type HorseListItemDto,
   type HorseSummary,
 } from "@/adapters/horse.adapter";
@@ -78,7 +77,7 @@ export function RoleDashboard({
   }
 
   if (payload.kind === "horses") {
-    const horses = payload.horses.map(mapHorseSummaryToPrototype);
+    const horses = payload.horses;
     const attention = horses.filter((horse) =>
       ["MONITOR", "INJURED", "LOCKED"].includes(horse.status),
     );

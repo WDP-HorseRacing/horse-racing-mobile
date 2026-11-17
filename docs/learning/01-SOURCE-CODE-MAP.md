@@ -13,7 +13,7 @@ src/
     ui/                      Button, Field, Panel, modal, badge, charts/widgets
     charts/                  Thành phần biểu đồ dùng lại
   config/                    API URL và theme
-  context/                   Auth, i18n, prototype RaceOS state
+  context/                   Auth và i18n
   data/locales/              Catalog dịch tiếng Việt
   features/
     alerts/                  Feed thông báo
@@ -26,8 +26,6 @@ src/
     tasks/                   Task card dùng lại
     training/                Lịch huấn luyện, video, simulator, helpers
   hooks/                     useApiResource, focus refresh, theme
-  lib/                       Facade về fixtures cũ
-  mocks/                     raceos.json và parser/type data mẫu
   services/                  API client và các nhóm endpoint
   types/                     Domain/UI TypeScript types
   utils/                     Error, navigation, validation, formatter, local recents
@@ -38,7 +36,7 @@ public/                      Static assets cho web
 dist/                        Export artifact đã có sẵn; không dùng làm source of truth
 ~~~
 
-Trong app/ có 71 route files; src/ có 126 files trong lần scan này. Có 197 files tổng cộng giữa hai cây. Một số route file chỉ kết nối path với feature component dùng chung.
+Một số route file chỉ kết nối path với feature component dùng chung. Route workflow tĩnh và live chart fixture đã được gỡ.
 
 ## 2. Entry point và lifecycle
 
@@ -54,7 +52,7 @@ AuthRouteGate là điều hướng/UX ở client. Chỉ backend mới có thể 
 
 ### Route dùng chung theo role
 
-app/[role]/index.tsx là dashboard; app/[role]/horses.tsx là horse list; app/[role]/horse/[id].tsx là hồ sơ ngựa; các nhánh phụ gồm measurements.tsx, ownership.tsx, placement.tsx, stable-care.tsx. app/[role]/pedigree/[id].tsx là pedigree; app/[role]/incidents.tsx, inventory.tsx, alerts.tsx, work.tsx, live/[id].tsx là các screen nghiệp vụ hoặc demo.
+app/[role]/index.tsx là dashboard; app/[role]/horses.tsx là horse list; app/[role]/horse/[id].tsx là hồ sơ ngựa; các nhánh phụ gồm measurements.tsx, ownership.tsx, placement.tsx, stable-care.tsx. app/[role]/pedigree/[id].tsx là pedigree; app/[role]/incidents.tsx, inventory.tsx, alerts.tsx và work.tsx là các screen nghiệp vụ.
 
 Nhánh medical dùng chung trong app/[role]/:
 
@@ -81,7 +79,7 @@ app/trainer/training.tsx, plans.tsx, class/new.tsx, plan/[id].tsx, plan/[id]/ses
 
 app/vet/medical.tsx, alerts.tsx, exam/[id].tsx, injury/[id].tsx, lock/[id].tsx, participant/[id].tsx.
 
-app/profile/[role].tsx là route profile; app/login.tsx, app/flow.tsx, app/+not-found.tsx là route ngoài nhóm role.
+app/profile/[role].tsx là route profile; app/login.tsx và app/+not-found.tsx là route ngoài nhóm role.
 
 ## 4. Service inventory — ai làm gì?
 
@@ -106,7 +104,7 @@ app/profile/[role].tsx là route profile; app/login.tsx, app/flow.tsx, app/+not-
 
 - AuthContext: session và vai trò hiệu lực.
 - I18nContext: language en/vi, catalog JSON và t(); ngôn ngữ lưu qua AsyncStorage.
-- Fixtures demo được nạp qua `src/data/fixtures/` và facade `src/lib/raceos-data.ts`; state dùng chung hiện còn AuthContext và I18nContext.
+- Không còn fixture nghiệp vụ hoặc facade `raceos-data`; state dùng chung hiện còn AuthContext và I18nContext.
 
 ### Hook dữ liệu
 
@@ -142,13 +140,13 @@ flowchart LR
 
 Luồng dependency thường đi từ UI đến service. Screen nhiều nơi import service trực tiếp; vì vậy layer UI và network không tách biệt hoàn toàn. Mapper/adapter là ranh giới dữ liệu cho một số domain, không phải repository interface thống nhất toàn app.
 
-## 7. Prototype và fixture
+## 7. Ranh giới dữ liệu hiện tại
 
-- src/data/fixtures/raceos.json, src/data/fixtures/parse-raceos.ts, src/data/fixtures/raceos.ts, src/lib/raceos-data.ts: fixture mẫu và compatibility facade.
-- app/vet/exam/[id].tsx: UUID được redirect vào luồng API mới; ID demo không phải UUID dùng mock horse/triệu chứng.
-- app/[role]/live/[id].tsx: dữ liệu/chart hardcoded từ liveSeries, timer chỉ làm chart dài thêm; không subscribe telemetry backend.
-- app/[role]/horse/[id].tsx: UUID load nhiều tab từ API, nhưng còn fallback fixture/local plans và mock fitness/recovery/speed trend.
-- Một số dashboard prototype vẫn dùng src/data/fixtures; active route /[role] hiện ghép RoleDashboard với payload API.
+- Các hồ sơ ngựa dùng ID UUID và tải dữ liệu từ horse/API services; ID không hợp lệ quay lại danh sách, không fallback sang ngựa mẫu.
+- `app/vet/exam/[id].tsx` chuyển hồ sơ hợp lệ sang medical visit/case API; ID không phải UUID quay lại workspace y tế.
+- Route workflow fixture và live chart hardcoded đã bị gỡ.
+- `sensor-simulator.ts` là ngoại lệ có chủ ý: tạo metric cục bộ rồi gửi ingest đến backend khi có token.
+- Access Control không có API đọc/ghi cấu hình quyền trong mobile service/backend scan; screen hiện báo rõ chưa được backend hỗ trợ, không còn danh sách/quyền mẫu.
 
 ## 8. Đọc source theo thứ tự
 

@@ -19,7 +19,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useAuth } from "@/context/AuthContext";
 import { MAX_BOTTOM_NAV_ITEMS, roles } from "@/features/auth/roles";
 import { radius, space } from "@/config/theme";
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 import { useTheme } from "@/hooks/useTheme";
 import { safeBack } from "@/utils/navigation";
 

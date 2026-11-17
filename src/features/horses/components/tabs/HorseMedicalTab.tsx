@@ -8,11 +8,9 @@ import { SectionTitle } from "@/components/common";
 import {
   Chips,
   Field,
-  MiniChart,
   NativeInput,
   Panel,
   PrimaryButton,
-  ProgressBar,
   getUiStyles,
 } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
@@ -22,20 +20,15 @@ import { formatEnum } from "@/utils/formatters";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { isValidRequiredText } from "@/features/medical/medical-validation";
 import { medicalService, type HealthStatusDto } from "@/services/medical.service";
-import { fitnessTrend, recoveryTrend, type RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 import { HorseMeasurementsView } from "@/features/horses/components/HorseMeasurementsView";
-import { ChartSection, Info } from "./HorseTabHelpers";
+import { Info } from "./HorseTabHelpers";
 
 export type HorseMedicalTabProps = {
   tab: string;
   horseId: string;
   roleId: RoleId;
-  isRealData: boolean;
   horseData: any;
-  mockHorse: any;
-  locked: boolean;
-  plan: any;
-  nextSession: any;
   token: string | null;
   medicalResource: {
     isLoading: boolean;
@@ -64,12 +57,7 @@ export function HorseMedicalTab({
   tab,
   horseId,
   roleId,
-  isRealData,
   horseData,
-  mockHorse,
-  locked,
-  plan,
-  nextSession,
   token,
   medicalResource,
   careResource,
@@ -109,78 +97,6 @@ export function HorseMedicalTab({
       setSavingHealth(false);
     }
   };
-
-  if (!isRealData) {
-    if (tab === "Care") {
-      return (
-        <>
-          <Info
-            title="Current care plan"
-            items={[
-              ["Plan objective", plan?.objective ?? "No active care plan"],
-              ["Next care task", nextSession?.title ?? "Not scheduled"],
-              ["Assigned groom", nextSession?.assignedGroom ?? "—"],
-            ]}
-          />
-          <ChartSection
-            title="Care trend"
-            data={fitnessTrend}
-            valueKey="load"
-            color={colors.training}
-          />
-        </>
-      );
-    }
-
-    if (["Health", "Medical", "Injuries", "Treatment"].includes(tab)) {
-      return (
-        <>
-          <Info
-            title="Vitals & status"
-            items={[
-              ["Status", locked ? "LOCKED" : mockHorse.status],
-              ["Temperature", "38.2 °C"],
-              ["Resting HR", `${mockHorse.hr} bpm`],
-              ["Respiration", "16 /min"],
-              ["Weight", `${mockHorse.weight} kg`],
-              ["Hydration", "Normal"],
-            ]}
-          />
-          <View style={uiStyles.section}>
-            <SectionTitle>Recovery</SectionTitle>
-            <Panel>
-              <View style={uiStyles.row}>
-                <Text style={uiStyles.value}>Left hind leg · monitoring</Text>
-                <Text style={uiStyles.value}>{mockHorse.recovery ?? 100}%</Text>
-              </View>
-              <View style={{ height: space.md }} />
-              <ProgressBar value={mockHorse.recovery ?? 100} tone={colors.monitor} />
-              <MiniChart data={recoveryTrend} valueKey="v" color={colors.monitor} />
-            </Panel>
-          </View>
-          {roleId === "vet" ? (
-            <>
-              <PrimaryButton
-                label="Record examination"
-                onPress={() => router.push(`/vet/medical/visit?horseId=${mockHorse.id}` as Href)}
-              />
-              <PrimaryButton
-                label="Open injury mapping"
-                onPress={() => router.push(`/vet/injury/${mockHorse.id}`)}
-              />
-              <PrimaryButton
-                label="Lock training"
-                icon="lock-closed"
-                onPress={() => router.push(`/vet/lock/${mockHorse.id}`)}
-              />
-            </>
-          ) : null}
-        </>
-      );
-    }
-
-    return null;
-  }
 
   // Real data views
   if (tab === "Care") {

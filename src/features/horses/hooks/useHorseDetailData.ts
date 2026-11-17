@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { getHorse, trainingPlans, type RoleId } from "@/lib/raceos-data";
-import { mapHorseDetailToPrototype } from "@/adapters/horse.adapter";
+import type { RoleId } from "@/types/raceos";
 import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { auditService } from "@/services/audit.service";
@@ -186,19 +185,7 @@ export function useHorseDetailData({
     }, []),
   );
 
-  const mockHorse = getHorse(id);
-  const horse = horseResource.data ? mapHorseDetailToPrototype(horseResource.data) : mockHorse;
-  const plan = trainingPlans.find((item) => item.horseId === horse.id && item.status === "active");
-  const currentPhase =
-    plan?.phases.find((phase) =>
-      phase.sessions.some((session) => ["scheduled", "in_progress"].includes(session.status)),
-    ) ?? plan?.phases[0];
-  const nextSession = currentPhase?.sessions.find((session) =>
-    ["planned", "scheduled", "in_progress"].includes(session.status),
-  );
-  const locked = horseResource.data
-    ? Boolean(horseResource.data.activeTrainingLock)
-    : horse.id === "thunder-king";
+  const horse = horseResource.data;
 
   return {
     token,
@@ -208,10 +195,6 @@ export function useHorseDetailData({
     visibleTab,
     isUuidId,
     horse,
-    mockHorse,
-    plan,
-    nextSession,
-    locked,
     horseResource,
     permissionsResource,
     pedigreeResource,

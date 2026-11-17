@@ -21,12 +21,12 @@ Phạm vi được scan là source mobile, không phải backend. Do đó API en
 - **Điểm vào:** package.json đặt main là expo-router/entry; app/_layout.tsx tạo provider tree và route gate.
 - **Điều hướng:** file-based routing trong app/; route theo vai trò như /trainer, /vet, /groom, /owner, /manager.
 - **Kiến trúc thực tế:** UI screen trong app/ và src/features/ gọi service trực tiếp hoặc qua hook; service gọi API client; adapter chuyển một số DTO sang model UI. Đây là kiến trúc theo feature/service, không phải Clean Architecture được phân lớp độc lập hoàn toàn.
-- **State:** state cục bộ React cho form/screen; AuthContext và I18nContext dùng chung; API-backed data thường qua useApiResource; fixture demo nằm trong src/data/fixtures.
+- **State:** state cục bộ React cho form/screen; AuthContext và I18nContext dùng chung; API-backed data thường qua useApiResource. Không còn bộ fixture nghiệp vụ trong source.
 - **Backend giao tiếp:** fetch qua src/services/api-client.ts, Bearer token, JSON, timeout 15 giây, refresh và retry một lần khi 401. Realtime dùng Socket.IO riêng.
 - **Vai trò đã được map trong code:** Head Trainer, Groom, Veterinarian, Horse Owner, Club Manager.
 - **3D injury map:** Three.js chạy trong react-native-webview, dùng GLB v2 đóng gói sẵn; chạm bề mặt được raycast thành tọa độ horse-root-local. Vùng cơ thể chỉ là gợi ý heuristic và bác sĩ có thể sửa.
 - **Lưu vị trí 3D:** API gửi x/y/z trong injury record, nhưng model version và coordinate frame hiện được ghi ở AsyncStorage cục bộ. Mobile chỉ vẽ lại điểm nếu metadata local khớp đúng injury response.
-- **Mock còn tồn tại:** các fixture trong `src/data/fixtures/`; route live cũ `app/[role]/live/[id].tsx`; nhánh examination không UUID trong `app/vet/exam/[id].tsx`; một số dashboard prototype.
+- **Ngoại lệ mô phỏng:** `sensor-simulator.ts` tạo telemetry theo thời gian thực và gửi điểm đo tới backend bằng `performanceService.ingestMetric`. Đây là mô phỏng thiết bị, không phải cảm biến phần cứng.
 
 ## Sơ đồ kiến trúc mức ứng dụng
 
@@ -45,7 +45,7 @@ flowchart TD
   S --> W[WebView + Three.js: injury map]
 ~~~
 
-Đường đi này là sơ đồ tổng quát. Một số route prototype lấy fixture trực tiếp, và một số screen gọi service trực tiếp mà không qua adapter riêng.
+Đường đi này là sơ đồ tổng quát. Không còn route nghiệp vụ nào nạp fixture; một số screen gọi service trực tiếp mà không qua adapter riêng.
 
 ## Các nhóm chức năng đang có bằng chứng implementation
 
@@ -62,7 +62,7 @@ flowchart TD
 
 ## Điểm cần học trước khi thuyết trình
 
-1. Biết phân biệt **server state** với **prototype state**: API-backed pages không dùng chung nguồn dữ liệu với mọi fixture.
+1. Biết phân biệt **server state** với **local UI state**: dữ liệu nghiệp vụ đến từ API; simulator telemetry là ngoại lệ được tạo cục bộ rồi ingest lên backend.
 2. Có thể trace một request: screen → hook/state → service → api client → response/error → refresh UI.
 3. Nắm auth: login → token pair → /auth/me → role mapping → session storage → refresh.
 4. Nắm injury mapper: model local axes → raycast → local coordinates → heuristic region → native confirmation → visit payload → server injury DTO + local version metadata.

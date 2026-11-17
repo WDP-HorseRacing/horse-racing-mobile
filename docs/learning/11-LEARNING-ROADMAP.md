@@ -128,7 +128,7 @@ Học theo 8 bài, mỗi bài khoảng 60–90 phút. Thứ tự đi từ TypeSc
 
 **Ví dụ đơn giản:** Đặt bàn: xem còn chỗ là preview; xác nhận đặt mới tạo booking.
 
-**Trong HorseRacing:** Chọn horse placement, groom checklist hoặc medical visit từ `05-BUSINESS-FLOWS.md`; đọc route/service tương ứng. So sánh `app/[role]/live/[id].tsx` với participant performance view và `sensor-simulator.ts`.
+**Trong HorseRacing:** Chọn horse placement, groom checklist hoặc medical visit từ `05-BUSINESS-FLOWS.md`; đọc route/service tương ứng. So sánh REST/Socket.IO data với `sensor-simulator.ts`, đang tạo metric cục bộ rồi ingest lên backend.
 
 **Bài tập:** Viết preconditions, success path và hai error path của medical visit. Gắn mỗi bước với file thật.
 
@@ -196,7 +196,7 @@ Học theo 8 bài, mỗi bài khoảng 60–90 phút. Thứ tự đi từ TypeSc
 | 4 — Project | Auth/security và role authorization | Critical | Nêu client/server boundary | `AuthContext.tsx`, `AuthRouteGate.tsx` |
 | 4 — Project | Medical business flow | Critical | Trace form tới API và sidecar | `medical/visit.tsx`, `medical.service.ts` |
 | 4 — Project | Three.js coordinate systems | High | Giải thích raycast/local frame | mapper components |
-| 4 — Project | Realtime/simulator | Medium | Phân biệt socket và mock | realtime service, simulator, live route |
+| 4 — Project | Realtime/simulator | Medium | Phân biệt socket và telemetry được mô phỏng | realtime service, simulator, participant view |
 
 ## Kế hoạch ôn 7 ngày
 

@@ -11,7 +11,7 @@ import { formatEnum } from "@/utils/formatters";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { horseService } from "@/services/horse.service";
 import { stableService, type StallDto } from "@/services/stable.service";
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
 
 export type StallActionModalProps = {

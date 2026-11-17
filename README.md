@@ -33,7 +33,8 @@ Development helpers:
 
 - `app/` — Expo Router screens
 - `src/native/` — reusable native UI, data visualizations, role configuration, and design tokens
-- `src/context/` — prototype state shared across role workflows
+- `src/context/` — authentication and language contexts
 - `src/adapters/` — backend response mappers for training, medical, and Groom flows
 - `src/services/` — API client and endpoint services
-- `src/lib/raceos-data.ts` — typed domain fixtures
+- `src/types/` — shared UI and domain types
+- `src/features/training/sensor-simulator.ts` — optional telemetry simulator that ingests generated metrics through the backend API

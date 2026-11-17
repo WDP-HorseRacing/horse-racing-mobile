@@ -5,21 +5,21 @@ import { Panel } from "@/components/ui";
 import { radius, space } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { formatEnum } from "@/utils/formatters";
+import { ageFromDateOfBirth, type HorseDetailDto } from "@/adapters/horse.adapter";
 
 type HorsePassportHeaderProps = {
-  horse: any;
-  horseResource: { data: any };
+  horse: HorseDetailDto;
   photoResource: { data?: { url: string } | null };
 };
 
-export function HorsePassportHeader({ horse, horseResource, photoResource }: HorsePassportHeaderProps) {
+export function HorsePassportHeader({ horse, photoResource }: HorsePassportHeaderProps) {
   const { colors } = useTheme();
   return (
       <Panel style={{ gap: space.sm, padding: space.md, borderRadius: radius.lg }}>
         {/* Top Header: Avatar + Horse Identity */}
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.md }}>
           {/* Avatar / Portrait or Shield Badge */}
-          {horseResource.data && photoResource.data?.url ? (
+          {photoResource.data?.url ? (
             <Image
               source={{ uri: photoResource.data.url }}
               accessibilityLabel={`${horse.name} portrait`}
@@ -73,33 +73,26 @@ export function HorsePassportHeader({ horse, horseResource, photoResource }: Hor
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               <Ionicons name="hardware-chip-outline" size={13} color={colors.mutedForeground} />
               <Text style={{ fontSize: 12, color: colors.mutedForeground, fontFamily: "monospace" }}>
-                Chip: {horseResource.data?.microchipId ? `...${horseResource.data.microchipId.slice(-6)}` : "Chưa gắn chip"}
+                Chip: {horse.microchipId ? `...${horse.microchipId.slice(-6)}` : "Chưa gắn chip"}
               </Text>
             </View>
 
             {/* Age, Sex, Breed, Color */}
             <Text style={{ fontSize: 12, color: colors.mutedForeground }} numberOfLines={1}>
-              {horse.age ? `${horse.age} tuổi · ` : ""}
-              {horseResource.data?.gender
-                ? formatEnum(horseResource.data.gender)
-                : horse.sex === "M" || horse.sex === "Stallion"
-                  ? "Đực"
-                  : horse.sex === "F" || horse.sex === "Mare"
-                    ? "Cái"
-                    : "Thiến"}{" "}
-              · {horseResource.data?.breed ? formatEnum(horseResource.data.breed) : horse.breed} ·{" "}
-              {horseResource.data?.color ? formatEnum(horseResource.data.color) : horse.color}
+              {horse.dateOfBirth ? `${ageFromDateOfBirth(horse.dateOfBirth)} tuổi · ` : ""}
+              {horse.gender ? formatEnum(horse.gender) : "Chưa ghi nhận"} · {horse.breed ? formatEnum(horse.breed) : "Chưa ghi nhận"} ·{" "}
+              {horse.color ? formatEnum(horse.color) : "Chưa ghi nhận"}
             </Text>
 
             {/* Health & Status Badges */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-              {horseResource.data?.healthStatus ? (
+              {horse.healthStatus ? (
                 <View
                   style={{
                     backgroundColor:
-                      horseResource.data.healthStatus === "INJURED"
+                      horse.healthStatus === "INJURED"
                         ? colors.injuredSoft
-                        : horseResource.data.healthStatus === "UNDER_OBSERVATION"
+                        : horse.healthStatus === "UNDER_OBSERVATION"
                           ? colors.monitorSoft
                           : colors.fitSoft,
                     paddingHorizontal: 8,
@@ -112,14 +105,14 @@ export function HorsePassportHeader({ horse, horseResource, photoResource }: Hor
                       fontSize: 11,
                       fontWeight: "700",
                       color:
-                        horseResource.data.healthStatus === "INJURED"
+                        horse.healthStatus === "INJURED"
                           ? colors.destructive
-                          : horseResource.data.healthStatus === "UNDER_OBSERVATION"
+                          : horse.healthStatus === "UNDER_OBSERVATION"
                             ? colors.monitor
                             : colors.fit,
                     }}
                   >
-                    {formatEnum(horseResource.data.healthStatus)}
+                    {formatEnum(horse.healthStatus)}
                   </Text>
                 </View>
               ) : null}
@@ -133,7 +126,7 @@ export function HorsePassportHeader({ horse, horseResource, photoResource }: Hor
                 }}
               >
                 <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>
-                  {formatEnum(horseResource.data?.lifecycleStatus ?? "ACTIVE")}
+                  {formatEnum(horse.lifecycleStatus)}
                 </Text>
               </View>
             </View>
@@ -175,14 +168,14 @@ export function HorsePassportHeader({ horse, horseResource, photoResource }: Hor
                   fontSize: 13,
                   fontWeight: "800",
                   color:
-                    horseResource.data?.healthStatus === "INJURED"
+                    horse.healthStatus === "INJURED"
                       ? colors.destructive
-                      : horseResource.data?.healthStatus === "UNDER_OBSERVATION"
+                      : horse.healthStatus === "UNDER_OBSERVATION"
                         ? colors.monitor
                         : colors.fit,
                 }}
               >
-                {horseResource.data ? formatEnum(horseResource.data.healthStatus) : "Ổn định"}
+                {formatEnum(horse.healthStatus)}
               </Text>
             </View>
           </View>
@@ -215,12 +208,8 @@ export function HorsePassportHeader({ horse, horseResource, photoResource }: Hor
               }}
               numberOfLines={1}
             >
-              {horseResource.data?.location?.barn?.name ?? "Chưa xếp khu"}
-              {horseResource.data?.location?.stall?.code
-                ? ` · Ô ${horseResource.data.location.stall.code}`
-                : horse.stall
-                  ? ` · Ô ${horse.stall}`
-                  : ""}
+              {horse.location?.barn?.name ?? "Chưa xếp khu"}
+              {horse.location?.stall?.code ? ` · Ô ${horse.location.stall.code}` : ""}
             </Text>
           </View>
 
@@ -252,7 +241,7 @@ export function HorsePassportHeader({ horse, horseResource, photoResource }: Hor
               }}
               numberOfLines={1}
             >
-              {horseResource.data?.owner?.fullName ?? horse.owner ?? "Chưa rõ"}
+              {horse.owner?.fullName ?? "Chưa phân công"}
             </Text>
           </View>
 
@@ -284,7 +273,7 @@ export function HorsePassportHeader({ horse, horseResource, photoResource }: Hor
               }}
               numberOfLines={1}
             >
-              {horseResource.data?.groom?.fullName ?? "Chưa phân công"}
+              {horse.groom?.fullName ?? "Chưa phân công"}
             </Text>
           </View>
         </View>

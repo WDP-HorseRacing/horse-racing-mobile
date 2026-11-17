@@ -1,4 +1,4 @@
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 export type { RoleId };
 
 export type RoleConfig = {

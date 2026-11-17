@@ -6,7 +6,7 @@ import { AsyncStateView, SectionTitle } from "@/components/common";
 import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { radius, space } from "@/config/theme";
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 import type { stableCareService } from "@/services/stable-care.service";
 
 export type HorseNutritionTabProps = {

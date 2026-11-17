@@ -1,15 +1,9 @@
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { View } from "react-native";
-import type { RoleId } from "@/lib/raceos-data";
-import {
-  Chips,
-  Panel,
-  getUiStyles,
-} from "@/components/ui";
-import { TimelineItem, Screen, SectionTitle } from "@/components/common";
+import type { RoleId } from "@/types/raceos";
+import { Chips } from "@/components/ui";
+import { Screen } from "@/components/common";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { isRole } from "@/features/auth/roles";
-import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
 import { HorseTimelineTab } from "@/features/horses/components/tabs/HorseTimelineTab";
 import { HorseTrainingTab } from "@/features/horses/components/tabs/HorseTrainingTab";
@@ -23,9 +17,7 @@ import { HorsePassportHeader } from "@/features/horses/components/HorsePassportH
 import { useHorseDetailData } from "@/features/horses/hooks/useHorseDetailData";
 
 export function HorseDetailScreen() {
-  const { colors } = useTheme();
   const { t } = useI18n();
-  const uiStyles = getUiStyles(colors);
   const {
     role,
     id,
@@ -41,10 +33,6 @@ export function HorseDetailScreen() {
     visibleTab,
     isUuidId,
     horse,
-    mockHorse,
-    plan,
-    nextSession,
-    locked,
     horseResource,
     permissionsResource,
     pedigreeResource,
@@ -57,7 +45,8 @@ export function HorseDetailScreen() {
     auditResource,
   } = useHorseDetailData({ id, roleId, requestedTabValue });
   if (!isRole(role)) return <Redirect href="/" />;
-  if (isUuidId && !horseResource.data) {
+  if (!isUuidId) return <Redirect href={`/${roleId}/horses` as any} />;
+  if (!horseResource.data || !horse) {
     return (
       <Screen
         role={roleId}
@@ -99,7 +88,7 @@ export function HorseDetailScreen() {
             owner: "Owner",
           } as const
         )[roleId],
-      )} · ${t(horseResource.data ? "Club profile" : "Demo profile")}`}
+      )} · ${t("Club profile")}`}
       back
       fallbackHref={`/${roleId}/horses` as any}
       refreshing={
@@ -131,21 +120,17 @@ export function HorseDetailScreen() {
         error={permissionsResource.error}
         onRetry={() => void permissionsResource.retry()}
       />
-      <HorsePassportHeader horse={horse} horseResource={horseResource} photoResource={photoResource} />
+      <HorsePassportHeader horse={horse} photoResource={photoResource} />
       <Chips options={tabs} value={visibleTab} onChange={setTab} />
 
       {visibleTab === "Overview" ? (
         <HorseOverviewTab
-          horseId={id}
           roleId={roleId}
-          isRealData={Boolean(horseResource.data)}
           horseData={horseResource.data}
-          mockHorse={mockHorse}
           token={token}
           pedigreeResource={pedigreeResource}
           permissionsResource={permissionsResource}
           onHorseRefresh={horseResource.refresh}
-          onSelectTab={setTab}
         />
       ) : null}
 
@@ -154,7 +139,6 @@ export function HorseDetailScreen() {
           trainingResource={trainingResource}
           roleId={roleId}
           horseLifecycleStatus={horseResource.data?.lifecycleStatus}
-          isUuidId={isUuidId}
         />
       ) : null}
 
@@ -176,12 +160,7 @@ export function HorseDetailScreen() {
           tab={visibleTab}
           horseId={id}
           roleId={roleId}
-          isRealData={Boolean(horseResource.data)}
           horseData={horseResource.data}
-          mockHorse={mockHorse}
-          locked={locked}
-          plan={plan}
-          nextSession={nextSession}
           token={token}
           medicalResource={medicalResource}
           careResource={careResource}
@@ -192,7 +171,6 @@ export function HorseDetailScreen() {
 
       {visibleTab === "Performance" ? (
         <HorsePerformanceTab
-          isRealData={Boolean(horseResource.data)}
           performanceResource={performanceResource}
         />
       ) : null}
@@ -201,50 +179,12 @@ export function HorseDetailScreen() {
         <HorseCostsTab
           horseId={id}
           roleId={roleId}
-          isRealData={Boolean(horseResource.data)}
           medicalResource={medicalResource}
           surchargesResource={surchargesResource}
         />
       ) : null}
 
-      {visibleTab === "Timeline" && !horseResource.data ? (
-        <View style={uiStyles.section}>
-          <SectionTitle>Timeline</SectionTitle>
-          <Panel>
-            <TimelineItem
-              time="10:41"
-              title="Trainer published recovery plan"
-              detail="800 m · 50% · light · soft surface"
-              tone={colors.primary}
-            />
-            <TimelineItem
-              time="10:24"
-              title="Training locked by veterinarian"
-              detail="Abnormal heart-rate response"
-              tone={colors.destructive}
-            />
-            <TimelineItem
-              time="10:06"
-              title="System raised HR alert"
-              detail="188 bpm sustained 42 s"
-              tone={colors.training}
-            />
-            <TimelineItem
-              time="06:20"
-              title="Training session executed"
-              detail="1,600 m · moderate · dirt"
-            />
-            <TimelineItem
-              time="06:00"
-              title="Groom completed preparation"
-              detail="Sensor vest fitted by Mai Tran"
-              last
-            />
-          </Panel>
-        </View>
-      ) : null}
-
-      {visibleTab === "Timeline" && roleId === "manager" && horseResource.data ? (
+      {visibleTab === "Timeline" && roleId === "manager" ? (
         <HorseTimelineTab auditResource={auditResource} />
       ) : null}
     </Screen>

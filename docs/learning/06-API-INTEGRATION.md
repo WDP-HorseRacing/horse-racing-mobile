@@ -175,11 +175,10 @@ Checklist evidence dùng `mediaService.uploadChecklistEvidence` (purpose `CHECKL
 
 `ParticipantPerformanceView` còn nhận tick từ simulator cục bộ. Nếu cùng một metric được simulator append local và server phát lại qua socket, component hiện không dedupe timestamp/source. Đây là rủi ro có điều kiện; cần kiểm tra behavior backend/event delivery để xác nhận có duplicate ngoài thực tế.
 
-## 8. Mock, fallback và giới hạn kiểm chứng
+## 8. Simulator, fallback và giới hạn kiểm chứng
 
-- `src/data/fixtures/raceos.json` và `src/lib/raceos-data.ts` hỗ trợ fixture/prototype; fixture không còn được giữ trong React context.
-- Live route cũ phát chuỗi `liveSeries` hardcoded bằng timer; nó không dùng Socket.IO.
-- Simulator có thể vừa phát callback local vừa gửi ingest đến backend nếu có token.
+- Bộ fixture nghiệp vụ và route live hardcoded đã được gỡ khỏi source.
+- `sensor-simulator.ts` tạo metric tại thiết bị, cập nhật màn hình theo tick và gọi endpoint ingest backend nếu có token. Đây là mô phỏng thiết bị; không phải số đo phần cứng.
 - Catch fallback ở một số dashboard trả danh sách/số rỗng; đó không chứng minh server trả empty.
 - DTO chỉ mô tả kỳ vọng của client; không có backend source, database schema, migration, access policy hay log server trong phạm vi audit.
 

@@ -19,7 +19,7 @@ TypeScript bắt lỗi kiểu lúc build/editor. DTO như `HorseListItemDto` hay
 - **Component state:** form/modal/loading riêng một màn.
 - **Persistent device state:** AsyncStorage giữ một số key qua lần mở app.
 
-Đừng gọi mọi state là “database”. AsyncStorage không chia sẻ thiết bị; API data có quyền lực và vòng đời khác fixture tĩnh.
+Đừng gọi mọi state là “database”. AsyncStorage không chia sẻ thiết bị; dữ liệu nghiệp vụ lấy từ API, còn telemetry simulator tạo điểm đo cục bộ rồi gửi chúng tới backend.
 
 ## 4. Async flow, hook và race condition
 

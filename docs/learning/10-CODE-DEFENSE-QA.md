@@ -25,9 +25,9 @@ Sau login token, app gọi `/auth/me`, map role được hỗ trợ, rồi persi
 
 Route gate lọc navigation; permission DTO điều khiển tabs/actions. Đây là UX enforcement phía client. Backend phải xác minh quyền cho từng request; mobile repo không chứa server để chứng minh điều đó.
 
-### Dữ liệu nào thật và dữ liệu nào demo?
+### Dữ liệu nào đến từ backend và phần nào được mô phỏng?
 
-Service gọi API là tích hợp theo contract. Fixtures, live hardcoded series và simulator là local/demo. Một màn có thể trộn: ví dụ hồ sơ horse UUID dùng API nhưng một số chart/fallback còn fixture.
+Các hồ sơ và dữ liệu nghiệp vụ tải từ API. Bộ fixture, nhánh ID mẫu và live hardcoded chart đã bị gỡ. Ngoại lệ là `sensor-simulator.ts`: nó tạo metric theo thời gian thực rồi ingest lên backend; đây không phải thiết bị vật lý. Một số dashboard vẫn biến lỗi ở truy vấn phụ thành empty/zero, nên cần xem error handling trước khi diễn giải số liệu.
 
 ### Vì sao dùng local AsyncStorage cho một số dữ liệu?
 
@@ -66,8 +66,8 @@ Code có Socket.IO client và simulator. Simulator tạo dữ liệu giả; sour
 ## 4. Những phát biểu nên tránh
 
 - “Backend bảo mật đúng” nếu chỉ thấy AuthRouteGate/ẩn button.
-- “Dữ liệu toàn bộ real-time” khi live route dùng hardcoded series hoặc simulator.
-- “Mọi chart lấy server” khi có mock fallback.
+- “Dữ liệu đều từ cảm biến thật” khi simulator đang tạo metric theo code.
+- “Đây là số đo cảm biến thật” khi dữ liệu được `sensor-simulator.ts` tạo.
 - “Vị trí injury chính xác/được chuẩn hóa y khoa” khi asset là model tổng quát và heuristic theo trục.
 - “Session an toàn vì được lưu local” khi key nằm trong AsyncStorage.
 - “README mô tả dependency hiện tại” khi package manifest khác phiên bản.
@@ -77,9 +77,9 @@ Code có Socket.IO client và simulator. Simulator tạo dữ liệu giả; sour
 
 - Nêu app role và cách login xác nhận `/auth/me`.
 - Mở route role, horse list, detail và chỉ ra service/adapter.
-- Phân biệt UUID API route và demo/fixture path.
+- Giải thích hồ sơ ID không hợp lệ quay về horse list và medical route không còn nhánh ID mẫu.
 - Trình bày medical visit flow, injury marker và sidecar local.
-- Mở code live hardcoded và performance realtime để chỉ ra khác nhau.
+- Mở `sensor-simulator.ts` và Socket.IO subscription để phân biệt metric mô phỏng đã ingest với dữ liệu cảm biến phần cứng.
 - Nói rõ backend source không nằm trong phạm vi audit.
 - Khi endpoint hiển thị empty, kiểm tra loading/error/fallback trước khi diễn giải.
 

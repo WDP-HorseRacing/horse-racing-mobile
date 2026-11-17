@@ -6,14 +6,12 @@ import { AsyncStateView, SectionTitle } from "@/components/common";
 import { Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { radius, space } from "@/config/theme";
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 import type { stableCareService } from "@/services/stable-care.service";
-import { Info } from "./HorseTabHelpers";
 
 export type HorseCostsTabProps = {
   horseId: string;
   roleId: RoleId;
-  isRealData: boolean;
   medicalResource: {
     isLoading: boolean;
     error: unknown;
@@ -31,26 +29,11 @@ export type HorseCostsTabProps = {
 export function HorseCostsTab({
   horseId,
   roleId,
-  isRealData,
   medicalResource,
   surchargesResource,
 }: HorseCostsTabProps) {
   const { colors } = useTheme();
   const uiStyles = getUiStyles(colors);
-
-  if (!isRealData) {
-    return (
-      <Info
-        title="Cost of ownership"
-        items={[
-          ["Training / month", "$3,400"],
-          ["Medical / month", "$820"],
-          ["Feed & bedding", "$610"],
-          ["Prize earnings YTD", "$41,500"],
-        ]}
-      />
-    );
-  }
 
   return (
     <>

@@ -13,15 +13,12 @@ import { formatEnum, formatWeight } from "@/utils/formatters";
 import { formatToDdMmYyyy } from "@/utils/horse-validation";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { horseService } from "@/services/horse.service";
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 import { Info } from "./HorseTabHelpers";
 
 export type HorseOverviewTabProps = {
-  horseId: string;
   roleId: RoleId;
-  isRealData: boolean;
   horseData: any;
-  mockHorse: any;
   token: string | null;
   pedigreeResource: {
     isLoading: boolean;
@@ -41,20 +38,15 @@ export type HorseOverviewTabProps = {
     } | null;
   };
   onHorseRefresh: () => Promise<unknown>;
-  onSelectTab: (tab: string) => void;
 };
 
 export function HorseOverviewTab({
-  horseId,
   roleId,
-  isRealData,
   horseData,
-  mockHorse,
   token,
   pedigreeResource,
   permissionsResource,
   onHorseRefresh,
-  onSelectTab,
 }: HorseOverviewTabProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -86,51 +78,6 @@ export function HorseOverviewTab({
       setSavingAptitude(false);
     }
   };
-
-  if (!isRealData) {
-    return (
-      <>
-        <Info
-          title="Identity & pedigree"
-          items={[
-            ["Sire", mockHorse.sire],
-            ["Dam", mockHorse.dam],
-            ["Age", `${mockHorse.age} years`],
-            ["Weight", mockHorse.weight ? formatWeight(mockHorse.weight) : "—"],
-            ["Breed", mockHorse.breed],
-            ["Stall", mockHorse.stall],
-          ]}
-        />
-        <Panel style={{ gap: 8, marginTop: 4 }}>
-          <View style={uiStyles.row}>
-            <Text style={[uiStyles.value, { fontSize: 14 }]}>Dữ liệu thể lực & hiệu suất</Text>
-            <Pressable onPress={() => onSelectTab("Performance")}>
-              <Text style={{ ...uiStyles.label, color: colors.primary, fontWeight: "700" }}>
-                Xem tab Hiệu suất →
-              </Text>
-            </Pressable>
-          </View>
-          <Text style={uiStyles.muted}>
-            Dữ liệu tốc độ, nhịp tim và tổng kết buổi tập từ backend được hiển thị chi tiết trong tab Hiệu suất.
-          </Text>
-        </Panel>
-        {roleId === "manager" ? (
-          <>
-            <PrimaryButton
-              label="Edit horse profile"
-              icon="create-outline"
-              onPress={() => router.push(`/manager/edit-horse/${mockHorse.id}`)}
-            />
-            <PrimaryButton
-              label="Manage ownership"
-              icon="people-outline"
-              onPress={() => router.push(`/manager/owners/${mockHorse.id}`)}
-            />
-          </>
-        ) : null}
-      </>
-    );
-  }
 
   return (
     <>

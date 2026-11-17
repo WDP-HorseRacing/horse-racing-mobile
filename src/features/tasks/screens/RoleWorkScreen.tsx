@@ -134,18 +134,7 @@ async function loadRoleWork(token: string, role: RoleId): Promise<WorkPayload> {
     case "trainer":
       return { role, sessions: await trainingService.listAllVisibleSessions(token) };
     case "vet":
-      return {
-        role,
-        dashboard: await medicalService.getDashboard(token).catch(() => ({
-          herd: { counts: { QUARANTINED: 0, INJURED: 0, UNDER_OBSERVATION: 0, ELIGIBLE: 0 }, horses: [] },
-          checkups: [],
-          careSchedules: [],
-          openCases: [],
-          horsesWithoutCase: [],
-          todayPrescriptions: [],
-          pendingRequests: [],
-        })),
-      };
+      return { role, dashboard: await medicalService.getDashboard(token) };
     case "manager": {
       const [horses, staff, items, requests] = await Promise.all([
         horseService.list(token),

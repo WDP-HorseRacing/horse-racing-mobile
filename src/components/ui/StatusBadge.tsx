@@ -1,6 +1,6 @@
 import { View, StyleSheet } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
-import type { HorseStatus } from "@/lib/raceos-data";
+import type { HorseStatus } from "@/types/raceos";
 import { radius } from "@/config/theme";
 import { useTheme } from "@/hooks/useTheme";
 import { formatEnum } from "@/utils/formatters";

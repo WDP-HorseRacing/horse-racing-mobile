@@ -1,6 +1,13 @@
 # 13 — Hạn chế, rủi ro và điểm cần kiểm chứng
 
-Phân loại ở đây tránh gọi mọi khả năng là bug. **Confirmed** nghĩa là đặc tính có bằng chứng trong mobile source; **Potential** là rủi ro có điều kiện cần tái hiện; **Cannot verify** cần backend, thiết bị hoặc hạ tầng ngoài repo. Không sửa source trong lần audit này.
+Phân loại ở đây tránh gọi mọi khả năng là bug. **Confirmed** nghĩa là đặc tính có bằng chứng trong mobile source; **Potential** là rủi ro có điều kiện cần tái hiện; **Cannot verify** cần backend, thiết bị hoặc hạ tầng ngoài repo. Các mục về fixture và live chart trong lần audit trước đã được xử lý ngày 18/11/2026 và không còn nằm trong bảng tồn đọng.
+
+### Đã xử lý — nguồn dữ liệu mẫu
+
+- Xóa fixture nghiệp vụ, fallback ID mẫu, live chart hardcoded và route workflow dùng `flowSteps`.
+- Hồ sơ/khám yêu cầu ID UUID từ backend; ID không hợp lệ quay về danh sách/workspace tương ứng.
+- Giữ simulator telemetry trong luồng buổi tập; simulator tạo metric cục bộ và gửi ingest lên backend.
+- Access Control hiện báo chưa có API đọc/ghi cấu hình quyền; không còn danh sách quyền mẫu hay nút lưu state cục bộ.
 
 ## 1. Ưu tiên cao — dữ liệu y tế và tính liên tục của marker
 
@@ -24,8 +31,6 @@ Phân loại ở đây tránh gọi mọi khả năng là bug. **Confirmed** ngh
 | Mức | Phân loại | Bằng chứng | Tác động có thể có | Hướng xử lý để nhóm cân nhắc |
 |---|---|---|---|---|
 | P2 | Confirmed | Dashboard tùy chọn bắt lỗi về `[]`/`0` | Empty state trông như kết quả hợp lệ dù API lỗi | Phân biệt partial failure với giá trị rỗng; log endpoint nào lỗi; hiển thị banner trạng thái |
-| P2 | Confirmed | `app/[role]/live/[id].tsx` có hardcoded `liveSeries` và timer | Người xem có thể nhầm demo với telemetry thật | Đánh nhãn demo trong UI hoặc thay bằng realtime API nếu sản phẩm yêu cầu |
-| P2 | Confirmed | Một số hồ sơ/legacy dashboard/prototype trộn fixture/local state và API | Khó biết dữ liệu nào authoritative trong demo và bảo vệ | Tách nhánh fixture rõ, đánh dấu sample data, bỏ legacy route/component nếu không còn dùng |
 | P2 | Confirmed pattern | `trainingService.listAllVisibleSessions` tải session cho từng horse | Nhiều request và độ trễ tăng theo danh sách horse | Batch/aggregate endpoint, giới hạn concurrency, pagination hợp lý; đo thực tế |
 | P2 | Confirmed | `apiRequest<T>` parse JSON nhưng không validate schema runtime tổng quát | Shape mismatch có thể gây lỗi sâu ở UI | Dùng validator cho payload critical hoặc defensive normalization; ghi contract version |
 | P2 | Confirmed | Generation guard bỏ stale state update nhưng không abort request cũ | Request thừa và tiêu thụ băng thông khi search/filter đổi nhanh | Kết nối AbortSignal cho resource hook; hủy khi request bị thay thế/unmount |
@@ -81,6 +86,6 @@ Các mục sau là **not found in mobile source**, không phải kết luận ba
 
 1. Nắm chính xác luồng medical record và sidecar marker.
 2. Phân biệt AuthRouteGate với backend authorization.
-3. Nhận diện live mock, simulator và API-backed dashboard.
+3. Phân biệt API-backed dashboard với telemetry simulator được ingest lên backend.
 4. Mô tả lỗi/fallback mà không gọi empty state là dữ liệu thật.
 5. Trình bày các điểm backend chưa kiểm chứng như câu hỏi mở, không suy đoán.

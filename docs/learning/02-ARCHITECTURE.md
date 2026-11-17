@@ -61,7 +61,6 @@ flowchart LR
   app --> components
   contexts[src/context] --> services
   contexts --> storage[AsyncStorage]
-  mocks[src/data/fixtures] -. prototype/fallback .-> app
 ~~~
 
 Một dấu hiệu kiến trúc quan trọng: chiều phụ thuộc không hoàn toàn một chiều. AuthContext gọi authService; feature gọi service; service dùng adapter types; một số adapters import service DTO. Không thấy DI container để thay service theo môi trường hoặc test fake một cách xuyên suốt.
@@ -84,9 +83,9 @@ Ví dụ trước/sau:
 
 Hook không hủy request mạng khi có request mới; nó chỉ bỏ qua response cũ. Offline cache hay mutation queue không được triển khai ở hook này.
 
-### Form và prototype state
+### Form và local UI state
 
-Các form dùng `useState` ngay trong screen. `AuthContext` là state dùng chung cho session; `I18nContext` cho language. Fixture demo được lưu tĩnh trong `src/data/fixtures` và không còn được bọc trong context toàn app.
+Các form dùng `useState` ngay trong screen. `AuthContext` là state dùng chung cho session; `I18nContext` cho language. Source không còn bộ fixture nghiệp vụ; simulator telemetry là ngoại lệ và gửi metric được tạo tới API backend.
 
 ## 6. Navigation và role gate
 

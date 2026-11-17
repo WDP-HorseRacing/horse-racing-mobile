@@ -102,7 +102,7 @@ Nếu bỏ API client, mỗi service phải lặp header, timeout, parse, auth r
 ### B. File structure
 
 - app/[role]/horses.tsx — tìm kiếm/filter/sort danh sách.
-- app/[role]/horse/[id].tsx — hồ sơ nhiều tab, API + một số fixture fallback.
+- app/[role]/horse/[id].tsx — hồ sơ nhiều tab, chỉ tải hồ sơ bằng API; ID không phải UUID quay về horse list.
 - app/[role]/horse/[id]/measurements.tsx, ownership.tsx, placement.tsx.
 - app/manager/register-horse.tsx, edit-horse/[id].tsx, lifecycle/[id].tsx.
 - src/services/horse.service.ts, stable.service.ts, users.service.ts.
@@ -277,13 +277,13 @@ Trainer đọc plans/classes/sessions → chọn class/participant → groom che
 - performanceService.ingestMetric POST sourceId/recordedAt/heartRateBpm/speedMps.
 - subscribeToPerformanceMetrics kết nối /events, truyền token trong Socket.IO auth, chỉ nhận event shape hợp lệ, reconnect với delay.
 - sensor-simulator.ts tự tạo data bình thường 135–159 bpm; sendHeartRateSpike dùng 248 bpm. Đây là simulator IoT, không phải đọc cảm biến phần cứng.
-- app/[role]/live/[id].tsx là route demo fixture khác với ParticipantPerformanceView realtime-backed.
+- Route live chart dùng fixture đã bị gỡ. ParticipantPerformanceView và TrainingSessionDetailScreen giữ simulator telemetry có ingest lên backend.
 
 ### E. Knowledge foundation
 
 **WebSocket/realtime:** giữ kết nối để server push event, khác request REST chỉ trả lời khi client hỏi. Trong source: Socket.IO performance.metrics. Hội đồng có thể hỏi reconnect có không: có, reconnect bật với delay cấu hình.
 
-**Simulator:** tạo dữ liệu giả theo code để demo/kiểm tra luồng. Trong source startSimulation gọi local onTick rồi gửi ingest bất đồng bộ nếu có token. Không khẳng định đang đọc thiết bị IoT thật.
+**Simulator:** tạo telemetry theo code để kiểm tra luồng. Trong source startSimulation gọi local onTick rồi gửi ingest bất đồng bộ nếu có token. Không khẳng định đang đọc thiết bị IoT thật.
 
 **State transition:** ParticipantStatus là trạng thái người tham gia buổi tập. UI map trạng thái sang planned/in_progress/completed/cancelled/ineligible. Nguyên nhân lock injury phía server phải xác minh backend.
 

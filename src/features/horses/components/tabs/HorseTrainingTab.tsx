@@ -7,7 +7,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/context/I18nContext";
 import { formatDistance, formatDurationMs } from "@/utils/formatters";
 import type { trainingService } from "@/services/training.service";
-import type { RoleId } from "@/lib/raceos-data";
+import type { RoleId } from "@/types/raceos";
 
 export type HorseTrainingTabProps = {
   trainingResource: {
@@ -17,15 +17,13 @@ export type HorseTrainingTabProps = {
     retry: () => void | Promise<unknown>;
   };
   roleId: RoleId;
-  horseLifecycleStatus?: string;
-  isUuidId: boolean;
+  horseLifecycleStatus: string;
 };
 
 export function HorseTrainingTab({
   trainingResource,
   roleId,
   horseLifecycleStatus,
-  isUuidId,
 }: HorseTrainingTabProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
@@ -54,7 +52,7 @@ export function HorseTrainingTab({
                   sessionType: session.type === "time_trial" ? "TIME_TRIAL" : "REGULAR",
                   sessionStatus: session.sessionStatus,
                   participantStatus: session.participantStatus,
-                  horseLifecycle: horseLifecycleStatus ?? "ACTIVE",
+                  horseLifecycle: horseLifecycleStatus,
                 });
                 router.push(
                   `/trainer/participant/${session.participantId}?${params.toString()}` as Href,
@@ -111,14 +109,6 @@ export function HorseTrainingTab({
           onRetry={() => undefined}
           empty
           emptyLabel="This horse has no class sessions."
-        />
-      ) : !trainingResource.isLoading && !trainingResource.error && !isUuidId ? (
-        <AsyncStateView
-          isLoading={false}
-          error={null}
-          onRetry={() => undefined}
-          empty
-          emptyLabel="Danh sách buổi tập được đồng bộ cho các hồ sơ ngựa của câu lạc bộ."
         />
       ) : null}
     </>

@@ -13,7 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApiResource } from "@/hooks/useApiResource";
 import { AsyncStateView } from "@/components/common/AsyncStateView";
 import { horseService, type HorseListFilters } from "@/services/horse.service";
-import { mapHorseSummary, mapHorseSummaryToPrototype } from "@/adapters/horse.adapter";
+import { mapHorseSummary } from "@/adapters/horse.adapter";
 import { stableService } from "@/services/stable.service";
 import { filterHorsesBySearch } from "@/utils/horse-validation";
 import { useI18n } from "@/context/I18nContext";
@@ -208,10 +208,9 @@ export function HorseListScreen() {
                   : t(item.location.placementStatus);
           return (
             <HorseRow
-              horse={mapHorseSummaryToPrototype(summary)}
+              horse={summary}
               role={role}
               photoUrl={item.photoUrl}
-              horseId={item.id}
               location={location}
               aptitude={item.raceAptitude}
               lifecycleStatus={item.isDeleted ? "DELETED" : item.lifecycleStatus}

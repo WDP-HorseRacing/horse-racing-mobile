@@ -1,4 +1,4 @@
-import type { Horse, HorseStatus } from "@/types/raceos";
+import type { HorseStatus } from "@/types/raceos";
 
 export type HorseHealthStatusDto = "ELIGIBLE" | "UNDER_OBSERVATION" | "INJURED" | "QUARANTINED";
 
@@ -125,16 +125,16 @@ export type HorsePedigreeDto = {
 export type HorseSummary = {
   id: string;
   name: string;
-  age: number;
-  breed: string;
-  gender: string;
+  age: number | null;
+  breed: string | null;
+  gender: string | null;
   healthStatus: HorseHealthStatusDto;
   status: HorseStatus;
-  barnName: string;
-  stallCode: string;
+  barnName: string | null;
+  stallCode: string | null;
   lifecycleStatus: string;
-  color: string;
-  raceAptitude: string;
+  color: string | null;
+  raceAptitude: string | null;
 };
 
 export type HorseSummaryDto = HorseSummary;
@@ -143,70 +143,16 @@ export function mapHorseSummary(horse: HorseListItemDto): HorseSummary {
   return {
     id: horse.id,
     name: horse.name,
-    age: horse.dateOfBirth ? ageFromDateOfBirth(horse.dateOfBirth) : 0,
-    breed: horse.breed ?? "—",
-    gender: horse.gender ?? "—",
+    age: horse.dateOfBirth ? ageFromDateOfBirth(horse.dateOfBirth) : null,
+    breed: horse.breed,
+    gender: horse.gender,
     healthStatus: horse.healthStatus,
     status: mapHealthStatus(horse.healthStatus),
-    barnName: horse.location?.barn?.name ?? "Not assigned",
-    stallCode: horse.location?.stall?.code ?? "Not assigned",
+    barnName: horse.location?.barn?.name ?? null,
+    stallCode: horse.location?.stall?.code ?? null,
     lifecycleStatus: horse.lifecycleStatus,
-    color: horse.color ?? "—",
-    raceAptitude: horse.raceAptitude ?? "—",
-  };
-}
-
-export function mapHorseSummaryToPrototype(horse: HorseSummary): Horse {
-  return {
-    id: horse.id,
-    name: horse.name,
-    age: horse.age,
-    breed: horse.breed,
-    sex: horse.gender,
-    weight: 0,
-    stall: horse.stallCode,
-    status: horse.status,
-    fitness: 0,
-    readiness: horse.status === "FIT" ? "High" : "Low",
-    raceAptitude:
-      horse.raceAptitude === "SPRINTER" || horse.raceAptitude === "STAYER"
-        ? horse.raceAptitude
-        : "MILER",
-    phase: horse.lifecycleStatus,
-    lastSession: `${horse.barnName} · ${horse.raceAptitude}`,
-    owner: "—",
-    alerts: 0,
-    hr: 0,
     color: horse.color,
-    sire: "—",
-    dam: "—",
-  };
-}
-
-export function mapHorseDetailToPrototype(horse: HorseDetailDto): Horse {
-  const weight =
-    horse.latestMeasurements.find((measurement) => measurement.type === "WEIGHT")?.value ?? 0;
-  const age = horse.dateOfBirth ? ageFromDateOfBirth(horse.dateOfBirth) : 0;
-  return {
-    id: horse.id,
-    name: horse.name,
-    age,
-    breed: horse.breed ?? "—",
-    sex: horse.gender ?? "—",
-    weight,
-    stall: horse.location?.stall?.code ?? "Not assigned",
-    status: horse.activeTrainingLock ? "LOCKED" : mapHealthStatus(horse.healthStatus),
-    fitness: 0,
-    readiness: horse.eligibility.trainingEligible ? "High" : "Low",
-    raceAptitude: horse.raceAptitude ?? "MILER",
-    phase: "—",
-    lastSession: "Training sessions from backend",
-    owner: horse.owner?.fullName ?? "Unassigned",
-    alerts: 0,
-    hr: 0,
-    color: horse.color ?? "—",
-    sire: horse.sireId ?? "—",
-    dam: horse.damId ?? "—",
+    raceAptitude: horse.raceAptitude,
   };
 }
 
@@ -223,7 +169,7 @@ export function mapHealthStatus(status: HorseHealthStatusDto): HorseStatus {
   }
 }
 
-function ageFromDateOfBirth(dateOfBirth: string): number {
+export function ageFromDateOfBirth(dateOfBirth: string): number {
   const born = new Date(`${dateOfBirth}T00:00:00`);
   const today = new Date();
   let age = today.getFullYear() - born.getFullYear();
