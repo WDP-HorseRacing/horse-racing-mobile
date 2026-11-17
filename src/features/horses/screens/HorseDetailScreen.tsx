@@ -44,6 +44,9 @@ import { stableCareService } from "@/services/stable-care.service";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { formatToDdMmYyyy } from "@/utils/horse-validation";
 import { HorseMeasurementsView } from "@/features/horses/components/HorseMeasurementsView";
+import { HorseTimelineTab } from "@/features/horses/components/tabs/HorseTimelineTab";
+import { HorseTrainingTab } from "@/features/horses/components/tabs/HorseTrainingTab";
+import { HorseNutritionTab } from "@/features/horses/components/tabs/HorseNutritionTab";
 
 const tabsByRole: Record<RoleId, string[]> = {
   trainer: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance"],
@@ -1002,94 +1005,12 @@ export function HorseDetailScreen() {
         </>
       ) : null}
       {visibleTab === "Training" ? (
-        <>
-          <AsyncStateView
-            isLoading={trainingResource.isLoading}
-            error={trainingResource.error}
-            onRetry={() => void trainingResource.retry()}
-          />
-          {trainingResource.data?.length ? (
-            <View style={uiStyles.section}>
-              <SectionTitle>Class sessions</SectionTitle>
-              {trainingResource.data.map((session) => (
-                <Pressable
-                  key={session.id}
-                  disabled={roleId !== "trainer"}
-                  onPress={() => {
-                    const params = new URLSearchParams({
-                      horse: session.horseName,
-                      session: session.title,
-                      classId: session.classId,
-                      sessionId: session.sessionId,
-                      sessionType: session.type === "time_trial" ? "TIME_TRIAL" : "REGULAR",
-                      sessionStatus: session.sessionStatus,
-                      participantStatus: session.participantStatus,
-                      horseLifecycle: horseResource.data?.lifecycleStatus ?? "ACTIVE",
-                    });
-                    router.push(`/trainer/participant/${session.participantId}?${params.toString()}` as Href);
-                  }}
-                >
-                  <Panel>
-                    <View style={uiStyles.row}>
-                      <View style={styles.flex}>
-                        <Text style={uiStyles.value} numberOfLines={1}>
-                          {session.title}
-                        </Text>
-                        <Text style={uiStyles.muted} numberOfLines={1}>
-                          {session.className} · {session.planName}
-                        </Text>
-                      </View>
-                      <Text style={[uiStyles.label, { flexShrink: 0 }]}>
-                        {session.status === "cancelled_by_lock"
-                          ? t("Cancelled by training lock")
-                          : session.status === "ineligible"
-                            ? t("Not eligible")
-                            : session.status.replaceAll("_", " ")}
-                      </Text>
-                    </View>
-                    <Text style={uiStyles.muted}>
-                      {session.scheduledStartLabel}
-                      {session.distanceM == null ? "" : ` · ${formatDistance(session.distanceM)}`}
-                      {session.surface ? ` · ${session.surface}` : ""}
-                    </Text>
-                    {session.cancelReason ? (
-                      <Text style={uiStyles.muted}>{session.cancelReason}</Text>
-                    ) : null}
-                    {session.trials.length ? (
-                      <Text style={uiStyles.label}>
-                        Trial: {session.trials.map((trial) => trial.elapsedLabel).join(" · ")}
-                      </Text>
-                    ) : null}
-                    {session.targetTimeMs != null ? (
-                      <Text style={uiStyles.label}>
-                        Target {formatDurationMs(session.targetTimeMs)}
-                      </Text>
-                    ) : null}
-                    {session.evaluation?.comment ? (
-                      <Text style={uiStyles.muted}>{session.evaluation.comment}</Text>
-                    ) : null}
-                  </Panel>
-                </Pressable>
-              ))}
-            </View>
-          ) : trainingResource.data ? (
-            <AsyncStateView
-              isLoading={false}
-              error={null}
-              onRetry={() => undefined}
-              empty
-              emptyLabel="This horse has no class sessions."
-            />
-          ) : !trainingResource.isLoading && !trainingResource.error && !isUuid(id) ? (
-            <AsyncStateView
-              isLoading={false}
-              error={null}
-              onRetry={() => undefined}
-              empty
-              emptyLabel="Danh sách buổi tập được đồng bộ cho các hồ sơ ngựa của câu lạc bộ."
-            />
-          ) : null}
-        </>
+        <HorseTrainingTab
+          trainingResource={trainingResource}
+          roleId={roleId}
+          horseLifecycleStatus={horseResource.data?.lifecycleStatus}
+          isUuidId={isUuid(id)}
+        />
       ) : null}
       {visibleTab === "Care" && horseResource.data ? (
         <>
@@ -1582,145 +1503,11 @@ export function HorseDetailScreen() {
 
       {/* SECTION: Dinh dưỡng & Chăm sóc chuồng (Nutrition Tab) */}
       {(visibleTab === "Nutrition" || (roleId === "groom" && visibleTab === "Care")) && horseResource.data ? (
-        <View style={{ gap: space.md }}>
-          {/* Quick Access: Chuồng trại & Dinh dưỡng */}
-          <View style={uiStyles.section}>
-            <SectionTitle>Chăm sóc chuồng trại & Dinh dưỡng</SectionTitle>
-            <View style={{ gap: space.sm }}>
-              <Pressable
-                onPress={() =>
-                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Feeding plan` as Href)
-                }
-                style={styles.actionGridTile}
-              >
-                <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
-                  <Ionicons name="leaf-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.actionGridTitle}>Khẩu phần & Kế hoạch dinh dưỡng</Text>
-                  <Text style={styles.actionGridSubtitle} numberOfLines={1}>
-                    Xem lịch ăn 4 bữa & khẩu phần ngũ cốc, cỏ khô
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
-              </Pressable>
-
-              <Pressable
-                onPress={() =>
-                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Care tasks` as Href)
-                }
-                style={styles.actionGridTile}
-              >
-                <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(59, 130, 246, 0.12)" }]}>
-                  <Ionicons name="calendar-outline" size={20} color="#3B82F6" />
-                </View>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.actionGridTitle}>Nhiệm vụ chăm sóc định kỳ</Text>
-                  <Text style={styles.actionGridSubtitle} numberOfLines={1}>
-                    Chải lông, tắm rửa, kiểm tra móng & xoa bóp
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
-              </Pressable>
-
-              {["manager", "trainer", "groom"].includes(roleId) ? (
-                <Pressable
-                  onPress={() =>
-                    router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Daily checklist` as Href)
-                  }
-                  style={styles.actionGridTile}
-                >
-                  <View style={[styles.actionGridIconWrap, { backgroundColor: "rgba(245, 158, 11, 0.12)" }]}>
-                    <Ionicons name="checkbox-outline" size={20} color="#F59E0B" />
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.actionGridTitle}>Checklist chăm sóc hàng ngày</Text>
-                    <Text style={styles.actionGridSubtitle} numberOfLines={1}>
-                      Điểm danh & xác nhận công việc chuồng
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Care Surcharges (Phụ phí chăm sóc) */}
-          {["manager", "trainer", "owner"].includes(roleId) ? (
-            <View style={uiStyles.section}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <SectionTitle>Phụ phí chăm sóc đặc biệt</SectionTitle>
-                <Pressable
-                  onPress={() =>
-                    router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
-                  }
-                >
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
-                    Quản lý phụ phí →
-                  </Text>
-                </Pressable>
-              </View>
-
-              <AsyncStateView
-                isLoading={surchargesResource.isLoading}
-                error={surchargesResource.error}
-                onRetry={() => void surchargesResource.retry()}
-                empty={
-                  !surchargesResource.isLoading &&
-                  !surchargesResource.error &&
-                  (surchargesResource.data?.length ?? 0) === 0
-                }
-                emptyLabel="Không có phụ phí chăm sóc nào đang áp dụng cho ngựa này."
-              />
-
-              {(surchargesResource.data ?? []).map((surcharge) => (
-                <Panel key={surcharge.id} style={{ gap: space.xs, padding: space.md }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-                      <View
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
-                          backgroundColor: "rgba(16, 185, 129, 0.12)",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Ionicons name="cash-outline" size={18} color={colors.primary} />
-                      </View>
-                      <Text style={[uiStyles.value, { fontSize: 14 }]} numberOfLines={1}>
-                        {surcharge.description}
-                      </Text>
-                    </View>
-                    <Text style={{ fontSize: 14, fontWeight: "800", color: colors.primary }}>
-                      {surcharge.dailyAmount.toLocaleString("vi-VN")} đ / ngày
-                    </Text>
-                  </View>
-
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                    <Ionicons name="calendar-outline" size={12} color={colors.mutedForeground} />
-                    <Text style={uiStyles.muted}>
-                      {surcharge.startDate} → {surcharge.endDate}
-                    </Text>
-                    <Text style={uiStyles.muted}>·</Text>
-                    <Text style={uiStyles.muted}>
-                      {surcharge.appliedByName ? `Bởi ${surcharge.appliedByName}` : "Chờ duyệt"}
-                    </Text>
-                  </View>
-                </Panel>
-              ))}
-
-              <PrimaryButton
-                label={roleId === "manager" ? "Thêm hoặc điều chỉnh phụ phí" : "Xem chi tiết phụ phí"}
-                icon="cash-outline"
-                onPress={() =>
-                  router.push(`/${roleId}/horse/${horse.id}/stable-care?tab=Surcharges` as Href)
-                }
-              />
-            </View>
-          ) : null}
-        </View>
+        <HorseNutritionTab
+          horseId={horse.id}
+          roleId={roleId}
+          surchargesResource={surchargesResource}
+        />
       ) : null}
       {visibleTab === "Injuries" && horseResource.data ? (
         <>
@@ -2538,36 +2325,7 @@ export function HorseDetailScreen() {
         </View>
       ) : null}
       {visibleTab === "Timeline" && roleId === "manager" && horseResource.data ? (
-        <View style={uiStyles.section}>
-          <SectionTitle>Horse activity</SectionTitle>
-          <AsyncStateView
-            isLoading={auditResource.isLoading}
-            error={auditResource.error}
-            onRetry={() => void auditResource.retry()}
-            empty={Boolean(auditResource.data && auditResource.data.length === 0)}
-            emptyLabel="No audit activity is recorded for this horse."
-          />
-          {auditResource.data?.length ? (
-            <Panel>
-              {auditResource.data.map((entry, index) => (
-                <TimelineItem
-                  key={entry.id}
-                  time={formatDateTime(entry.createdAt)}
-                  title={`${entry.action} · ${formatEnum(entry.entityType)}`}
-                  detail={[
-                    entry.actor?.fullName ?? "System",
-                    entry.feature ? formatEnum(entry.feature) : null,
-                    entry.reason,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                  tone={index === 0 ? colors.primary : colors.training}
-                  last={index === (auditResource.data?.length ?? 0) - 1}
-                />
-              ))}
-            </Panel>
-          ) : null}
-        </View>
+        <HorseTimelineTab auditResource={auditResource} />
       ) : null}
     </Screen>
   );
