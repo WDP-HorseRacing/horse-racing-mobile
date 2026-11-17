@@ -27,7 +27,7 @@ Route gate lọc navigation; permission DTO điều khiển tabs/actions. Đây 
 
 ### Dữ liệu nào thật và dữ liệu nào demo?
 
-Service gọi API là tích hợp theo contract. `RaceOSContext`, fixtures, live hardcoded series và simulator là local/demo. Một màn có thể trộn: ví dụ hồ sơ horse UUID dùng API nhưng một số chart/fallback còn fixture.
+Service gọi API là tích hợp theo contract. Fixtures, live hardcoded series và simulator là local/demo. Một màn có thể trộn: ví dụ hồ sơ horse UUID dùng API nhưng một số chart/fallback còn fixture.
 
 ### Vì sao dùng local AsyncStorage cho một số dữ liệu?
 
@@ -151,13 +151,13 @@ Mỗi câu dưới đây có đáp án mẫu, giải thích, code evidence, câu
 
 **Question:** App dùng Redux để giữ state à?
 
-**Short Answer:** Không thấy Redux trong source audit; dùng React local state, Auth/I18n/RaceOS Context và `useApiResource` cho một số API-backed state.
+**Short Answer:** Không thấy Redux trong source audit; dùng React local state, Auth/I18n Context và `useApiResource` cho một số API-backed state.
 
-**Detailed Explanation:** AuthContext là session dùng chung, I18nContext là locale, RaceOSContext là prototype in-memory; hook có data/loading/error cho resource. Những cơ chế có scope/lifetime khác nhau.
+**Detailed Explanation:** AuthContext là session dùng chung, I18nContext là locale; hook có data/loading/error cho resource. Form state cục bộ gắn với vòng đời của screen.
 
-**Code Evidence:** `src/context/AuthContext.tsx`; `src/context/I18nContext.tsx`; `src/context/RaceOSContext.tsx`; `src/hooks/useApiResource.ts`.
+**Code Evidence:** `src/context/AuthContext.tsx`; `src/context/I18nContext.tsx`; `src/hooks/useApiResource.ts`.
 
-**Follow-up Questions:** RaceOSContext có sống qua app restart không? → không thấy persistence; nó là state trong RAM.
+**Follow-up Questions:** Form state cục bộ có sống sau khi đóng screen không? → không; nó theo vòng đời component.
 
 **Common Mistakes:** Gọi Context là database hoặc nói toàn bộ API response nằm trong một global store.
 

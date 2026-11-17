@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,17 +15,13 @@ import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, Screen, SectionTitle } from "@/components/common";
 import {
   Chips,
-  DangerButton,
   Field,
   Metric,
   NativeInput,
   Panel,
-  PrimaryButton,
   ProgressBar,
-  SecondaryButton,
   getUiStyles,
 } from "@/components/ui";
-import { radius, space } from "@/config/theme";
 import {
   supplyCategoryLabel,
   supplyRequestStatusLabel,
@@ -48,6 +43,9 @@ import { SupplyDetailsModal } from "../components/modals/SupplyDetailsModal";
 import { RecordSupplyUseModal } from "../components/modals/RecordSupplyUseModal";
 import { ProposeRestockModal } from "../components/modals/ProposeRestockModal";
 import { SupplyManagerActionModal } from "../components/modals/SupplyManagerActionModal";
+import { ManagerSuppliesView } from "../components/supplies/ManagerSuppliesView";
+import { StaffSuppliesView } from "../components/supplies/StaffSuppliesView";
+import { getSuppliesStyles } from "./supplies.styles";
 
 type ScreenMode =
   | "item-create"
@@ -106,7 +104,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
   const ui = getUiStyles(colors);
   const { t } = useI18n();
   const { token } = useAuth();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const styles = useMemo(() => getSuppliesStyles(colors), [colors]);
 
   const isManager = role === "manager";
   const canUse = EMPLOYEE_ROLES.includes(role as (typeof EMPLOYEE_ROLES)[number]);
@@ -309,7 +307,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
       {tab === "Stock" ? (
         <>
           {isManager ? (
-            <PrimaryButton label="Add supply" icon="add" onPress={() => openItemForm()} />
+            <ManagerSuppliesView mode="add" onAdd={() => openItemForm()} />
           ) : null}
 
           {/* Search Field */}
@@ -428,46 +426,29 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                   {/* Action Area: 2-Tier Modern Layout */}
                   <View style={styles.cardActionsContainer}>
                     {/* TIER 1: Stock Movements */}
-                    <View style={styles.cardMovementRow}>
-                      {canUse ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={t("Use")}
-                          onPress={() => openMovement(item, "use")}
-                          style={[
-                            styles.useActionBtn,
-                            { flex: 1 },
-                          ]}
-                        >
-                          <Ionicons
-                            name="remove-circle-outline"
-                            size={16}
-                            color={colors.foreground}
-                          />
-                          <Text style={styles.useActionBtnText} numberOfLines={1}>
-                            {t("Use")}
-                          </Text>
-                        </Pressable>
-                      ) : null}
-
-                      {!isManager && canRequest ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={t("Propose restock")}
-                          onPress={() => openRequest(item)}
-                          style={styles.requestActionBtn}
-                        >
-                          <Ionicons
-                            name="add-circle-outline"
-                            size={16}
-                            color={colors.primary}
-                          />
-                          <Text style={styles.requestActionBtnText} numberOfLines={1}>
-                            {t("Propose restock")}
-                          </Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
+                    {isManager ? (
+                      <ManagerSuppliesView
+                        mode="stock-actions"
+                        item={item}
+                        canUse={canUse}
+                        styles={styles}
+                        t={t}
+                        colors={colors}
+                        onUse={(supply) => openMovement(supply, "use")}
+                      />
+                    ) : (
+                      <StaffSuppliesView
+                        mode="stock-actions"
+                        item={item}
+                        canUse={canUse}
+                        canRequest={canRequest}
+                        styles={styles}
+                        colors={colors}
+                        t={t}
+                        onUse={(supply) => openMovement(supply, "use")}
+                        onPropose={(supply) => openRequest(supply)}
+                      />
+                    )}
 
                     {/* TIER 2: Management & Details */}
                     <View style={styles.cardManagementRow}>
@@ -488,39 +469,15 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                       </Pressable>
 
                       {isManager ? (
-                        <>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={t("Edit")}
-                            onPress={() => openItemForm(item)}
-                            style={styles.editActionBtn}
-                          >
-                            <Ionicons
-                              name="create-outline"
-                              size={15}
-                              color={colors.foreground}
-                            />
-                            <Text style={styles.editActionBtnText} numberOfLines={1}>
-                              {t("Edit")}
-                            </Text>
-                          </Pressable>
-
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={t("Delete")}
-                            onPress={() => removeItem(item)}
-                            style={styles.deleteActionBtn}
-                          >
-                            <Ionicons
-                              name="trash-outline"
-                              size={15}
-                              color={colors.destructive}
-                            />
-                            <Text style={styles.deleteActionBtnText} numberOfLines={1}>
-                              {t("Delete")}
-                            </Text>
-                          </Pressable>
-                        </>
+                        <ManagerSuppliesView
+                          mode="item-actions"
+                          item={item}
+                          styles={styles}
+                          t={t}
+                          colors={colors}
+                          onEdit={openItemForm}
+                          onDelete={removeItem}
+                        />
                       ) : null}
                     </View>
                   </View>
@@ -660,55 +617,34 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                 ) : null}
 
                 {/* Manager Actions */}
-                {isManager && isPending ? (
-                  <View style={styles.requestActionRow}>
-                    <PrimaryButton
-                      label="Approve"
-                      icon="checkmark"
-                      style={{ flex: 1 }}
-                      onPress={() => void requestAction(request, "APPROVED")}
-                    />
-                    <DangerButton
-                      label="Reject"
-                      icon="close"
-                      style={{ flex: 1 }}
-                      onPress={() => {
-                        setSelectedRequest(request);
-                        setMode("reject");
-                      }}
-                    />
-                  </View>
-                ) : null}
-
-                {isManager && isApproved ? (
-                  <View style={styles.requestActionRow}>
-                    <PrimaryButton
-                      label="Confirm issue"
-                      icon="cube-outline"
-                      style={{ flex: 1 }}
-                      onPress={() => {
-                        setSelectedRequest(request);
-                        setMode("fulfill");
-                      }}
-                    />
-                    <DangerButton
-                      label="Cancel request"
-                      icon="close"
-                      style={{ flex: 1 }}
-                      onPress={() => {
-                        setSelectedRequest(request);
-                        setMode("cancel-request");
-                      }}
-                    />
-                  </View>
+                {isManager ? (
+                  <ManagerSuppliesView
+                    mode="request-actions"
+                    request={request}
+                    styles={styles}
+                    onApprove={() => void requestAction(request, "APPROVED")}
+                    onReject={() => {
+                      setSelectedRequest(request);
+                      setMode("reject");
+                    }}
+                    onFulfill={() => {
+                      setSelectedRequest(request);
+                      setMode("fulfill");
+                    }}
+                    onCancel={() => {
+                      setSelectedRequest(request);
+                      setMode("cancel-request");
+                    }}
+                  />
                 ) : null}
 
                 {/* Groom Action: Edit pending request */}
-                {canRequest && isPending && request.requestedBy === request.requester.id ? (
-                  <SecondaryButton
-                    label="Edit pending request"
-                    icon="create-outline"
-                    onPress={() => openRequest(request.item, request)}
+                {!isManager ? (
+                  <StaffSuppliesView
+                    mode="request-actions"
+                    request={request}
+                    canRequest={canRequest}
+                    onEditRequest={(itemRequest) => openRequest(itemRequest.item, itemRequest)}
                   />
                 ) : null}
               </View>
@@ -780,700 +716,3 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
 // ====================================================================
 // STYLES
 // ====================================================================
-const getStyles = (colors: any) =>
-  StyleSheet.create({
-    // Tab bar
-    tabBar: {
-      flexDirection: "row",
-      borderRadius: radius.md,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 4,
-      gap: 4,
-    },
-    tabButton: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 10,
-      borderRadius: radius.sm,
-    },
-    tabButtonActive: {
-      backgroundColor: colors.fitSoft,
-    },
-    tabButtonText: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: colors.mutedForeground,
-    },
-    tabButtonTextActive: {
-      color: colors.primary,
-      fontWeight: "700",
-    },
-
-    // Supply Card
-    supplyCard: {
-      borderRadius: radius.md,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: space.md,
-      gap: 10,
-      marginBottom: space.sm,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 6,
-      elevation: 2,
-    },
-    supplyCardHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    categoryBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: radius.pill,
-    },
-    categoryBadgeText: {
-      fontSize: 11,
-      fontWeight: "700",
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-    },
-    statusBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      paddingHorizontal: 9,
-      paddingVertical: 5,
-      borderRadius: radius.pill,
-    },
-    statusBadgeGood: {
-      backgroundColor: colors.fitSoft,
-    },
-    statusBadgeLow: {
-      backgroundColor: colors.monitorSoft,
-    },
-    statusDot: {
-      width: 7,
-      height: 7,
-      borderRadius: 4,
-    },
-    statusBadgeText: {
-      fontSize: 11,
-      fontWeight: "700",
-    },
-    supplyCardMain: {
-      gap: 3,
-    },
-    supplyName: {
-      fontSize: 17,
-      fontWeight: "700",
-      color: colors.foreground,
-      letterSpacing: -0.2,
-    },
-    thresholdRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-    },
-    supplyThreshold: {
-      fontSize: 12,
-      color: colors.mutedForeground,
-      fontWeight: "500",
-    },
-    stockLevelContainer: {
-      backgroundColor: colors.elevated,
-      borderRadius: radius.sm,
-      padding: space.sm,
-      gap: 6,
-    },
-    stockLevelRow: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-    },
-    stockLevelQty: {
-      fontSize: 22,
-      fontWeight: "800",
-      color: colors.foreground,
-    },
-    stockLevelUnit: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: colors.mutedForeground,
-      marginLeft: 4,
-    },
-    stockLevelRatio: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.mutedForeground,
-    },
-
-    // Action buttons inside card - Modern 2-Tier Layout
-    cardActionsContainer: {
-      gap: 8,
-      paddingTop: space.xs,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    cardMovementRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    receiveActionBtn: {
-      flex: 1,
-      minHeight: 40,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 9,
-      paddingHorizontal: 8,
-      borderRadius: radius.sm,
-      backgroundColor: colors.fitSoft,
-      borderWidth: 1,
-      borderColor: colors.primary,
-    },
-    receiveActionBtnText: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.primary,
-    },
-    useActionBtn: {
-      flex: 1,
-      minHeight: 40,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 9,
-      paddingHorizontal: 8,
-      borderRadius: radius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    useActionBtnText: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.foreground,
-    },
-    requestActionBtn: {
-      flex: 1,
-      minHeight: 40,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 9,
-      paddingHorizontal: 8,
-      borderRadius: radius.sm,
-      backgroundColor: colors.fitSoft,
-      borderWidth: 1,
-      borderColor: colors.primary,
-    },
-    requestActionBtnText: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.primary,
-    },
-    cardManagementRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-    },
-    detailsActionBtn: {
-      flex: 1.3,
-      minHeight: 38,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      paddingVertical: 8,
-      paddingHorizontal: 8,
-      borderRadius: radius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    detailsActionBtnText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: colors.foreground,
-    },
-    editActionBtn: {
-      flex: 0.95,
-      minHeight: 38,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-      paddingVertical: 8,
-      paddingHorizontal: 6,
-      borderRadius: radius.sm,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    editActionBtnText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: colors.foreground,
-    },
-    deleteActionBtn: {
-      flex: 0.75,
-      minHeight: 38,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-      paddingVertical: 8,
-      paddingHorizontal: 6,
-      borderRadius: radius.sm,
-      backgroundColor: colors.injuredSoft,
-      borderWidth: 1,
-      borderColor: colors.destructive,
-    },
-    deleteActionBtnText: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.destructive,
-    },
-
-    // Request Card
-    requestCard: {
-      borderRadius: radius.md,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderLeftWidth: 4,
-      padding: space.md,
-      gap: space.sm,
-      marginBottom: space.sm,
-    },
-    requestCardHeader: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      gap: space.sm,
-    },
-    requestItemTitle: {
-      fontSize: 16,
-      fontWeight: "700",
-      color: colors.foreground,
-    },
-    requestQuantityBadge: {
-      fontSize: 14,
-      fontWeight: "700",
-      color: colors.primary,
-      marginTop: 2,
-    },
-    requestStatusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: radius.pill,
-    },
-    requestStatusText: {
-      fontSize: 11,
-      fontWeight: "700",
-      textTransform: "uppercase",
-    },
-    requestMetaRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-    },
-    requestMetaText: {
-      fontSize: 12,
-      color: colors.mutedForeground,
-    },
-    requestNoteBox: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 6,
-      padding: space.sm,
-      borderRadius: radius.sm,
-      backgroundColor: colors.muted,
-    },
-    requestNoteText: {
-      flex: 1,
-      fontSize: 13,
-      color: colors.foreground,
-      lineHeight: 18,
-    },
-    rejectionReasonBox: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 6,
-      padding: space.sm,
-      borderRadius: radius.sm,
-      backgroundColor: colors.injuredSoft,
-    },
-    rejectionReasonText: {
-      flex: 1,
-      fontSize: 13,
-      color: colors.destructive,
-      lineHeight: 18,
-    },
-    requestFootnote: {
-      fontSize: 11,
-      color: colors.mutedForeground,
-    },
-    requestActionRow: {
-      flexDirection: "row",
-      gap: space.sm,
-      marginTop: space.xs,
-    },
-
-    // Modal Bottom Sheet
-    modalRoot: {
-      flex: 1,
-      justifyContent: "flex-end",
-      backgroundColor: "rgba(0, 0, 0, 0.48)",
-    },
-    sheet: {
-      maxHeight: "88%",
-      paddingHorizontal: space.lg,
-      paddingTop: space.sm,
-      paddingBottom: space.xl,
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: radius.lg,
-      borderTopRightRadius: radius.lg,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
-    },
-    sheetHandle: {
-      alignSelf: "center",
-      width: 40,
-      height: 4,
-      marginTop: 2,
-      marginBottom: space.md,
-      borderRadius: radius.pill,
-      backgroundColor: colors.borderStrong,
-    },
-    sheetHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: space.md,
-    },
-    sheetTitle: {
-      fontSize: 19,
-      fontWeight: "700",
-      color: colors.foreground,
-    },
-    sheetSubtitle: {
-      fontSize: 13,
-      color: colors.mutedForeground,
-      marginTop: 2,
-    },
-    sheetCloseBtn: {
-      width: 36,
-      height: 36,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: radius.pill,
-      backgroundColor: colors.elevated,
-    },
-
-    // Info Banner
-    infoBanner: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: space.sm,
-      padding: space.md,
-      borderRadius: radius.sm,
-      backgroundColor: colors.muted,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    infoBannerLabel: {
-      fontSize: 12,
-      color: colors.mutedForeground,
-    },
-    infoBannerValue: {
-      fontSize: 16,
-      fontWeight: "800",
-      color: colors.foreground,
-      marginTop: 2,
-    },
-
-    // Quick Chips
-    quickChipsContainer: {
-      gap: 6,
-    },
-    quickChipsLabel: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: colors.mutedForeground,
-    },
-    quickChipsScroll: {
-      flexDirection: "row",
-      gap: 6,
-      paddingVertical: 2,
-    },
-    quickChip: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: radius.pill,
-      backgroundColor: colors.elevated,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    quickChipMax: {
-      backgroundColor: colors.fitSoft,
-      borderColor: colors.primary,
-    },
-    quickChipText: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.foreground,
-    },
-    quickChipTextMax: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.primary,
-    },
-    quickNoteChip: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: radius.pill,
-      backgroundColor: colors.muted,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    quickNoteChipText: {
-      fontSize: 12,
-      color: colors.foreground,
-    },
-
-    // Live Calculation Box
-    calcBox: {
-      padding: space.sm,
-      paddingHorizontal: space.md,
-      borderRadius: radius.sm,
-      backgroundColor: colors.muted,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 4,
-    },
-    calcBoxWarning: {
-      backgroundColor: colors.monitorSoft,
-      borderColor: colors.monitor,
-    },
-    calcBoxDanger: {
-      backgroundColor: colors.injuredSoft,
-      borderColor: colors.destructive,
-    },
-    calcLabel: {
-      fontSize: 13,
-      color: colors.mutedForeground,
-    },
-    calcValue: {
-      fontSize: 15,
-      fontWeight: "800",
-      color: colors.foreground,
-    },
-    calcWarningRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      marginTop: 2,
-    },
-    calcWarningText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: colors.monitor,
-    },
-    calcWarningDangerText: {
-      fontSize: 12,
-      fontWeight: "700",
-      color: colors.destructive,
-    },
-
-    // Details Modal Stats
-    detailsStatsRow: {
-      flexDirection: "row",
-      gap: space.sm,
-      marginBottom: space.sm,
-    },
-    detailsStatBox: {
-      flex: 1,
-      minHeight: 56,
-      justifyContent: "center",
-      padding: space.sm,
-      borderRadius: radius.sm,
-      backgroundColor: colors.muted,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    detailsStatLabel: {
-      fontSize: 11,
-      color: colors.mutedForeground,
-      textTransform: "capitalize",
-    },
-    detailsStatValue: {
-      fontSize: 14,
-      fontWeight: "700",
-      color: colors.foreground,
-      marginTop: 2,
-    },
-
-    // Details Sub-tabs
-    detailsTabBar: {
-      flexDirection: "row",
-      borderRadius: radius.sm,
-      backgroundColor: colors.elevated,
-      padding: 3,
-      gap: 3,
-      marginBottom: space.sm,
-    },
-    detailsTabBtn: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      paddingVertical: 7,
-      borderRadius: radius.sm,
-    },
-    detailsTabBtnActive: {
-      backgroundColor: colors.surface,
-      elevation: 1,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 1,
-    },
-    detailsTabBtnText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: colors.mutedForeground,
-    },
-    detailsTabBtnTextActive: {
-      color: colors.primary,
-      fontWeight: "700",
-    },
-
-    // Lots & Movements cards inside details
-    lotItemCard: {
-      padding: space.sm,
-      borderRadius: radius.sm,
-      backgroundColor: colors.elevated,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 6,
-    },
-    lotDateText: {
-      fontSize: 12,
-      color: colors.mutedForeground,
-    },
-    lotQtyText: {
-      fontSize: 14,
-      fontWeight: "700",
-      color: colors.foreground,
-    },
-    lotPriceText: {
-      fontSize: 12,
-      fontWeight: "600",
-      color: colors.primary,
-    },
-    emptyDetailsBox: {
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: space.xl,
-      gap: space.xs,
-    },
-    emptyDetailsText: {
-      fontSize: 13,
-      color: colors.mutedForeground,
-    },
-
-    movementItemCard: {
-      padding: space.sm,
-      borderRadius: radius.sm,
-      backgroundColor: colors.elevated,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 4,
-    },
-    movementTypeBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-    },
-    movementTypeText: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: colors.foreground,
-    },
-    movementDeltaText: {
-      fontSize: 14,
-      fontWeight: "800",
-    },
-    movementBalanceText: {
-      fontSize: 11,
-      color: colors.mutedForeground,
-    },
-    movementMetaRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-    },
-    movementMetaText: {
-      fontSize: 12,
-      color: colors.mutedForeground,
-    },
-    movementNoteBox: {
-      padding: 6,
-      borderRadius: 4,
-      backgroundColor: colors.muted,
-      marginTop: 2,
-    },
-    movementNoteText: {
-      fontSize: 12,
-      color: colors.foreground,
-      lineHeight: 16,
-    },
-    movementPriceText: {
-      fontSize: 11,
-      color: colors.mutedForeground,
-      marginTop: 2,
-    },
-    fieldError: {
-      fontSize: 12,
-      color: colors.destructive,
-      marginTop: 4,
-    },
-    cancelIssueBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: colors.injuredSoft,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: "rgba(239, 68, 68, 0.25)",
-    },
-    cancelIssueBtnPressed: {
-      opacity: 0.75,
-      transform: [{ scale: 0.98 }],
-    },
-    cancelIssueBtnText: {
-      color: colors.destructive,
-      fontSize: 12,
-      fontWeight: "700",
-      letterSpacing: -0.1,
-    },
-  });

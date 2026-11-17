@@ -43,7 +43,7 @@ Trong app/ có 71 route files; src/ có 126 files trong lần scan này. Có 197
 ## 2. Entry point và lifecycle
 
 1. package.json đặt main: expo-router/entry, nên Expo Router khởi động app bằng convention route tree.
-2. app/_layout.tsx đăng ký notification foreground handler và xếp provider theo thứ tự: SafeAreaProvider → I18nProvider → AuthProvider → RaceOSProvider → AuthRouteGate → Stack.
+2. app/_layout.tsx đăng ký notification foreground handler và xếp provider theo thứ tự: SafeAreaProvider → I18nProvider → AuthProvider → AuthRouteGate → Stack.
 3. AuthProvider đọc session từ AsyncStorage, làm mới token nếu cần, gọi /auth/me, rồi cung cấp user, role, token, signIn, signOut.
 4. AuthRouteGate nhìn pathname và role; route role không khớp bị replace về role hiệu lực.
 5. app/index.tsx chuyển root sang route của role hoặc /login.
@@ -106,7 +106,7 @@ app/profile/[role].tsx là route profile; app/login.tsx, app/flow.tsx, app/+not-
 
 - AuthContext: session và vai trò hiệu lực.
 - I18nContext: language en/vi, catalog JSON và t(); ngôn ngữ lưu qua AsyncStorage.
-- RaceOSContext: fixture và state prototype trong RAM. Chỉ còn một vài screen gọi trực tiếp; không phải store chung cho các service-backed screens.
+- Fixtures demo được nạp qua `src/data/fixtures/` và facade `src/lib/raceos-data.ts`; state dùng chung hiện còn AuthContext và I18nContext.
 
 ### Hook dữ liệu
 
@@ -125,7 +125,7 @@ src/hooks/useRefreshOnFocus.ts gọi refresh im lặng khi user quay lại scree
 | push-device.service.ts | raceos.push.device-token.v1 | Android device push token |
 | injury-model-metadata.ts | @stable-os/injury-map/v1/{horseId} | metadata model/frame cho injury point trên thiết bị |
 
-AsyncStorage chỉ chứng minh dữ liệu được lưu cục bộ; source không bật mã hóa cho các key này. State RaceOSContext không được persist và mất khi app process reset.
+AsyncStorage chỉ chứng minh dữ liệu được lưu cục bộ; source không bật mã hóa cho các key này.
 
 ## 6. Data flow và dependency flow
 
@@ -144,12 +144,11 @@ Luồng dependency thường đi từ UI đến service. Screen nhiều nơi imp
 
 ## 7. Prototype và fixture
 
-- src/mocks/raceos.json, src/mocks/parse-raceos.ts, src/mocks/raceos.ts, src/lib/raceos-data.ts: fixture mẫu và compatibility facade.
-- src/context/RaceOSContext.tsx: thao tác local cho một vài demo như save examination; không gửi dữ liệu lên API.
-- app/vet/exam/[id].tsx: UUID được redirect vào luồng API mới; ID demo không phải UUID dùng mock horse/triệu chứng và lưu trong context local.
+- src/data/fixtures/raceos.json, src/data/fixtures/parse-raceos.ts, src/data/fixtures/raceos.ts, src/lib/raceos-data.ts: fixture mẫu và compatibility facade.
+- app/vet/exam/[id].tsx: UUID được redirect vào luồng API mới; ID demo không phải UUID dùng mock horse/triệu chứng.
 - app/[role]/live/[id].tsx: dữ liệu/chart hardcoded từ liveSeries, timer chỉ làm chart dài thêm; không subscribe telemetry backend.
 - app/[role]/horse/[id].tsx: UUID load nhiều tab từ API, nhưng còn fallback fixture/local plans và mock fitness/recovery/speed trend.
-- Một số src/features/dashboard/components/*Dashboard.tsx cũ dùng src/mocks/raceos; active route /[role] hiện ghép RoleDashboard với payload API.
+- Một số dashboard prototype vẫn dùng src/data/fixtures; active route /[role] hiện ghép RoleDashboard với payload API.
 
 ## 8. Đọc source theo thứ tự
 

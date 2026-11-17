@@ -14,7 +14,7 @@
 | Body region | Nhãn vùng trên cơ thể ngựa | Mapper gợi ý từ tọa độ, user sửa được |
 | Cache | Bản sao dữ liệu để giảm tải/đọc nhanh | Một số local state; không có cache layer tổng quát thấy được |
 | Component | Khối UI React có state/props | Screen và components trong `src/components/` |
-| Context | Cơ chế chia sẻ state qua cây React | `AuthContext`, `I18nContext`, `RaceOSContext` |
+| Context | Cơ chế chia sẻ state qua cây React | `AuthContext`, `I18nContext` |
 | Coordinate frame | Hệ trục mà các tọa độ được đo | `HORSE_ROOT_LOCAL` |
 | DTO | Kiểu mô tả dữ liệu truyền qua API | `MedicalRecordDto`; không validate runtime |
 | Effect | React hook để thực hiện side effect theo lifecycle/dependency | Tải dữ liệu, subscription |
@@ -27,7 +27,7 @@
 | HTTP 401 | Request chưa được xác thực/credential hết hạn theo server | API client thử refresh token một lần |
 | HTTP 403 | Server từ chối quyền (nghĩa thông thường; contract cụ thể cần xác nhận) | Không suy ra từ route guard |
 | Idempotency | Gửi thao tác lặp lại nhưng tạo cùng kết quả, không lặp side effect | Cần API contract khi retry POST sau timeout |
-| In-memory state | State chỉ còn trong RAM của runtime | `RaceOSContext` prototype |
+| In-memory state | State chỉ còn trong RAM của runtime | Form state trong component |
 | JSON | Cách biểu diễn dữ liệu dạng text | Request/response REST |
 | Local state | State riêng một screen/component | Form/modal state |
 | N+1 requests | Một request danh sách rồi thêm một request cho từng item | Session list theo từng horse |

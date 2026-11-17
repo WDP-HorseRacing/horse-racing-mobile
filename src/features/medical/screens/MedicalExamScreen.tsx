@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, View } from "react-native";
 import { Text } from "@/components/common/LocalizedText";
 import { examSymptoms, getHorse } from "@/lib/raceos-data";
-import { useRaceOS } from "@/context/RaceOSContext";
 import { Chips, Field, NativeInput, Panel, PrimaryButton, getUiStyles } from "@/components/ui";
 import { KeyValue, Screen, SectionTitle, TimelineItem } from "@/components/common";
 import { radius, space } from "@/config/theme";
@@ -40,28 +39,23 @@ export function MedicalExamScreen() {
     [caseResource.data, horseName, normalizedView],
   );
   const horse = getHorse(normalizedId);
-  const { saveExamination, examinations } = useRaceOS();
-  const savedExam = examinations[horse.id];
-  const [symptoms, setSymptoms] = useState(
-    savedExam?.symptoms ?? ["Elevated HR", "Slow HR recovery"],
-  );
+  const [symptoms, setSymptoms] = useState(["Elevated HR", "Slow HR recovery"]);
   const [diagnosis, setDiagnosis] = useState(
-    savedExam?.diagnosis ?? "Exercise intolerance — suspected cardiac arrhythmia",
+    "Exercise intolerance — suspected cardiac arrhythmia",
   );
   const [treatment, setTreatment] = useState(
-    savedExam?.treatment ?? "Rest 10 days, cardiac monitoring, no heavy work",
+    "Rest 10 days, cardiac monitoring, no heavy work",
   );
-  const [medication, setMedication] = useState(savedExam?.medication ?? "None pending ECG");
+  const [medication, setMedication] = useState("None pending ECG");
   const [notes, setNotes] = useState(
-    savedExam?.notes ?? "Recheck ECG in 72 h. Recommend training lock until cleared.",
+    "Recheck ECG in 72 h. Recommend training lock until cleared.",
   );
-  const [saved, setSaved] = useState(Boolean(savedExam));
+  const [saved, setSaved] = useState(false);
   const toggle = (item: string) =>
     setSymptoms((current) =>
       current.includes(item) ? current.filter((value) => value !== item) : [...current, item],
     );
   const save = () => {
-    saveExamination({ horseId: horse.id, symptoms, diagnosis, treatment, medication, notes });
     setSaved(true);
     Alert.alert("Examination recorded", "Trainer has been notified.");
   };

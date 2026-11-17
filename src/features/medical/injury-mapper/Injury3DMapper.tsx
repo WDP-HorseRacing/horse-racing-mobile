@@ -1010,7 +1010,7 @@ export function Injury3DMapper({
                         <View style={styles.previousNoteBox}>
                           <Ionicons name="document-text-outline" size={13} color={colors.mutedForeground} />
                           <Text style={styles.previousNoteText} numberOfLines={2}>
-                            Ghi chú: &ldquo;{latestNote}&rdquo;
+                            Ghi chú: “{latestNote}”
                           </Text>
                         </View>
                       ) : null}

@@ -15,11 +15,11 @@ TypeScript bắt lỗi kiểu lúc build/editor. DTO như `HorseListItemDto` hay
 ## 3. State: server, context, local storage
 
 - **Server state:** dữ liệu được service tải từ API; có thể stale và cần refresh.
-- **Context state:** dữ liệu dùng chung trong React tree. AuthContext giữ session; RaceOSContext giữ prototype state in-memory.
+- **Context state:** dữ liệu dùng chung trong React tree. AuthContext giữ session; I18nContext giữ ngôn ngữ.
 - **Component state:** form/modal/loading riêng một màn.
 - **Persistent device state:** AsyncStorage giữ một số key qua lần mở app.
 
-Đừng gọi mọi state là “database”. RaceOSContext không tự đồng bộ server; AsyncStorage không chia sẻ thiết bị; API data có quyền lực và vòng đời khác.
+Đừng gọi mọi state là “database”. AsyncStorage không chia sẻ thiết bị; API data có quyền lực và vòng đời khác fixture tĩnh.
 
 ## 4. Async flow, hook và race condition
 

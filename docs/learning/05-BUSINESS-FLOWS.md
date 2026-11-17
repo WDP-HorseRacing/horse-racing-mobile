@@ -35,7 +35,7 @@ Dashboard đang dùng `app/[role]/index.tsx` và các component/API hiện hành
 
 Danh sách tại `app/[role]/horses.tsx` quản lý tìm kiếm, filter, sort và gọi `horseService.list`. Service tải trang theo `meta.totalPages`; adapter biến DTO thành view model. Trainer/groom có filter mặc định theo barn/ngựa liên quan; filter khác gồm sức khỏe, lifecycle, giới tính, aptitude, barn và placement.
 
-Khi mở hồ sơ, `app/[role]/horse/[id].tsx` phân biệt ID API dạng UUID với nhánh demo. ID API tải horse, permission, dữ liệu theo tab và các service liên quan. Một số tab/biểu đồ vẫn có fixture/local fallback; không phải mọi phần của hồ sơ đều là endpoint thật. Hồ sơ mẫu có thể được dựng từ `src/mocks/raceos.json` và không tự chứng minh có bản ghi trên server.
+Khi mở hồ sơ, `app/[role]/horse/[id].tsx` phân biệt ID API dạng UUID với nhánh demo. ID API tải horse, permission, dữ liệu theo tab và các service liên quan. Một số tab/biểu đồ vẫn có fixture/local fallback; không phải mọi phần của hồ sơ đều là endpoint thật. Hồ sơ mẫu có thể được dựng từ `src/data/fixtures/raceos.json` và không tự chứng minh có bản ghi trên server.
 
 ## 4. Thêm hoặc chỉnh sửa hồ sơ, vị trí và vòng đời
 
@@ -89,8 +89,7 @@ Màn performance của participant dùng `performance.service.ts`, Socket.IO cli
 | Tình huống | Dấu hiệu trong source | Cách mô tả chính xác |
 |---|---|---|
 | API-backed | Service gọi `apiRequest` đến endpoint | Mobile có tích hợp contract; backend chưa được audit |
-| Fixture/mock | `src/mocks`, hardcoded series, sample metric | Dữ liệu minh họa/demo |
-| In-memory prototype | `RaceOSContext` | Mất khi app/runtime bị khởi động lại |
+| Fixture/mock | `src/data/fixtures`, hardcoded series, sample metric | Dữ liệu minh họa/demo |
 | Device-local | AsyncStorage keys | Chỉ tồn tại trên thiết bị cục bộ theo key |
 | Fallback sau lỗi | `.catch(() => [])`, giá trị mặc định | UI có thể trông như dữ liệu rỗng; lỗi không nhất thiết được hiển thị |
 

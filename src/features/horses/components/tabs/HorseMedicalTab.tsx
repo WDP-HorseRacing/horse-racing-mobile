@@ -679,59 +679,6 @@ export function HorseMedicalTab({
     );
   }
 
-  if (tab === "Injuries") {
-    return (
-      <>
-        <AsyncStateView
-          isLoading={medicalResource.isLoading}
-          error={medicalResource.error}
-          onRetry={() => void medicalResource.retry()}
-        />
-        {medicalResource.data?.injuries.length ? (
-          medicalResource.data.injuries.map((injury: any) => {
-            const latestEvent = injury.history.at(-1);
-            const eventRecordId = latestEvent?.medicalRecordId ?? injury.firstMedicalRecordId;
-
-            return (
-              <Pressable
-                key={injury.id}
-                onPress={() =>
-                  router.push(
-                    latestEvent?.caseId
-                      ? (`/${roleId}/medical/cases/${latestEvent.caseId}` as Href)
-                      : (`/${roleId}/medical/visits/${eventRecordId}` as Href),
-                  )
-                }
-              >
-                <Panel>
-                  <Text style={uiStyles.value}>
-                    {injury.bodyRegion} · {injury.injuryType}
-                  </Text>
-                  <Text style={uiStyles.muted}>
-                    {injury.currentRecoveryStatus.replaceAll("_", " ")} ·{" "}
-                    {new Date(latestEvent?.examDate ?? injury.firstExamDate).toLocaleDateString()}
-                  </Text>
-                  {latestEvent?.notes ? <Text>{latestEvent.notes}</Text> : null}
-                  <Text style={{ ...uiStyles.label, color: colors.primary }}>
-                    {latestEvent?.caseId ? "Open treatment case" : "Open examination"}
-                  </Text>
-                </Panel>
-              </Pressable>
-            );
-          })
-        ) : medicalResource.data ? (
-          <AsyncStateView
-            isLoading={false}
-            error={null}
-            onRetry={() => void medicalResource.retry()}
-            empty
-            emptyLabel="No injury markers are recorded."
-          />
-        ) : null}
-      </>
-    );
-  }
-
   if (tab === "Treatment") {
     return (
       <>

@@ -177,7 +177,7 @@ Checklist evidence dùng `mediaService.uploadChecklistEvidence` (purpose `CHECKL
 
 ## 8. Mock, fallback và giới hạn kiểm chứng
 
-- `src/mocks/raceos.json`, `src/lib/raceos-data.ts` và `RaceOSContext` hỗ trợ fixture/prototype.
+- `src/data/fixtures/raceos.json` và `src/lib/raceos-data.ts` hỗ trợ fixture/prototype; fixture không còn được giữ trong React context.
 - Live route cũ phát chuỗi `liveSeries` hardcoded bằng timer; nó không dùng Socket.IO.
 - Simulator có thể vừa phát callback local vừa gửi ingest đến backend nếu có token.
 - Catch fallback ở một số dashboard trả danh sách/số rỗng; đó không chứng minh server trả empty.

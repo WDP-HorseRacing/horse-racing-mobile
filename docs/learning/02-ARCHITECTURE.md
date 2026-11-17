@@ -61,7 +61,7 @@ flowchart LR
   app --> components
   contexts[src/context] --> services
   contexts --> storage[AsyncStorage]
-  mocks[src/mocks + RaceOSContext] -. prototype/fallback .-> app
+  mocks[src/data/fixtures] -. prototype/fallback .-> app
 ~~~
 
 Một dấu hiệu kiến trúc quan trọng: chiều phụ thuộc không hoàn toàn một chiều. AuthContext gọi authService; feature gọi service; service dùng adapter types; một số adapters import service DTO. Không thấy DI container để thay service theo môi trường hoặc test fake một cách xuyên suốt.
@@ -86,7 +86,7 @@ Hook không hủy request mạng khi có request mới; nó chỉ bỏ qua respo
 
 ### Form và prototype state
 
-Các form dùng `useState` ngay trong screen. `AuthContext` là state dùng chung cho session; `I18nContext` cho language. `RaceOSContext` chứa fixture và các cập nhật trong RAM, dùng trong một số đường demo/fallback. Những vai trò đó khác nhau, không nên gọi tất cả là một state management architecture duy nhất.
+Các form dùng `useState` ngay trong screen. `AuthContext` là state dùng chung cho session; `I18nContext` cho language. Fixture demo được lưu tĩnh trong `src/data/fixtures` và không còn được bọc trong context toàn app.
 
 ## 6. Navigation và role gate
 

@@ -21,12 +21,12 @@ Phạm vi được scan là source mobile, không phải backend. Do đó API en
 - **Điểm vào:** package.json đặt main là expo-router/entry; app/_layout.tsx tạo provider tree và route gate.
 - **Điều hướng:** file-based routing trong app/; route theo vai trò như /trainer, /vet, /groom, /owner, /manager.
 - **Kiến trúc thực tế:** UI screen trong app/ và src/features/ gọi service trực tiếp hoặc qua hook; service gọi API client; adapter chuyển một số DTO sang model UI. Đây là kiến trúc theo feature/service, không phải Clean Architecture được phân lớp độc lập hoàn toàn.
-- **State:** state cục bộ React cho form/screen; AuthContext và I18nContext dùng chung; API-backed data thường qua useApiResource; RaceOSContext giữ prototype state trong RAM.
+- **State:** state cục bộ React cho form/screen; AuthContext và I18nContext dùng chung; API-backed data thường qua useApiResource; fixture demo nằm trong src/data/fixtures.
 - **Backend giao tiếp:** fetch qua src/services/api-client.ts, Bearer token, JSON, timeout 15 giây, refresh và retry một lần khi 401. Realtime dùng Socket.IO riêng.
 - **Vai trò đã được map trong code:** Head Trainer, Groom, Veterinarian, Horse Owner, Club Manager.
 - **3D injury map:** Three.js chạy trong react-native-webview, dùng GLB v2 đóng gói sẵn; chạm bề mặt được raycast thành tọa độ horse-root-local. Vùng cơ thể chỉ là gợi ý heuristic và bác sĩ có thể sửa.
 - **Lưu vị trí 3D:** API gửi x/y/z trong injury record, nhưng model version và coordinate frame hiện được ghi ở AsyncStorage cục bộ. Mobile chỉ vẽ lại điểm nếu metadata local khớp đúng injury response.
-- **Mock còn tồn tại:** các fixture trong src/mocks/; route live cũ app/[role]/live/[id].tsx; nhánh examination không UUID trong app/vet/exam/[id].tsx; dữ liệu prototype ở RaceOSContext và một số dashboard cũ.
+- **Mock còn tồn tại:** các fixture trong `src/data/fixtures/`; route live cũ `app/[role]/live/[id].tsx`; nhánh examination không UUID trong `app/vet/exam/[id].tsx`; một số dashboard prototype.
 
 ## Sơ đồ kiến trúc mức ứng dụng
 
