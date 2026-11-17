@@ -45,6 +45,9 @@ import { formatDateTime, formatQuantity } from "@/utils/formatters";
 import { showApiError } from "@/utils/errorHandler";
 import { normalizeVietnamese } from "@/utils/horse-validation";
 import { SupplyDetailsModal } from "../components/modals/SupplyDetailsModal";
+import { RecordSupplyUseModal } from "../components/modals/RecordSupplyUseModal";
+import { ProposeRestockModal } from "../components/modals/ProposeRestockModal";
+import { SupplyManagerActionModal } from "../components/modals/SupplyManagerActionModal";
 
 type ScreenMode =
   | "item-create"
@@ -120,17 +123,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
   const [detailsItem, setDetailsItem] = useState<SupplyItemDto | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<SupplyRequestDto | null>(null);
 
-  // Form states
-  const [name, setName] = useState("");
-  const [unit, setUnit] = useState("");
-  const [threshold, setThreshold] = useState("0");
-  const [quantity, setQuantity] = useState("");
-  const [unitPrice, setUnitPrice] = useState("0");
-  const [note, setNote] = useState("");
-  const [requestReason, setRequestReason] = useState("");
-  const [itemCategory, setItemCategory] = useState<SupplyCategory>("FEED");
-  const [saving, setSaving] = useState(false);
-
   const load = useCallback(async (): Promise<InventoryPayload> => {
     const [items, requests] = await Promise.all([
       suppliesService.listItems(token!),
@@ -166,28 +158,17 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
 
   const openItemForm = (item?: SupplyItemDto) => {
     setSelectedItem(item ?? null);
-    setName(item?.name ?? "");
-    setUnit(item?.unit ?? "");
-    setThreshold(String(item?.reorderThreshold ?? 0));
-    setQuantity(item ? "" : "0");
-    setUnitPrice("0");
-    setItemCategory(item?.category ?? "FEED");
     setMode(item ? "item-edit" : "item-create");
   };
 
   const openMovement = (item: SupplyItemDto, kind: "use" = "use") => {
     setSelectedItem(item);
-    setQuantity("");
-    setUnitPrice("0");
-    setNote("");
     setMode(kind);
   };
 
   const openRequest = (item?: SupplyItemDto, request?: SupplyRequestDto) => {
     setSelectedItem(item ?? null);
     setSelectedRequest(request ?? null);
-    setQuantity("");
-    setNote(request?.note ?? "");
     setMode(request ? "request-edit" : "request");
   };
 
@@ -195,7 +176,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
     setMode(null);
     setSelectedItem(null);
     setSelectedRequest(null);
-    setSaving(false);
   };
 
   const refresh = async () => {
@@ -203,127 +183,10 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
     closeForm();
   };
 
-  const save = async () => {
-    if (!token || saving) return;
-    const amount = Number(quantity);
-    const limit = Number(threshold);
-    const price = Number(unitPrice);
-    setSaving(true);
-    try {
-      if (mode === "item-create" || mode === "item-edit") {
-        if (
-          !name.trim() ||
-          !unit.trim() ||
-          !Number.isFinite(limit) ||
-          limit < 0 ||
-          limit > 1_000_000_000
-        ) {
-          Alert.alert(
-            "Check supply details",
-            "Enter a name, unit, and non-negative reorder threshold.",
-          );
-          return;
-        }
-        if (mode === "item-create") {
-          const openingAmount = Number(quantity);
-          if (
-            !Number.isFinite(openingAmount) ||
-            openingAmount < 0 ||
-            openingAmount > 1_000_000_000 ||
-            !Number.isInteger(price) ||
-            price < 0 ||
-            price > 1_000_000_000
-          ) {
-            Alert.alert(
-              "Check opening stock",
-              "Enter a non-negative starting quantity and a whole VND unit price.",
-            );
-            return;
-          }
-          await suppliesService.createItem(token, {
-            name: name.trim(),
-            category: itemCategory,
-            unit: unit.trim(),
-            quantityOnHand: openingAmount,
-            openingUnitPrice: price,
-            reorderThreshold: limit,
-          });
-        } else if (selectedItem) {
-          await suppliesService.updateItem(token, selectedItem.id, {
-            name: name.trim(),
-            category: itemCategory,
-            unit: unit.trim(),
-            reorderThreshold: limit,
-          });
-        }
-      } else if (mode === "use" && selectedItem) {
-        if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) {
-          Alert.alert("Check usage", "Enter a quantity greater than zero.");
-          return;
-        }
-        if (amount > selectedItem.quantityOnHand) {
-          Alert.alert("Check usage", "Quantity used cannot exceed available stock.");
-          return;
-        }
-        if (!note.trim()) {
-          Alert.alert(t("Check usage"), t("Usage note is required."));
-          return;
-        }
-        await suppliesService.use(token, selectedItem.id, {
-          quantity: amount,
-          note: note.trim(),
-        });
-      } else if (mode === "request" && selectedItem) {
-        await suppliesService.createRequest(token, selectedItem.id, note.trim() || undefined);
-      } else if (mode === "request-edit" && selectedRequest) {
-        await suppliesService.editRequest(token, selectedRequest.id, {
-          note: note.trim() || undefined,
-        });
-      } else if (mode === "reject" && selectedRequest) {
-        if (!requestReason.trim()) {
-          Alert.alert("Reason required", "Enter a reason before rejecting this request.");
-          return;
-        }
-        await suppliesService.updateRequestStatus(token, selectedRequest.id, "REJECTED", {
-          reason: requestReason.trim(),
-        });
-      } else if (mode === "fulfill" && selectedRequest) {
-        if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) {
-          Alert.alert("Check quantity", "Enter a positive quantity issued.");
-          return;
-        }
-        if (!Number.isInteger(price) || price < 0 || price > 1_000_000_000) {
-          Alert.alert("Check unit price", "Enter the actual whole VND price paid for each unit.");
-          return;
-        }
-        await suppliesService.updateRequestStatus(token, selectedRequest.id, "FULFILLED", {
-          quantity: amount,
-          unitPrice: price,
-        });
-      } else if (mode === "cancel-request" && selectedRequest) {
-        if (!requestReason.trim()) {
-          Alert.alert(t("Lý do bắt buộc"), t("Vui lòng nhập lý do hủy đề xuất đã duyệt."));
-          return;
-        }
-        await suppliesService.updateRequestStatus(token, selectedRequest.id, "CANCELLED", {
-          reason: requestReason.trim(),
-        });
-      }
-      await refresh();
-    } catch (error) {
-      showApiError(error, "Could not save inventory change");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const requestAction = async (request: SupplyRequestDto, status: SupplyRequestStatus) => {
     if (!token) return;
     if (status === "REJECTED" || status === "FULFILLED") {
       setSelectedRequest(request);
-      setRequestReason("");
-      setQuantity("");
-      setUnitPrice("0");
       setMode(status === "REJECTED" ? "reject" : "fulfill");
       return;
     }
@@ -378,13 +241,7 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
     }
   };
 
-  // Remaining calculations for usage modal
-  const usedAmount = Number(quantity || 0);
-  const availableQty = selectedItem?.quantityOnHand ?? 0;
-  const remainingStock = Math.round((availableQty - usedAmount) * 100) / 100;
-  const isUsageOver = usedAmount > availableQty;
-  const isUsageBelowThreshold =
-    remainingStock <= (selectedItem?.reorderThreshold ?? 0) && remainingStock >= 0;
+
 
   return (
     <Screen
@@ -817,7 +674,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                       style={{ flex: 1 }}
                       onPress={() => {
                         setSelectedRequest(request);
-                        setRequestReason("");
                         setMode("reject");
                       }}
                     />
@@ -832,12 +688,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                       style={{ flex: 1 }}
                       onPress={() => {
                         setSelectedRequest(request);
-                        setQuantity(
-                          request.quantity && Number(request.quantity) > 0
-                            ? String(request.quantity)
-                            : "1",
-                        );
-                        setUnitPrice("0");
                         setMode("fulfill");
                       }}
                     />
@@ -847,7 +697,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
                       style={{ flex: 1 }}
                       onPress={() => {
                         setSelectedRequest(request);
-                        setRequestReason("");
                         setMode("cancel-request");
                       }}
                     />
@@ -880,302 +729,27 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
         />
       ) : null}
 
-      {/* ============================================================== */}
-      {/* MODAL 2: GHI NHẬN XUẤT DÙNG (RECORD SUPPLY USE MODAL)           */}
-      {/* ============================================================== */}
-      <Modal
-        visible={mode === "use" && Boolean(selectedItem)}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={closeForm}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.modalRoot}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("Close")}
-            onPress={closeForm}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
+      <RecordSupplyUseModal
+        visible={mode === "use"}
+        item={selectedItem}
+        token={token ?? ""}
+        styles={styles}
+        onClose={closeForm}
+        onSuccess={() => void resource.refresh()}
+      />
 
-            <View style={styles.sheetHeader}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.sheetTitle}>{t("Record supply use")}</Text>
-                <Text style={styles.sheetSubtitle} numberOfLines={1}>
-                  {selectedItem?.name} ({t(supplyCategoryLabel(selectedItem?.category ?? "FEED"))})
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Close")}
-                onPress={closeForm}
-                style={styles.sheetCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.foreground} />
-              </Pressable>
-            </View>
+      <ProposeRestockModal
+        visible={mode === "request" || mode === "request-edit"}
+        mode={mode === "request" || mode === "request-edit" ? mode : null}
+        item={selectedItem}
+        request={selectedRequest}
+        token={token ?? ""}
+        styles={styles}
+        onClose={closeForm}
+        onSuccess={() => void resource.refresh()}
+      />
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ gap: space.md }}
-              keyboardShouldPersistTaps="handled"
-            >
-              {/* Available Stock Banner */}
-              <View style={styles.infoBanner}>
-                <Ionicons name="cube" size={20} color={colors.primary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoBannerLabel}>{t("Available in stock:")}</Text>
-                  <Text style={styles.infoBannerValue}>
-                    {formatQuantity(availableQty, selectedItem?.unit ?? "unit")}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Quantity Input */}
-              <Field label={`${t("Quantity to use")} (${selectedItem?.unit ?? "unit"})`}>
-                <NativeInput
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  keyboardType="decimal-pad"
-                  placeholder="0.0"
-                />
-              </Field>
-
-              {/* Quick Stepper Chips */}
-              <View style={styles.quickChipsContainer}>
-                <Text style={styles.quickChipsLabel}>{t("Quick add")}:</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.quickChipsScroll}
-                >
-                  {USE_QUICK_AMOUNTS.map((amt) => (
-                    <Pressable
-                      key={amt}
-                      accessibilityRole="button"
-                      onPress={() => setQuantity(String(amt))}
-                      style={styles.quickChip}
-                    >
-                      <Text style={styles.quickChipText}>+{amt}</Text>
-                    </Pressable>
-                  ))}
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setQuantity(String(availableQty))}
-                    style={[styles.quickChip, styles.quickChipMax]}
-                  >
-                    <Text style={styles.quickChipTextMax}>{t("Use all")}</Text>
-                  </Pressable>
-                </ScrollView>
-              </View>
-
-              {/* Real-time Remaining Calculation & Alert Box */}
-              {usedAmount > 0 ? (
-                <View
-                  style={[
-                    styles.calcBox,
-                    isUsageOver && styles.calcBoxDanger,
-                    isUsageBelowThreshold && !isUsageOver && styles.calcBoxWarning,
-                  ]}
-                >
-                  <View style={ui.row}>
-                    <Text style={styles.calcLabel}>{t("Remaining after use:")}</Text>
-                    <Text
-                      style={[
-                        styles.calcValue,
-                        isUsageOver && { color: colors.destructive },
-                        isUsageBelowThreshold && !isUsageOver && { color: colors.monitor },
-                      ]}
-                    >
-                      {formatQuantity(Math.max(0, remainingStock), selectedItem?.unit ?? "")}
-                    </Text>
-                  </View>
-
-                  {isUsageOver ? (
-                    <View style={styles.calcWarningRow}>
-                      <Ionicons name="alert-circle" size={15} color={colors.destructive} />
-                      <Text style={styles.calcWarningDangerText}>
-                        {t("Exceeds available stock")}
-                      </Text>
-                    </View>
-                  ) : isUsageBelowThreshold ? (
-                    <View style={styles.calcWarningRow}>
-                      <Ionicons name="warning" size={15} color={colors.monitor} />
-                      <Text style={styles.calcWarningText}>
-                        {t("Stock below threshold warning")}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-
-              {/* Usage Note & Suggestion Chips */}
-              <Field label={`${t("Ghi chú xuất dùng (bắt buộc)")} *`}>
-                <NativeInput
-                  value={note}
-                  onChangeText={setNote}
-                  multiline
-                  placeholder={t("Usage reason or horse name")}
-                />
-                {!note.trim() ? (
-                  <Text style={styles.fieldError}>
-                    {t("Vui lòng nhập ghi chú hoặc lý do xuất dùng.")}
-                  </Text>
-                ) : null}
-              </Field>
-
-              <View style={styles.quickChipsContainer}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.quickChipsScroll}
-                >
-                  {USE_NOTE_SUGGESTIONS.map((sug) => (
-                    <Pressable
-                      key={sug}
-                      accessibilityRole="button"
-                      onPress={() => setNote((prev) => (prev ? `${prev}; ${t(sug)}` : t(sug)))}
-                      style={styles.quickNoteChip}
-                    >
-                      <Text style={styles.quickNoteChipText}>+ {t(sug)}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Modal Action Buttons */}
-              <View style={{ gap: space.sm, marginTop: space.sm }}>
-                <PrimaryButton
-                  label={saving ? "Saving…" : "Confirm usage"}
-                  icon="checkmark"
-                  onPress={() => void save()}
-                  disabled={saving || isUsageOver || usedAmount <= 0 || !note.trim()}
-                />
-                <SecondaryButton label="Cancel" icon="close" onPress={closeForm} />
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ============================================================== */}
-      {/* MODAL 3: ĐỀ XUẤT NHẬP THÊM (PROPOSE RESTOCK MODAL)             */}
-      {/* ============================================================== */}
-      <Modal
-        visible={
-          (mode === "request" || mode === "request-edit") &&
-          Boolean(selectedItem || selectedRequest)
-        }
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={closeForm}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.modalRoot}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("Close")}
-            onPress={closeForm}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-
-            <View style={styles.sheetHeader}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.sheetTitle}>{t("Propose restock")}</Text>
-                <Text style={styles.sheetSubtitle} numberOfLines={1}>
-                  {selectedItem?.name ?? selectedRequest?.item.name}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Close")}
-                onPress={closeForm}
-                style={styles.sheetCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.foreground} />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ gap: space.md }}
-              keyboardShouldPersistTaps="handled"
-            >
-              {selectedItem ? (
-                <View style={styles.infoBanner}>
-                  <Ionicons name="cube-outline" size={20} color={colors.primary} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.infoBannerLabel}>{t("Available in stock:")}</Text>
-                    <Text style={styles.infoBannerValue}>
-                      {formatQuantity(selectedItem.quantityOnHand, selectedItem.unit)}
-                      <Text style={[styles.infoBannerLabel, { fontWeight: "normal" }]}>
-                        {"  ·  "}
-                        {t("reorder threshold")}{" "}
-                        {formatQuantity(selectedItem.reorderThreshold, selectedItem.unit)}
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-              ) : null}
-
-              {/* Note / Reason */}
-              <Field label={t("Restock reason (optional)")}>
-                <NativeInput
-                  value={note}
-                  onChangeText={setNote}
-                  multiline
-                  placeholder={t("Reason or note")}
-                />
-              </Field>
-
-              <View style={styles.quickChipsContainer}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.quickChipsScroll}
-                >
-                  {REQUEST_REASON_SUGGESTIONS.map((sug) => (
-                    <Pressable
-                      key={sug}
-                      accessibilityRole="button"
-                      onPress={() => setNote((prev) => (prev ? `${prev}; ${t(sug)}` : t(sug)))}
-                      style={styles.quickNoteChip}
-                    >
-                      <Text style={styles.quickNoteChipText}>+ {t(sug)}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Actions */}
-              <View style={{ gap: space.sm, marginTop: space.sm }}>
-                <PrimaryButton
-                  label={saving ? "Saving…" : "Submit request"}
-                  icon="paper-plane-outline"
-                  onPress={() => void save()}
-                  disabled={saving}
-                />
-                <SecondaryButton label="Cancel" icon="close" onPress={closeForm} />
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ============================================================== */}
-      {/* MODAL 4: MANAGER MODALS (CREATE, EDIT, RECEIVE, REJECT, FULFILL, CANCEL) */}
-      {/* ============================================================== */}
-      <Modal
+      <SupplyManagerActionModal
         visible={
           mode === "item-create" ||
           mode === "item-edit" ||
@@ -1183,176 +757,22 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
           mode === "fulfill" ||
           mode === "cancel-request"
         }
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={closeForm}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.modalRoot}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("Close")}
-            onPress={closeForm}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-
-            <View style={styles.sheetHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sheetTitle}>
-                  {t(
-                    mode === "item-create"
-                      ? "Add supply item"
-                      : mode === "item-edit"
-                        ? "Edit supply item"
-                        : mode === "reject"
-                          ? "Reject request"
-                          : mode === "cancel-request"
-                            ? "Hủy đề xuất đã duyệt"
-                            : "Confirm supply issued",
-                  )}
-                </Text>
-                <Text style={styles.sheetSubtitle} numberOfLines={1}>
-                  {selectedItem?.name ?? selectedRequest?.item.name}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("Close")}
-                onPress={closeForm}
-                style={styles.sheetCloseBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.foreground} />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ gap: space.md }}
-            >
-              {mode === "item-create" || mode === "item-edit" ? (
-                <>
-                  <Field label="Item name">
-                    <NativeInput value={name} onChangeText={setName} placeholder="e.g. Oat feed" />
-                  </Field>
-                  <View style={ui.section}>
-                    <SectionTitle>Category</SectionTitle>
-                    <Chips
-                      options={CATEGORIES.map(supplyCategoryLabel)}
-                      value={supplyCategoryLabel(itemCategory)}
-                      onChange={(value) =>
-                        setItemCategory(
-                          CATEGORIES.find((item) => supplyCategoryLabel(item) === value) ?? "FEED",
-                        )
-                      }
-                    />
-                  </View>
-                  <Field label="Unit">
-                    <NativeInput
-                      value={unit}
-                      onChangeText={setUnit}
-                      placeholder="kg, bottle, roll"
-                    />
-                  </Field>
-                  <Field label="Low stock threshold">
-                    <NativeInput
-                      value={threshold}
-                      onChangeText={setThreshold}
-                      keyboardType="decimal-pad"
-                    />
-                  </Field>
-                  {mode === "item-create" ? (
-                    <>
-                      <Field label="Opening quantity">
-                        <NativeInput
-                          value={quantity}
-                          onChangeText={setQuantity}
-                          keyboardType="decimal-pad"
-                        />
-                      </Field>
-                      <Field label="Opening unit price (VND)">
-                        <NativeInput
-                          value={unitPrice}
-                          onChangeText={setUnitPrice}
-                          keyboardType="numeric"
-                        />
-                      </Field>
-                    </>
-                  ) : null}
-                </>
-              ) : null}
-
-              {mode === "reject" || mode === "cancel-request" ? (
-                <Field
-                  label={
-                    mode === "reject"
-                      ? t("Rejection reason (required)")
-                      : `${t("Lý do hủy (bắt buộc)")} *`
-                  }
-                >
-                  <NativeInput
-                    value={requestReason}
-                    onChangeText={setRequestReason}
-                    multiline
-                    placeholder={
-                      mode === "reject"
-                        ? t("Nhập lý do từ chối...")
-                        : t("Nhập lý do hủy (vd: Nhà cung cấp hết hàng...)")
-                    }
-                  />
-                </Field>
-              ) : null}
-
-              {mode === "fulfill" ? (
-                <>
-                  <Panel>
-                    <Text style={ui.muted}>
-                      {selectedRequest?.item.name}
-                      {selectedRequest?.quantity
-                        ? ` · requested ${selectedRequest.quantity} ${selectedRequest.item.unit}`
-                        : ""}
-                    </Text>
-                  </Panel>
-                  <Field
-                    label={`${t("Quantity issued")} (${selectedRequest?.item.unit ?? "unit"})`}
-                  >
-                    <NativeInput
-                      value={quantity}
-                      onChangeText={setQuantity}
-                      keyboardType="decimal-pad"
-                      placeholder="0.0"
-                    />
-                  </Field>
-                  <Field label="Actual unit price paid (VND)">
-                    <NativeInput
-                      value={unitPrice}
-                      onChangeText={setUnitPrice}
-                      keyboardType="numeric"
-                    />
-                  </Field>
-                </>
-              ) : null}
-
-              <View style={{ gap: space.sm, marginTop: space.sm }}>
-                <PrimaryButton
-                  label={saving ? "Saving…" : "Save"}
-                  icon="checkmark"
-                  onPress={() => void save()}
-                  disabled={
-                    saving ||
-                    ((mode === "reject" || mode === "cancel-request") && !requestReason.trim())
-                  }
-                />
-                <SecondaryButton label="Cancel" icon="close" onPress={closeForm} />
-              </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        mode={
+          mode === "item-create" ||
+          mode === "item-edit" ||
+          mode === "reject" ||
+          mode === "fulfill" ||
+          mode === "cancel-request"
+            ? mode
+            : null
+        }
+        item={selectedItem}
+        request={selectedRequest}
+        token={token ?? ""}
+        styles={styles}
+        onClose={closeForm}
+        onSuccess={() => void resource.refresh()}
+      />
     </Screen>
   );
 }
