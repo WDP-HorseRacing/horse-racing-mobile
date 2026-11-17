@@ -1,1 +1,1 @@
-export { UnappliedSurchargesScreen as default } from "@/features/stable-care/HorseStableCareScreen";
+export { default } from "@/features/stable-care/screens/UnappliedSurchargesScreen";
