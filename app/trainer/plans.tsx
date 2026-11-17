@@ -23,18 +23,8 @@ import {
 import { extractErrorMessage } from "@/utils/errorHandler";
 import { radius, space } from "@/config/theme";
 
-export function formatSessionType(type: string, t: (key: string) => string): string {
-  if (type === "TIME_TRIAL" || type === "TIME TRIAL") return t("Chạy thử");
-  if (type === "REGULAR") return t("Thông thường");
-  return type.replaceAll("_", " ");
-}
-
-export function formatIntensity(intensity: string, t: (key: string) => string): string {
-  if (intensity === "LIGHT") return t("Nhẹ");
-  if (intensity === "HEAVY") return t("Nặng");
-  if (intensity === "MODERATE") return t("Vừa");
-  return intensity;
-}
+import { formatSessionType, formatIntensity } from "@/features/training/training-utils";
+export { formatSessionType, formatIntensity };
 
 type EditorPhase = {
   id: string;
