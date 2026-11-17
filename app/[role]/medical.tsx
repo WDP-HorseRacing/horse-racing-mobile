@@ -1,4 +1,4 @@
-import { MedicalWorkspaceScreen } from "@/features/medical/MedicalWorkspaceScreen";
+import { MedicalWorkspaceScreen } from "@/features/medical/screens/MedicalWorkspaceScreen";
 
 export default function MedicalWorkspaceRoute() {
   return <MedicalWorkspaceScreen />;
