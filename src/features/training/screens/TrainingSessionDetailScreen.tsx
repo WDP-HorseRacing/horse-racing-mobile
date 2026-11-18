@@ -5,6 +5,7 @@ import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, KeyValue, Screen, SectionTitle } from "@/components/common";
 import {
   BottomSheetModal,
+  DangerButton,
   DatePickerField,
   Field,
   NativeInput,
@@ -485,14 +486,66 @@ export function TrainingSessionDetailScreen() {
           </Panel>
           {session?.status === "SCHEDULED" && payload.trainingClass.status === "ACTIVE" ? (
             <>
-              <SecondaryButton
-                label="Edit session time and details"
-                icon="create-outline"
-                onPress={() => {
-                  initializeSessionEdit();
-                  setShowEdit(true);
-                }}
-              />
+              {payload.timeTrial ? (
+                <>
+                  <SecondaryButton
+                    label="Edit time-trial setup"
+                    icon="timer-outline"
+                    style={{ minHeight: 46 }}
+                    onPress={() => {
+                      initializeTrialEdit();
+                      setShowTrialEdit(true);
+                    }}
+                  />
+                  <BottomSheetModal
+                    visible={showTrialEdit}
+                    title="Time-trial setup"
+                    onClose={() => setShowTrialEdit(false)}
+                    onSave={() => void saveTrialConfig()}
+                    saveLoading={pending === "edit-trial"}
+                    saveDisabled={pending !== ""}
+                    saveLabel={t("Lưu")}
+                    cancelLabel="Cancel"
+                  >
+                    <Field label="Trial distance (m)">
+                      <NativeInput
+                        value={trialDistance}
+                        onChangeText={setTrialDistance}
+                        keyboardType="decimal-pad"
+                      />
+                    </Field>
+                    <Field label="Target time (milliseconds, optional)">
+                      <NativeInput
+                        value={trialTarget}
+                        onChangeText={setTrialTarget}
+                        keyboardType="number-pad"
+                      />
+                    </Field>
+                    <Field label="Trial notes">
+                      <NativeInput value={trialNotes} onChangeText={setTrialNotes} multiline />
+                    </Field>
+                  </BottomSheetModal>
+                </>
+              ) : null}
+
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+                <SecondaryButton
+                  label="Edit session time and details"
+                  icon="create-outline"
+                  style={{ flex: 1, minHeight: 46 }}
+                  onPress={() => {
+                    initializeSessionEdit();
+                    setShowEdit(true);
+                  }}
+                />
+                <DangerButton
+                  label="Cancel session"
+                  icon="close-circle-outline"
+                  style={{ flex: 1, minHeight: 46 }}
+                  onPress={() => setShowCancel(true)}
+                />
+              </View>
+
               <BottomSheetModal
                 visible={showEdit}
                 title="Edit session"
@@ -537,53 +590,6 @@ export function TrainingSessionDetailScreen() {
                   rechecks class dates, plan phases, overlaps and daily load.
                 </Text>
               </BottomSheetModal>
-
-              {payload.timeTrial ? (
-                <>
-                  <SecondaryButton
-                    label="Edit time-trial setup"
-                    icon="timer-outline"
-                    onPress={() => {
-                      initializeTrialEdit();
-                      setShowTrialEdit(true);
-                    }}
-                  />
-                  <BottomSheetModal
-                    visible={showTrialEdit}
-                    title="Time-trial setup"
-                    onClose={() => setShowTrialEdit(false)}
-                    onSave={() => void saveTrialConfig()}
-                    saveLoading={pending === "edit-trial"}
-                    saveDisabled={pending !== ""}
-                    saveLabel={t("Lưu")}
-                    cancelLabel="Cancel"
-                  >
-                    <Field label="Trial distance (m)">
-                      <NativeInput
-                        value={trialDistance}
-                        onChangeText={setTrialDistance}
-                        keyboardType="decimal-pad"
-                      />
-                    </Field>
-                    <Field label="Target time (milliseconds, optional)">
-                      <NativeInput
-                        value={trialTarget}
-                        onChangeText={setTrialTarget}
-                        keyboardType="number-pad"
-                      />
-                    </Field>
-                    <Field label="Trial notes">
-                      <NativeInput value={trialNotes} onChangeText={setTrialNotes} multiline />
-                    </Field>
-                  </BottomSheetModal>
-                </>
-              ) : null}
-
-              <SecondaryButton
-                label="Cancel session"
-                icon="close-circle-outline"
-                onPress={() => setShowCancel(true)}
-              />
               <BottomSheetModal
                 visible={showCancel}
                 title="Cancel session"
@@ -608,10 +614,31 @@ export function TrainingSessionDetailScreen() {
 
           <View style={ui.section}>
             <SectionTitle>Horse sessions ({payload.rows.length})</SectionTitle>
-            <Text style={ui.muted}>
-              Check-in opens 30 minutes before the scheduled start. Ready and start open 15 minutes
-              before; the Backend confirms each time window and eligibility.
-            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 8,
+                padding: 10,
+                borderRadius: radius.md,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                marginTop: 2,
+                marginBottom: 6,
+              }}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={colors.primary}
+                style={{ marginTop: 1, flexShrink: 0 }}
+              />
+              <Text style={[ui.muted, { flex: 1, fontSize: 12, lineHeight: 17 }]}>
+                Check-in opens 30 minutes before the scheduled start. Ready and start open 15 minutes
+                before; the Backend confirms each time window and eligibility.
+              </Text>
+            </View>
             {payload.rows.length ? (
               payload.rows.map(({ participant, evaluation, results, summary }) => {
                 const liveMetric = liveMetrics[participant.id];
@@ -718,11 +745,76 @@ export function TrainingSessionDetailScreen() {
                       </Text>
                     ) : null}
                     {summary ? (
-                      <Text style={ui.label}>
-                        Metrics: {summary.count} points · avg HR {summary.avgHeartRateBpm ?? "—"}{" "}
-                        bpm · peak {summary.maxHeartRateBpm ?? "—"} · {summary.warningCount}{" "}
-                        warnings · {summary.criticalCount} critical
-                      </Text>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: 6,
+                          paddingVertical: 7,
+                          paddingHorizontal: 10,
+                          borderRadius: radius.sm,
+                          backgroundColor: colors.background,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Ionicons name="analytics-outline" size={13} color={colors.primary} />
+                          <Text style={{ fontSize: 11, color: colors.foreground, fontWeight: "600" }}>
+                            {summary.count} {t("điểm đo")}
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: colors.borderStrong }}>•</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Ionicons name="heart-outline" size={13} color={colors.destructive} />
+                          <Text style={{ fontSize: 11, color: colors.foreground }}>
+                            TB:{" "}
+                            <Text style={{ fontWeight: "700" }}>
+                              {summary.avgHeartRateBpm ?? "—"} bpm
+                            </Text>
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 11, color: colors.borderStrong }}>•</Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          <Text style={{ fontSize: 11, color: colors.foreground }}>
+                            Đỉnh:{" "}
+                            <Text
+                              style={{
+                                fontWeight: "700",
+                                color:
+                                  summary.maxHeartRateBpm && summary.maxHeartRateBpm >= 240
+                                    ? colors.destructive
+                                    : summary.maxHeartRateBpm && summary.maxHeartRateBpm >= 180
+                                      ? colors.monitor
+                                      : colors.foreground,
+                              }}
+                            >
+                              {summary.maxHeartRateBpm ?? "—"} bpm
+                            </Text>
+                          </Text>
+                        </View>
+                        {(summary.warningCount > 0 || summary.criticalCount > 0) && (
+                          <>
+                            <Text style={{ fontSize: 11, color: colors.borderStrong }}>•</Text>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                              <Ionicons name="alert-circle" size={13} color={colors.monitor} />
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: "700",
+                                  color:
+                                    summary.criticalCount > 0
+                                      ? colors.destructive
+                                      : colors.monitor,
+                                }}
+                              >
+                                {summary.warningCount + summary.criticalCount} {t("cảnh báo")}
+                              </Text>
+                            </View>
+                          </>
+                        )}
+                      </View>
                     ) : null}
                     {liveMetric ? (
                       <Text
@@ -945,7 +1037,7 @@ export function TrainingSessionDetailScreen() {
                           padding: space.sm,
                           borderWidth: 1,
                           borderColor: colors.border,
-                          gap: 8,
+                          gap: 10,
                           marginVertical: 4,
                         }}
                       >
@@ -978,40 +1070,20 @@ export function TrainingSessionDetailScreen() {
                             {simulationActive ? "🟢 Đang phát tín hiệu" : "⚪ Tắt"}
                           </Text>
                         </View>
-                        <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
                           <SecondaryButton
                             label={simulationActive ? "Dừng phát" : "Phát nhịp tim tự động"}
                             icon={simulationActive ? "pause-outline" : "pulse-outline"}
-                            style={{ width: "100%" }}
+                            style={{ flex: 1, minHeight: 44 }}
                             disabled={!canStreamMetrics}
                             onPress={() => toggleSimulation(participant.id)}
                           />
                           <PrimaryButton
                             label="⚡ Vọt nhịp tim"
                             icon="flash"
-                            style={{ width: "100%", backgroundColor: colors.destructive }}
+                            style={{ flex: 1, minHeight: 44, backgroundColor: colors.destructive }}
                             disabled={!canStreamMetrics}
                             onPress={() => void handleHeartRateSpike(participant.id)}
-                          />
-                          <SecondaryButton
-                            label="📊 Xem biểu đồ & Bảng giả lập"
-                            icon="analytics-outline"
-                            style={{ width: "100%" }}
-                            onPress={() => {
-                              const params = new URLSearchParams({
-                                horse: participant.horseName,
-                                session: session!.name,
-                                classId: payload.trainingClass.id,
-                                sessionId: session!.id,
-                                sessionType: session!.sessionType,
-                                sessionStatus: session!.status,
-                                participantStatus: participant.status,
-                                horseId: participant.horseId,
-                              });
-                              router.push(
-                                `/trainer/participant/${participant.id}?${params.toString()}` as Href,
-                              );
-                            }}
                           />
                         </View>
                       </View>

@@ -423,29 +423,20 @@ export function TrainingClassDetailScreen() {
               </Panel>
               {payload.trainingClass.status === "ACTIVE" ? (
                 <View style={styles.classActionsPanel}>
-                  <SectionTitle>Class actions</SectionTitle>
-                  <View style={styles.twoButtonRow}>
-                    <SecondaryButton
-                      label="Edit class"
-                      icon="create-outline"
-                      style={[styles.flexButton, styles.classActionButton]}
-                      disabled={pending !== ""}
-                      onPress={() => {
-                        setEditName(payload.trainingClass.name);
-                        setEditCode(payload.trainingClass.code);
-                        setEditStartDate(payload.trainingClass.startDate);
-                        setEditCapacity(String(payload.trainingClass.maxHorses));
-                        setEditClass(true);
-                      }}
-                    />
+                  <View style={styles.classActionsHeader}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="sparkles" size={15} color={colors.primary} />
+                      <Text style={styles.classActionsTitle}>Class actions</Text>
+                    </View>
+                    <View style={styles.classStatusChip}>
+                      <Text style={styles.classStatusChipText}>ACTIVE</Text>
+                    </View>
+                  </View>
+                  <View style={{ gap: 10 }}>
                     <PrimaryButton
                       label="Complete class"
-                      icon="checkmark-done-outline"
-                      style={[
-                        styles.flexButton,
-                        styles.classActionButton,
-                        styles.completeClassButton,
-                      ]}
+                      icon="checkmark-done-circle"
+                      style={styles.completeClassButton}
                       disabled={pending !== ""}
                       onPress={() =>
                         Alert.alert(
@@ -466,14 +457,29 @@ export function TrainingClassDetailScreen() {
                         )
                       }
                     />
+                    <View style={styles.twoButtonRow}>
+                      <SecondaryButton
+                        label="Edit class"
+                        icon="create-outline"
+                        style={styles.editClassButton}
+                        disabled={pending !== ""}
+                        onPress={() => {
+                          setEditName(payload.trainingClass.name);
+                          setEditCode(payload.trainingClass.code);
+                          setEditStartDate(payload.trainingClass.startDate);
+                          setEditCapacity(String(payload.trainingClass.maxHorses));
+                          setEditClass(true);
+                        }}
+                      />
+                      <DangerButton
+                        label="Cancel class"
+                        icon="close-circle-outline"
+                        style={styles.cancelClassButton}
+                        disabled={pending !== ""}
+                        onPress={() => setShowCancelForm(true)}
+                      />
+                    </View>
                   </View>
-                  <DangerButton
-                    label="Cancel class"
-                    icon="close-circle-outline"
-                    style={[styles.flexButton, styles.cancelClassButton]}
-                    disabled={pending !== ""}
-                    onPress={() => setShowCancelForm(true)}
-                  />
                 </View>
               ) : null}
 
@@ -1381,24 +1387,69 @@ const getStyles = (colors: any) =>
       width: "100%",
     },
     classActionsPanel: {
-      gap: space.sm,
+      gap: 12,
       marginTop: space.xs,
-      padding: space.md,
+      padding: 14,
       borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
     },
-    classActionButton: {
-      minHeight: 50,
-      marginVertical: 0,
-      borderRadius: radius.md,
+    classActionsHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    classActionsTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: colors.foreground,
+    },
+    classStatusChip: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.sm,
+      backgroundColor: colors.fitSoft,
+    },
+    classStatusChipText: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: colors.primary,
+      letterSpacing: 0.5,
     },
     completeClassButton: {
+      minHeight: 48,
       backgroundColor: colors.fit,
       borderColor: colors.fit,
+      borderRadius: radius.md,
+      shadowColor: colors.fit,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    editClassButton: {
+      flex: 1,
+      minHeight: 46,
+      marginVertical: 0,
+      borderRadius: radius.md,
+      backgroundColor: colors.background,
+      borderColor: colors.borderStrong,
     },
     cancelClassButton: {
+      flex: 1,
+      minHeight: 46,
+      marginVertical: 0,
+      borderRadius: radius.md,
+      backgroundColor: colors.destructive,
+      borderColor: colors.destructive,
+      shadowColor: colors.destructive,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    classActionButton: {
       minHeight: 50,
       marginVertical: 0,
       borderRadius: radius.md,

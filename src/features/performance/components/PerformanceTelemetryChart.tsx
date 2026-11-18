@@ -97,7 +97,7 @@ export function PerformanceTelemetryChart({
   const screenWidth = Dimensions.get("window").width;
   const effectiveContainerWidth = containerWidth > 0 ? containerWidth : screenWidth - 32;
   const yAxisLabelWidth = 36;
-  const chartWidth = Math.max(120, effectiveContainerWidth - yAxisLabelWidth - 16);
+  const chartWidth = Math.max(120, effectiveContainerWidth - yAxisLabelWidth - 44);
 
   // Exact mathematically bounded spacing to guarantee NO overflow
   const count = visibleMetrics.length;
@@ -402,7 +402,7 @@ export function PerformanceTelemetryChart({
       ) : (
         <View style={{ gap: space.sm }}>
           {/* Main Chart Graphic */}
-          <View style={[styles.chartWrapper, { height: height + 24 }]}>
+          <View style={[styles.chartWrapper, { height: height + 36 }]}>
             {mode === "heartRate" ? (
               <LineChart
                 key={`chart-hr-${scope}-${count}-${visibleMetrics[count - 1]?.recordedAt ?? ""}`}
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
+    paddingBottom: 4,
   },
   scopeRow: {
     flexDirection: "row",
