@@ -285,63 +285,92 @@ export function ParticipantPerformanceView({
               <Metric
                 label="Tổng điểm đo"
                 value={summary?.count ?? metrics.length}
+                hint="Mẫu IoT ghi nhận"
+                icon="hardware-chip-outline"
+                accentColor="#8B5CF6"
+                badge="Dữ liệu"
               />
               <Metric
                 label="Nhịp tim thấp nhất"
-                value={
-                  minHeartRateBpm == null
-                    ? "—"
-                    : `${minHeartRateBpm} bpm`
-                }
+                value={minHeartRateBpm == null ? "—" : `${minHeartRateBpm} bpm`}
+                hint="Khi ổn định"
+                icon="heart-half-outline"
+                accentColor="#10B981"
+                badge="Tối thiểu"
               />
               <Metric
                 label="Nhịp tim trung bình"
                 value={
-                  summary?.avgHeartRateBpm == null
-                    ? "—"
-                    : `${summary.avgHeartRateBpm} bpm`
+                  summary?.avgHeartRateBpm == null ? "—" : `${summary.avgHeartRateBpm} bpm`
                 }
+                hint="Mức tải duy trì"
+                icon="heart-outline"
+                accentColor="#F43F5E"
+                badge="Nhịp tim"
               />
               <Metric
                 label="Nhịp tim đỉnh (Peak)"
                 value={
-                  summary?.maxHeartRateBpm == null
-                    ? "—"
-                    : `${summary.maxHeartRateBpm} bpm`
+                  summary?.maxHeartRateBpm == null ? "—" : `${summary.maxHeartRateBpm} bpm`
                 }
-                tone={
+                hint="Công suất đỉnh"
+                icon="flame-outline"
+                accentColor={
                   summary?.maxHeartRateBpm && summary.maxHeartRateBpm >= 240
-                    ? "danger"
+                    ? colors.destructive
                     : summary?.maxHeartRateBpm && summary.maxHeartRateBpm >= 180
-                      ? "warning"
-                      : "default"
+                      ? "#F59E0B"
+                      : "#EF4444"
                 }
+                badge="Đỉnh tải"
               />
               <Metric
                 label="Vận tốc trung bình"
                 value={
                   summary?.avgSpeedMps == null
                     ? "—"
-                    : `${summary.avgSpeedMps.toFixed(1)} m/s (${(summary.avgSpeedMps * 3.6).toFixed(1)} km/h)`
+                    : `${summary.avgSpeedMps.toFixed(1)} m/s`
                 }
+                hint={
+                  summary?.avgSpeedMps == null
+                    ? undefined
+                    : `(${(summary.avgSpeedMps * 3.6).toFixed(1)} km/h)`
+                }
+                icon="speedometer-outline"
+                accentColor="#0284C7"
+                badge="Tốc độ"
               />
               <Metric
                 label="Vận tốc tối đa"
                 value={
                   summary?.maxSpeedMps == null
                     ? "—"
-                    : `${summary.maxSpeedMps.toFixed(1)} m/s (${(summary.maxSpeedMps * 3.6).toFixed(1)} km/h)`
+                    : `${summary.maxSpeedMps.toFixed(1)} m/s`
                 }
+                hint={
+                  summary?.maxSpeedMps == null
+                    ? undefined
+                    : `(${(summary.maxSpeedMps * 3.6).toFixed(1)} km/h)`
+                }
+                icon="rocket-outline"
+                accentColor="#06B6D4"
+                badge="Tối đa"
               />
               <Metric
                 label="Cảnh báo (180-239 bpm)"
                 value={summary?.warningCount ?? 0}
-                tone={summary?.warningCount ? "warning" : "default"}
+                hint="Vùng cảnh báo"
+                icon="warning-outline"
+                accentColor="#F59E0B"
+                badge={summary?.warningCount ? "Lưu ý" : "Bình thường"}
               />
               <Metric
                 label="Nguy cấp (≥ 240 bpm)"
                 value={summary?.criticalCount ?? 0}
-                tone={summary?.criticalCount ? "danger" : "default"}
+                hint="Vùng nguy hiểm"
+                icon="alert-circle"
+                accentColor="#DC2626"
+                badge={summary?.criticalCount ? "Báo động" : "An toàn"}
               />
             </View>
           </View>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Linking, Pressable, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, View } from "react-native";
 import { router, type Href, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/common/LocalizedText";
 import { AsyncStateView, KeyValue, Screen, SectionTitle } from "@/components/common";
@@ -61,7 +61,8 @@ type ParticipantRow = {
 };
 
 export function TrainingSessionDetailScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const styles = getStyles(colors, isDark);
   const { t } = useI18n();
   const ui = getUiStyles(colors);
   const { id, sessionId } = useLocalSearchParams<{ id: string; sessionId: string }>();
@@ -868,148 +869,273 @@ export function TrainingSessionDetailScreen() {
                       </Panel>
                     ))}
 
-                    {canAssignGroom ? (
-                      <View style={{ gap: 8 }}>
-                        <SecondaryButton
-                          label={
-                            participant.assignedGroomId ? "Change assigned Groom" : "Assign Groom"
-                          }
-                          icon="people-outline"
-                          onPress={() =>
-                            setGroomPickerId(groomPickerId === participant.id ? "" : participant.id)
-                          }
-                        />
-                        {groomPickerId === participant.id ? (
-                          <View style={{ gap: 6 }}>
-                            <SecondaryButton
-                              label="Unassign Groom"
-                              icon="close"
-                              disabled={!participant.assignedGroomId || pending !== ""}
-                              onPress={() => void assignGroom(participant.id, null)}
-                            />
-                            {payload.grooms.map((groom) => (
+                    {/* Participant Action Console */}
+                    <View style={styles.actionGrid}>
+                      {/* Row 1: Workflow actions (Attendance / Ready / Start / Complete vs Absent / Stop) */}
+                      {canCheckIn ||
+                      canReady ||
+                      canStart ||
+                      canComplete ||
+                      (participant.status !== "ONGOING" &&
+                        participant.status !== "COMPLETED" &&
+                        participant.status !== "ABSENT" &&
+                        participant.status !== "SKIPPED") ? (
+                        <View style={styles.actionRow}>
+                          {(participant.status === "PLANNED" || participant.status === "ABSENT") &&
+                          canCheckIn ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              disabled={pending !== ""}
+                              onPress={() =>
+                                void perform(`checkin:${participant.id}`, () =>
+                                  trainingService.checkIn(token!, participant.id),
+                                )
+                              }
+                              style={({ pressed }) => [
+                                styles.actionBtn,
+                                styles.attendanceBtn,
+                                { opacity: pending !== "" ? 0.5 : pressed ? 0.85 : 1 },
+                              ]}
+                            >
+                              <Text style={styles.attendanceBtnText} numberOfLines={1}>
+                                {t(participant.status === "ABSENT" ? "Check in again" : "Check in")}
+                              </Text>
+                              <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
+                            </Pressable>
+                          ) : null}
+
+                          {canReady ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              disabled={pending !== ""}
+                              onPress={() =>
+                                void perform(`ready:${participant.id}`, () =>
+                                  trainingService.markReady(token!, participant.id),
+                                )
+                              }
+                              style={({ pressed }) => [
+                                styles.actionBtn,
+                                styles.attendanceBtn,
+                                { opacity: pending !== "" ? 0.5 : pressed ? 0.85 : 1 },
+                              ]}
+                            >
+                              <Text style={styles.attendanceBtnText} numberOfLines={1}>
+                                {t("Mark ready")}
+                              </Text>
+                              <Ionicons name="walk-outline" size={16} color="#FFFFFF" />
+                            </Pressable>
+                          ) : null}
+
+                          {canStart ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              disabled={pending !== ""}
+                              onPress={() =>
+                                void perform(`start:${participant.id}`, () =>
+                                  trainingService.startParticipant(token!, participant.id),
+                                )
+                              }
+                              style={({ pressed }) => [
+                                styles.actionBtn,
+                                styles.attendanceBtn,
+                                { opacity: pending !== "" ? 0.5 : pressed ? 0.85 : 1 },
+                              ]}
+                            >
+                              <Text style={styles.attendanceBtnText} numberOfLines={1}>
+                                {t("Start training")}
+                              </Text>
+                              <Ionicons name="play" size={16} color="#FFFFFF" />
+                            </Pressable>
+                          ) : null}
+
+                          {canComplete && isTrainer ? (
+                            <>
                               <Pressable
-                                key={groom.groomId}
-                                onPress={() => void assignGroom(participant.id, groom.groomId)}
+                                accessibilityRole="button"
+                                disabled={pending !== ""}
+                                onPress={() => {
+                                  if (session?.sessionType === "TIME_TRIAL") {
+                                    setTrialCompletionParticipantId(participant.id);
+                                    setTrialTimeInput("");
+                                    setTrialTimeNotes("");
+                                    setShowTrialCompleteModal(true);
+                                  } else {
+                                    stopParticipantSimulation(participant.id);
+                                    void perform(`complete:${participant.id}`, () =>
+                                      trainingService.completeParticipant(token!, participant.id),
+                                    );
+                                  }
+                                }}
+                                style={({ pressed }) => [
+                                  styles.actionBtn,
+                                  styles.attendanceBtn,
+                                  { opacity: pending !== "" ? 0.5 : pressed ? 0.85 : 1 },
+                                ]}
                               >
-                                <Panel
-                                  style={{
-                                    padding: 11,
-                                    borderColor:
-                                      participant.assignedGroomId === groom.groomId
-                                        ? colors.primary
-                                        : colors.border,
-                                  }}
-                                >
-                                  <Text style={ui.value}>{groom.fullName}</Text>
-                                  <Text style={ui.label}>
-                                    {groom.activeHorseCount} active horses
-                                  </Text>
-                                </Panel>
+                                <Text style={styles.attendanceBtnText} numberOfLines={1}>
+                                  {t("Complete training")}
+                                </Text>
+                                <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
                               </Pressable>
-                            ))}
-                            {!payload.grooms.length ? (
-                              <Text style={ui.muted}>No Groom assignments are available.</Text>
-                            ) : null}
-                          </View>
+
+                              <Pressable
+                                accessibilityRole="button"
+                                disabled={pending !== ""}
+                                onPress={() => {
+                                  setStopParticipantId(participant.id);
+                                  setStopReason("");
+                                  setShowStopModal(true);
+                                }}
+                                style={({ pressed }) => [
+                                  styles.actionBtn,
+                                  styles.dangerActionBtn,
+                                  { opacity: pending !== "" ? 0.5 : pressed ? 0.85 : 1 },
+                                ]}
+                              >
+                                <Text style={styles.dangerActionBtnText} numberOfLines={1}>
+                                  {t("Dừng sớm lượt tập")}
+                                </Text>
+                                <Ionicons
+                                  name="stop-circle-outline"
+                                  size={16}
+                                  color={colors.destructive}
+                                />
+                              </Pressable>
+                            </>
+                          ) : null}
+
+                          {participant.status !== "ONGOING" &&
+                          participant.status !== "COMPLETED" &&
+                          participant.status !== "ABSENT" &&
+                          participant.status !== "SKIPPED" ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              onPress={() => {
+                                setAbsentId(absentId === participant.id ? "" : participant.id);
+                                setAbsentReason("");
+                              }}
+                              style={({ pressed }) => [
+                                styles.actionBtn,
+                                styles.absentBtn,
+                                { opacity: pressed ? 0.85 : 1 },
+                              ]}
+                            >
+                              <Text style={styles.absentBtnText} numberOfLines={1}>
+                                {t("Report absent")}
+                              </Text>
+                              <Ionicons
+                                name="person-remove-outline"
+                                size={16}
+                                color={isDark ? "#FBBF24" : "#B45309"}
+                              />
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      ) : null}
+
+                      {/* Row 2: Management & Telemetry (Đổi Groom + Hiệu suất & Biểu đồ IoT) */}
+                      <View style={styles.actionRow}>
+                        {canAssignGroom ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={() =>
+                              setGroomPickerId(
+                                groomPickerId === participant.id ? "" : participant.id,
+                              )
+                            }
+                            style={({ pressed }) => [
+                              styles.actionBtn,
+                              styles.groomBtn,
+                              { opacity: pressed ? 0.85 : 1 },
+                            ]}
+                          >
+                            <Text style={styles.groomBtnText} numberOfLines={1}>
+                              {t(
+                                participant.assignedGroomId
+                                  ? "Change assigned Groom"
+                                  : "Assign Groom",
+                              )}
+                            </Text>
+                            <Ionicons
+                              name="people-outline"
+                              size={16}
+                              color={isDark ? "#C084FC" : "#7E22CE"}
+                            />
+                          </Pressable>
+                        ) : null}
+
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => {
+                            const params = new URLSearchParams({
+                              horse: participant.horseName,
+                              session: session!.name,
+                              classId: payload.trainingClass.id,
+                              sessionId: session!.id,
+                              sessionType: session!.sessionType,
+                              sessionStatus: session!.status,
+                              participantStatus: participant.status,
+                              horseId: participant.horseId,
+                            });
+                            router.push(
+                              `/trainer/participant/${participant.id}?${params.toString()}` as Href,
+                            );
+                          }}
+                          style={({ pressed }) => [
+                            styles.actionBtn,
+                            styles.telemetryBtn,
+                            { opacity: pressed ? 0.85 : 1 },
+                          ]}
+                        >
+                          <Text style={styles.telemetryBtnText} numberOfLines={1}>
+                            {t("Hiệu suất & Biểu đồ IoT")}
+                          </Text>
+                          <Ionicons
+                            name="pulse-outline"
+                            size={16}
+                            color={isDark ? "#38BDF8" : "#0284C7"}
+                          />
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    {groomPickerId === participant.id ? (
+                      <View style={{ gap: 6, marginTop: 4 }}>
+                        <SecondaryButton
+                          label="Unassign Groom"
+                          icon="close"
+                          disabled={!participant.assignedGroomId || pending !== ""}
+                          onPress={() => void assignGroom(participant.id, null)}
+                        />
+                        {payload.grooms.map((groom) => (
+                          <Pressable
+                            key={groom.groomId}
+                            onPress={() => void assignGroom(participant.id, groom.groomId)}
+                          >
+                            <Panel
+                              style={{
+                                padding: 11,
+                                borderColor:
+                                  participant.assignedGroomId === groom.groomId
+                                    ? colors.primary
+                                    : colors.border,
+                              }}
+                            >
+                              <Text style={ui.value}>{groom.fullName}</Text>
+                              <Text style={ui.label}>
+                                {groom.activeHorseCount} active horses
+                              </Text>
+                            </Panel>
+                          </Pressable>
+                        ))}
+                        {!payload.grooms.length ? (
+                          <Text style={ui.muted}>No Groom assignments are available.</Text>
                         ) : null}
                       </View>
                     ) : null}
 
-                    {canCheckIn || canReady || canStart || canComplete ? (
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                        {(participant.status === "PLANNED" || participant.status === "ABSENT") &&
-                        canCheckIn ? (
-                          <SecondaryButton
-                            label={participant.status === "ABSENT" ? "Check in again" : "Check in"}
-                            icon="checkmark-circle-outline"
-                            disabled={pending !== ""}
-                            style={{ flexGrow: 1 }}
-                            onPress={() =>
-                              void perform(`checkin:${participant.id}`, () =>
-                                trainingService.checkIn(token!, participant.id),
-                              )
-                            }
-                          />
-                        ) : null}
-                        {canReady ? (
-                          <SecondaryButton
-                            label="Mark ready"
-                            icon="walk-outline"
-                            disabled={pending !== ""}
-                            style={{ flexGrow: 1 }}
-                            onPress={() =>
-                              void perform(`ready:${participant.id}`, () =>
-                                trainingService.markReady(token!, participant.id),
-                              )
-                            }
-                          />
-                        ) : null}
-                        {canStart ? (
-                          <PrimaryButton
-                            label="Start training"
-                            icon="play"
-                            disabled={pending !== ""}
-                            style={{ flexGrow: 1 }}
-                            onPress={() =>
-                              void perform(`start:${participant.id}`, () =>
-                                trainingService.startParticipant(token!, participant.id),
-                              )
-                            }
-                          />
-                        ) : null}
-                        {canComplete && isTrainer ? (
-                          <>
-                            <PrimaryButton
-                              label="Complete training"
-                              icon="checkmark-done"
-                              disabled={pending !== ""}
-                              style={{ flexGrow: 1 }}
-                              onPress={() => {
-                                if (session?.sessionType === "TIME_TRIAL") {
-                                  setTrialCompletionParticipantId(participant.id);
-                                  setTrialTimeInput("");
-                                  setTrialTimeNotes("");
-                                  setShowTrialCompleteModal(true);
-                                } else {
-                                  stopParticipantSimulation(participant.id);
-                                  void perform(`complete:${participant.id}`, () =>
-                                    trainingService.completeParticipant(token!, participant.id),
-                                  );
-                                }
-                              }}
-                            />
-                            <SecondaryButton
-                              label="Dừng sớm lượt tập"
-                              icon="stop-circle-outline"
-                              disabled={pending !== ""}
-                              style={{ flexGrow: 1, borderColor: colors.destructive }}
-                              onPress={() => {
-                                setStopParticipantId(participant.id);
-                                setStopReason("");
-                                setShowStopModal(true);
-                              }}
-                            />
-                          </>
-                        ) : null}
-                        {participant.status !== "ONGOING" &&
-                        participant.status !== "COMPLETED" &&
-                        participant.status !== "ABSENT" &&
-                        participant.status !== "SKIPPED" ? (
-                          <SecondaryButton
-                            label="Report absent"
-                            icon="person-remove-outline"
-                            style={{ flexGrow: 1 }}
-                            onPress={() => {
-                              setAbsentId(absentId === participant.id ? "" : participant.id);
-                              setAbsentReason("");
-                            }}
-                          />
-                        ) : null}
-                      </View>
-                    ) : null}
                     {absentId === participant.id ? (
-                      <View style={{ gap: 8 }}>
+                      <View style={{ gap: 8, marginTop: 4 }}>
                         <Field label="Absence reason">
                           <NativeInput
                             value={absentReason}
@@ -1191,44 +1317,22 @@ export function TrainingSessionDetailScreen() {
                       )
                     ) : null}
 
-                    {/* Participant Action Buttons */}
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                      <SecondaryButton
-                        label="Hiệu suất & Biểu đồ IoT"
-                        icon="pulse-outline"
-                        style={{ flexGrow: 1 }}
-                        onPress={() => {
-                          const params = new URLSearchParams({
-                            horse: participant.horseName,
-                            session: session!.name,
-                            classId: payload.trainingClass.id,
-                            sessionId: session!.id,
-                            sessionType: session!.sessionType,
-                            sessionStatus: session!.status,
-                            participantStatus: participant.status,
-                            horseId: participant.horseId,
-                          });
-                          router.push(
-                            `/trainer/participant/${participant.id}?${params.toString()}` as Href,
-                          );
-                        }}
-                      />
-                      {session &&
-                      session.status !== "CANCELLED" &&
-                      session?.sessionType === "TIME_TRIAL" &&
-                      ["ONGOING", "COMPLETED", "STOPPED"].includes(participant.status) ? (
+                    {session &&
+                    session.status !== "CANCELLED" &&
+                    session?.sessionType === "TIME_TRIAL" &&
+                    ["ONGOING", "COMPLETED", "STOPPED"].includes(participant.status) ? (
+                      <View style={{ marginTop: 4 }}>
                         <SecondaryButton
                           label="Record trial result"
                           icon="timer-outline"
-                          style={{ flexGrow: 1 }}
                           onPress={() =>
                             router.push(
                               `/trainer/trial-result/${participant.id}?sessionId=${session!.id}&horse=${encodeURIComponent(participant.horseName)}` as Href,
                             )
                           }
                         />
-                      ) : null}
-                    </View>
+                      </View>
+                    ) : null}
                   </Panel>
                 );
               })
@@ -1300,6 +1404,85 @@ export function TrainingSessionDetailScreen() {
     </Screen>
   );
 }
+
+const getStyles = (colors: any, isDark: boolean) =>
+  StyleSheet.create({
+    actionGrid: {
+      gap: 8,
+      marginTop: 4,
+    },
+    actionRow: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    actionBtn: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: radius.md,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      borderWidth: 1,
+    },
+    attendanceBtn: {
+      backgroundColor: colors.fit,
+      borderColor: colors.fit,
+    },
+    attendanceBtnText: {
+      color: "#FFFFFF",
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
+      flexShrink: 1,
+    },
+    absentBtn: {
+      backgroundColor: isDark ? "rgba(245, 158, 11, 0.12)" : "#FEF3C7",
+      borderColor: isDark ? "rgba(245, 158, 11, 0.35)" : "#FCD34D",
+    },
+    absentBtnText: {
+      color: isDark ? "#FBBF24" : "#B45309",
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
+      flexShrink: 1,
+    },
+    groomBtn: {
+      backgroundColor: isDark ? "rgba(168, 85, 247, 0.12)" : "#F3E8FF",
+      borderColor: isDark ? "rgba(168, 85, 247, 0.32)" : "#D8B4FE",
+    },
+    groomBtnText: {
+      color: isDark ? "#C084FC" : "#7E22CE",
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
+      flexShrink: 1,
+    },
+    telemetryBtn: {
+      backgroundColor: isDark ? "rgba(2, 132, 199, 0.12)" : "#E0F2FE",
+      borderColor: isDark ? "rgba(2, 132, 199, 0.32)" : "#BAE6FD",
+    },
+    telemetryBtnText: {
+      color: isDark ? "#38BDF8" : "#0284C7",
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
+      flexShrink: 1,
+    },
+    dangerActionBtn: {
+      backgroundColor: isDark ? "rgba(239, 68, 68, 0.12)" : "#FEE2E2",
+      borderColor: colors.destructive,
+    },
+    dangerActionBtnText: {
+      color: colors.destructive,
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
+      flexShrink: 1,
+    },
+  });
 
 export default TrainingSessionDetailScreen;
 
