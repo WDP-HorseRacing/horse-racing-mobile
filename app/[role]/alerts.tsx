@@ -1,9 +1,9 @@
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { isRole } from "@/features/auth/roles";
-import { NotificationsFeed } from "@/features/alerts/components/NotificationsFeed";
+import { HorseAlertsFeed } from "@/features/alerts/components/HorseAlertsFeed";
 
 export default function Alerts() {
   const { role } = useLocalSearchParams<{ role: string }>();
   if (!isRole(role)) return <Redirect href="/" />;
-  return <NotificationsFeed role={role} />;
+  return <HorseAlertsFeed role={role} />;
 }

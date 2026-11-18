@@ -1,5 +1,5 @@
-import { NotificationsFeed } from "@/features/alerts/components/NotificationsFeed";
+import { HorseAlertsFeed } from "@/features/alerts/components/HorseAlertsFeed";
 
 export default function TrainerAlerts() {
-  return <NotificationsFeed role="trainer" />;
+  return <HorseAlertsFeed role="trainer" />;
 }

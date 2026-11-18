@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Text } from "@/components/common/LocalizedText";
 import { useI18n } from "@/context/I18nContext";
 import { useAuth } from "@/context/AuthContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import { MAX_BOTTOM_NAV_ITEMS, roles } from "@/features/auth/roles";
 import { radius, space } from "@/config/theme";
 import type { RoleId } from "@/types/raceos";
@@ -31,6 +32,7 @@ function BottomNav({ role }: { role: RoleId }) {
   const pathname = usePathname();
   const items = roles[role].nav.slice(0, MAX_BOTTOM_NAV_ITEMS);
   const { t } = useI18n();
+  const { unreadCount } = useNotifications();
   const auth = useAuth();
   const insets = useSafeAreaInsets();
   const [moreVisible, setMoreVisible] = useState(false);
@@ -139,6 +141,13 @@ function BottomNav({ role }: { role: RoleId }) {
                     <Text style={styles.moreItemTitle}>{t(item.label)}</Text>
                     <Text style={styles.moreItemDescription}>{t(item.description)}</Text>
                   </View>
+                  {item.badge === "notifications" && unreadCount > 0 ? (
+                    <View style={styles.moreBadge}>
+                      <Text style={styles.moreBadgeText}>
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </Text>
+                    </View>
+                  ) : null}
                   <Ionicons name="chevron-forward" size={19} color={colors.mutedForeground} />
                 </Pressable>
               ))}
@@ -189,9 +198,11 @@ export function Screen({
   const pathname = usePathname();
   const { language, toggleLanguage, t } = useI18n();
   const auth = useAuth();
+  const { unreadCount } = useNotifications();
   const displayName = auth.user?.fullName ?? cfg.person;
   const profilePath = `/profile/${role}`;
   const isProfile = pathname === profilePath;
+  const isNotifications = pathname === `/${role}/notifications`;
 
   const handleBack = () => {
     if (onBack) {
@@ -222,6 +233,24 @@ export function Screen({
             {subtitle ? t(subtitle) : `${t(cfg.label)} · ${cfg.scope}`}
           </Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("Notifications")}
+          accessibilityHint={t("Open your notifications")}
+          accessibilityState={{ disabled: isNotifications }}
+          disabled={isNotifications}
+          onPress={() => router.push(`/${role}/notifications` as Href)}
+          style={[styles.notificationButton, isNotifications && styles.notificationButtonActive]}
+        >
+          <Ionicons name="notifications-outline" size={21} color={colors.foreground} />
+          {unreadCount > 0 ? (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("Change language")}
@@ -313,6 +342,43 @@ const getStyles = (colors: any) =>
       justifyContent: "center",
       flexShrink: 0,
     },
+    notificationButton: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    },
+    notificationButtonActive: { backgroundColor: colors.fitSoft, borderColor: colors.primary },
+    notificationBadge: {
+      position: "absolute",
+      top: -4,
+      right: -5,
+      minWidth: 17,
+      height: 17,
+      paddingHorizontal: 4,
+      borderRadius: radius.pill,
+      borderWidth: 1.5,
+      borderColor: colors.surface,
+      backgroundColor: colors.destructive,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    notificationBadgeText: { color: colors.destructiveForeground, fontSize: 9, fontWeight: "800" },
+    moreBadge: {
+      minWidth: 22,
+      height: 22,
+      paddingHorizontal: 6,
+      borderRadius: radius.pill,
+      backgroundColor: colors.destructive,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    moreBadgeText: { color: colors.destructiveForeground, fontSize: 10, fontWeight: "800" },
     avatarText: { color: colors.foreground, fontSize: 11, fontWeight: "700" },
     language: {
       minWidth: 38,

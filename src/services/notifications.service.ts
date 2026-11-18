@@ -2,10 +2,15 @@ import type { HorseAlertPageDto, NotificationPageDto } from "@/adapters/notifica
 import { apiRequest } from "@/services/api-client";
 
 export const notificationsService = {
-  list(token: string, cursor?: string) {
-    const query = new URLSearchParams({ limit: "50" });
+  list(token: string, cursor?: string, options: { unreadOnly?: boolean } = {}) {
+    const query = new URLSearchParams({ limit: "20" });
     if (cursor) query.set("cursor", cursor);
+    if (options.unreadOnly) query.set("unreadOnly", "true");
     return apiRequest<NotificationPageDto>(`/notifications?${query.toString()}`, { token });
+  },
+
+  unreadCount(token: string) {
+    return apiRequest<{ count: number }>("/notifications/unread-count", { token });
   },
 
   markRead(token: string, notificationId: string) {

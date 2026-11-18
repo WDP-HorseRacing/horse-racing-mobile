@@ -11,6 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import vi from "@/data/locales/vi.json";
 import viUi from "@/data/locales/vi-ui.json";
 import viUiExtra from "@/data/locales/vi-ui-extra.json";
+import viNotifications from "@/data/locales/vi-notifications.json";
 
 export type Language = "en" | "vi";
 
@@ -24,7 +25,7 @@ type I18nValue = {
 const LANGUAGE_STORAGE_KEY = "@raceos/language";
 const I18nContext = createContext<I18nValue | null>(null);
 
-const vietnamese = { ...vi, ...viUi, ...viUiExtra } as Record<string, string>;
+const vietnamese = { ...vi, ...viUi, ...viUiExtra, ...viNotifications } as Record<string, string>;
 vietnamese["HorseRacing"] = "HorseRacing";
 vietnamese["HorseRacing Mobile"] = "HorseRacing Mobile";
 
@@ -52,31 +53,65 @@ i18nRuntime.__raceosLanguage ??= "en";
 i18nRuntime.__raceosTranslateText = translateText;
 const currentT = (text: string) =>
   (i18nRuntime.__raceosTranslateText ?? translateText)(text, i18nRuntime.__raceosLanguage ?? "en");
-const templateCache = new WeakMap<Record<string, string>, [string, string][]>();
+const englishSourceTexts = new Set(Object.keys(vietnamese));
+type CompiledTemplate = { pattern: RegExp; translation: string; staticLength: number };
+type CompiledTemplateCatalog = {
+  byInitial: Map<string, CompiledTemplate[]>;
+  fallback: CompiledTemplate[];
+};
+const templateCache = new WeakMap<Record<string, string>, CompiledTemplateCatalog>();
+const translationCache: Record<Language, Map<string, string>> = {
+  en: new Map(),
+  vi: new Map(),
+};
+const MAX_TRANSLATION_CACHE_ENTRIES = 1_000;
 
 function translateTemplate(text: string, catalog: Record<string, string>): string | null {
-  let templates = templateCache.get(catalog);
-  if (!templates) {
-    templates = Object.entries(catalog)
-      .filter(([template]) => template.includes("{"))
-      .sort(
-        ([first], [second]) =>
-          second.replace(/\{[^{}]+\}/g, "").length - first.replace(/\{[^{}]+\}/g, "").length,
-      );
-    templateCache.set(catalog, templates);
+  let compiled = templateCache.get(catalog);
+  if (!compiled) {
+    const byInitial = new Map<string, CompiledTemplate[]>();
+    const fallback: CompiledTemplate[] = [];
+
+    for (const [template, translation] of Object.entries(catalog)) {
+      if (!template.includes("{")) continue;
+      const staticLength = template.replace(/\{[^{}]+\}/g, "").length;
+      if (staticLength === 0) continue;
+
+      const escaped = template
+        .split(/(\{[^{}]+\})/)
+        .map((part) =>
+          /^\{[^{}]+\}$/.test(part) ? "(.+?)" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        )
+        .join("");
+      const matcher = {
+        pattern: new RegExp(`^${escaped}$`),
+        translation,
+        staticLength,
+      };
+      const initial = template[0];
+      if (!initial || template.startsWith("{")) fallback.push(matcher);
+      else byInitial.set(initial, [...(byInitial.get(initial) ?? []), matcher]);
+    }
+
+    const mostSpecificFirst = (first: CompiledTemplate, second: CompiledTemplate) =>
+      second.staticLength - first.staticLength;
+    fallback.sort(mostSpecificFirst);
+    for (const [initial, matchers] of byInitial) {
+      byInitial.set(initial, [...matchers, ...fallback].sort(mostSpecificFirst));
+    }
+    compiled = { byInitial, fallback };
+    templateCache.set(catalog, compiled);
   }
 
-  for (const [template, translation] of templates) {
-    const escaped = template
-      .split(/(\{[^{}]+\})/)
-      .map((part) =>
-        /^\{[^{}]+\}$/.test(part) ? "(.+?)" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-      )
-      .join("");
-    const match = text.match(new RegExp(`^${escaped}$`));
+  const candidates = compiled.byInitial.get(text[0]) ?? compiled.fallback;
+  for (const { pattern, translation } of candidates) {
+    const match = text.match(pattern);
     if (!match) continue;
     let valueIndex = 1;
-    return translation.replace(/\{[^{}]+\}/g, () => match[valueIndex++] ?? "");
+    return translation.replace(/\{[^{}]+\}/g, () => {
+      const value = match[valueIndex++] ?? "";
+      return catalog === english ? translateToEnglish(value) : translateToVietnameseInternal(value);
+    });
   }
   return null;
 }
@@ -129,6 +164,7 @@ export function showLocalizedAlert(
 
 function translateToEnglish(text: string): string {
   if (english[text]) return english[text];
+  if (englishSourceTexts.has(text)) return text;
   const trimmed = text.trim();
   if (english[trimmed]) return text.replace(trimmed, english[trimmed]);
   if (/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/.test(text)) return text.replaceAll("_", " ");
@@ -229,7 +265,21 @@ function translateToVietnamese(text: string): string {
 export function translateText(text: string, lang: Language): string {
   if (!text || typeof text !== "string") return text;
   if (text === "HorseRacing" || text === "HorseRacing Mobile") return text;
-  return lang === "vi" ? translateToVietnamese(text) : translateToEnglish(text);
+  const cache = translationCache[lang];
+  const cached = cache.get(text);
+  if (cached !== undefined) {
+    cache.delete(text);
+    cache.set(text, cached);
+    return cached;
+  }
+
+  const translated = lang === "vi" ? translateToVietnamese(text) : translateToEnglish(text);
+  if (cache.size >= MAX_TRANSLATION_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+  cache.set(text, translated);
+  return translated;
 }
 
 export function I18nProvider({ children }: PropsWithChildren) {

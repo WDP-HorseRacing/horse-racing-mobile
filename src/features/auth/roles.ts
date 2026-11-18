@@ -9,7 +9,13 @@ export type RoleConfig = {
   workLabel: string;
   nav: { label: string; icon: string; path?: string; action?: "more" }[];
   /** Less frequently used destinations. These stay reachable outside the bottom bar. */
-  secondary: { label: string; icon: string; path: string; description: string }[];
+  secondary: {
+    label: string;
+    icon: string;
+    path: string;
+    description: string;
+    badge?: "notifications";
+  }[];
 };
 
 export const MAX_BOTTOM_NAV_ITEMS = 5;
@@ -32,6 +38,13 @@ export const roles: Record<RoleId, RoleConfig> = {
     ],
     secondary: [
       {
+        label: "Notifications",
+        icon: "notifications-outline",
+        path: "/trainer/notifications",
+        description: "View updates and tasks sent to you.",
+        badge: "notifications",
+      },
+      {
         label: "Stable",
         icon: "home-outline",
         path: "/trainer/stable",
@@ -39,9 +52,9 @@ export const roles: Record<RoleId, RoleConfig> = {
       },
       {
         label: "Alerts",
-        icon: "notifications-outline",
+        icon: "pulse-outline",
         path: "/trainer/alerts",
-        description: "Review club notifications and alerts.",
+        description: "Review horse health and performance alerts.",
       },
       {
         label: "Supplies",
@@ -65,6 +78,13 @@ export const roles: Record<RoleId, RoleConfig> = {
       { label: "More", icon: "ellipsis-horizontal", action: "more" },
     ],
     secondary: [
+      {
+        label: "Notifications",
+        icon: "notifications-outline",
+        path: "/groom/notifications",
+        description: "View updates and tasks sent to you.",
+        badge: "notifications",
+      },
       {
         label: "Training",
         icon: "calendar-outline",
@@ -94,6 +114,13 @@ export const roles: Record<RoleId, RoleConfig> = {
     ],
     secondary: [
       {
+        label: "Notifications",
+        icon: "notifications-outline",
+        path: "/vet/notifications",
+        description: "View updates and tasks sent to you.",
+        badge: "notifications",
+      },
+      {
         label: "Examination requests",
         icon: "clipboard-outline",
         path: "/vet/medical/requests",
@@ -119,9 +146,9 @@ export const roles: Record<RoleId, RoleConfig> = {
       },
       {
         label: "Alerts",
-        icon: "notifications-outline",
+        icon: "pulse-outline",
         path: "/vet/alerts",
-        description: "Review medical and club notifications.",
+        description: "Review horse health and performance alerts.",
       },
       {
         label: "Supplies",
@@ -145,6 +172,13 @@ export const roles: Record<RoleId, RoleConfig> = {
     ],
     secondary: [
       {
+        label: "Notifications",
+        icon: "notifications-outline",
+        path: "/owner/notifications",
+        description: "View updates and tasks sent to you.",
+        badge: "notifications",
+      },
+      {
         label: "Reports",
         icon: "bar-chart-outline",
         path: "/owner/reports",
@@ -166,6 +200,13 @@ export const roles: Record<RoleId, RoleConfig> = {
       { label: "More", icon: "ellipsis-horizontal", action: "more" },
     ],
     secondary: [
+      {
+        label: "Notifications",
+        icon: "notifications-outline",
+        path: "/manager/notifications",
+        description: "View updates and tasks sent to you.",
+        badge: "notifications",
+      },
       {
         label: "Stable",
         icon: "home-outline",
