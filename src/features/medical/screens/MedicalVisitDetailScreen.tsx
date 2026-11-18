@@ -34,21 +34,14 @@ export function MedicalVisitDetailScreen() {
   const uiStyles = getUiStyles(colors);
   const styles = useMemo(() => getStyles(colors), [colors]);
 
-  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [adjustCost, setAdjustCost] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
-  const [replacementRequestIds, setReplacementRequestIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     const record = await medicalService.getRecord(token!, id);
-    const [horse, examRequests] = await Promise.all([
-      horseService.get(token!, record.horseId),
-      role === "vet"
-        ? medicalService.listHorseExamRequests(token!, record.horseId)
-        : Promise.resolve([]),
-    ]);
-    return { ...record, horse, examRequests };
+    const horse = await horseService.get(token!, record.horseId);
+    return { ...record, horse };
   }, [id, role, token]);
   const resource = useApiResource(
     load,
@@ -60,44 +53,6 @@ export function MedicalVisitDetailScreen() {
   if (!["vet", "manager", "trainer", "owner"].includes(role)) {
     return <Redirect href={`/${role}` as Href} />;
   }
-
-  const voidVisit = () => {
-    if (!resource.data || !reason.trim() || saving) return;
-    Alert.alert(
-      "Hủy buổi khám này?",
-      "Biên bản khám vẫn sẽ được lưu trong lịch sử kèm lý do, các chỉ số đo sẽ không còn hiệu lực.",
-      [
-        { text: "Giữ lại", style: "cancel" },
-        {
-          text: "Hủy buổi khám",
-          style: "destructive",
-          onPress: () => {
-            setSaving(true);
-            const linkedRequestIds = (resource.data?.examRequests ?? [])
-              .filter((request) => request.medicalRecordId === id && request.status === "EXAMINED")
-              .map((request) => request.id);
-            void medicalService
-              .voidRecord(token!, id, reason.trim())
-              .then(async (voidResult) => {
-                setReason("");
-                setReplacementRequestIds(linkedRequestIds);
-                await resource.refresh();
-                const outcome = voidResult.healthOutcome;
-                const outcomeText =
-                  outcome === "REVERTED"
-                    ? "Sức khỏe đã được đưa về trạng thái trước buổi khám."
-                    : outcome === "KEPT_LATER_CHANGE"
-                      ? `Giữ nguyên sức khỏe hiện tại vì đã có lần cập nhật sau buổi khám${voidResult.laterHealthChange ? ` lúc ${formatDateTime(voidResult.laterHealthChange.changedAt)} bởi ${voidResult.laterHealthChange.changedBy ?? "hệ thống"}` : ""}.`
-                      : "Đã hủy lần khám y tế.";
-                Alert.alert("Thành công", outcomeText);
-              })
-              .catch((error) => Alert.alert("Không thể hủy lần khám", extractErrorMessage(error)))
-              .finally(() => setSaving(false));
-          },
-        },
-      ],
-    );
-  };
 
   const record = resource.data;
   const isNormal = record?.conclusion === "NORMAL";
@@ -115,10 +70,9 @@ export function MedicalVisitDetailScreen() {
     if (!record) return;
     const query = new URLSearchParams({
       horseId: record.horseId,
-      kind: replacementRequestIds.length ? "REQUEST" : "ROUTINE",
+      kind: "ROUTINE",
       replacesRecordId: record.id,
     });
-    if (replacementRequestIds.length) query.set("requestIds", replacementRequestIds.join(","));
     router.push(`/${role}/medical/visit?${query.toString()}` as Href);
   };
 
@@ -419,35 +373,6 @@ export function MedicalVisitDetailScreen() {
                 icon="create-outline"
                 onPress={() => router.push(`/${role}/medical/visits/edit/${record.id}` as Href)}
               />
-              {replacementRequestIds.length ? (
-                <PrimaryButton
-                  label="Ghi buổi khám thay thế"
-                  icon="medkit-outline"
-                  onPress={openReplacementVisit}
-                />
-              ) : null}
-            </View>
-          ) : null}
-
-          {canEditClinicalRecord ? (
-            <View style={uiStyles.section}>
-              <SectionTitle>Hủy lần khám y tế</SectionTitle>
-              <View style={styles.voidBox}>
-                <Field label="Lý do hủy *">
-                  <NativeInput
-                    value={reason}
-                    onChangeText={setReason}
-                    placeholder="Nhập lý do hủy bỏ kết quả lần khám này"
-                    multiline
-                  />
-                </Field>
-                <PrimaryButton
-                  label={saving ? "Đang hủy…" : "Xác nhận hủy lần khám"}
-                  icon="close-circle-outline"
-                  disabled={saving || !reason.trim()}
-                  onPress={voidVisit}
-                />
-              </View>
             </View>
           ) : null}
           {record.voidedAt ? (
@@ -685,14 +610,6 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
     injuryNotes: {
       fontSize: 12,
       color: colors.foreground,
-    },
-    voidBox: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: space.md,
-      gap: space.md,
     },
   });
 }

@@ -13,7 +13,7 @@ import { trainingService } from "@/services/training.service";
 const tabsByRole: Record<RoleId, string[]> = {
   trainer: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance"],
   vet: ["Overview", "Training", "Health", "Medical", "Nutrition", "Injuries", "Treatment"],
-  groom: ["Overview", "Nutrition"],
+  groom: ["Overview", "Health", "Nutrition"],
   owner: ["Overview", "Training", "Health", "Medical", "Nutrition", "Performance", "Costs"],
   manager: ["Overview", "Health", "Medical", "Nutrition", "Performance", "Costs", "Timeline"],
 };
@@ -41,8 +41,12 @@ export function useHorseDetailData({
   const permissionsResource = useApiResource(loadPermissions, Boolean(token) && isUuidId);
   const tabs = useMemo(() => {
     const base = tabsByRole[roleId];
-    if (!isUuidId || !permissionsResource.data) return base;
+    if (!isUuidId) return base;
+    if (!permissionsResource.data)
+      return roleId === "groom" ? base.filter((item) => item !== "Health") : base;
     return base.filter((item) => {
+      if (item === "Health" && roleId === "groom")
+        return permissionsResource.data?.canRecordMeasurement === true;
       if (["Health", "Medical", "Injuries", "Treatment"].includes(item))
         return permissionsResource.data?.canViewMedicalTab === true;
       if (item === "Nutrition") return true;

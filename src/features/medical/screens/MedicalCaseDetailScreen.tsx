@@ -60,15 +60,12 @@ export function MedicalCaseDetailScreen() {
   const [adjustRecordId, setAdjustRecordId] = useState("");
   const [adjustCost, setAdjustCost] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
-  const [voidRecordId, setVoidRecordId] = useState("");
-  const [voidReason, setVoidReason] = useState("");
-  const [replacementRequestIds, setReplacementRequestIds] = useState<Record<string, string[]>>({});
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"ALL" | "VISITS" | "3D" | "ACTIONS">("ALL");
 
   const load = useCallback(async () => {
     const medicalCase = await medicalService.getCase(token!, id);
-    const [horse, preview, injuryHistory, examRequests] = await Promise.all([
+    const [horse, preview, injuryHistory] = await Promise.all([
       horseService.get(token!, medicalCase.horseId),
       role === "vet" && medicalCase.status === "OPEN"
         ? medicalService.getClosePreview(token!, id)
@@ -77,9 +74,6 @@ export function MedicalCaseDetailScreen() {
         .listInjuries(token!, medicalCase.horseId)
         .then((injuries) => ({ injuries, unavailable: false }))
         .catch(() => ({ injuries: [], unavailable: true })),
-      role === "vet"
-        ? medicalService.listHorseExamRequests(token!, medicalCase.horseId)
-        : Promise.resolve([]),
     ]);
     return {
       medicalCase,
@@ -87,7 +81,6 @@ export function MedicalCaseDetailScreen() {
       preview,
       injuries: injuryHistory.injuries,
       injuryHistoryUnavailable: injuryHistory.unavailable,
-      examRequests,
     };
   }, [id, role, token]);
 
@@ -243,48 +236,19 @@ export function MedicalCaseDetailScreen() {
     }
   };
 
-  const submitVoid = async () => {
-    if (!voidRecordId || !isValidRequiredText(voidReason, 500)) return;
-    const recordId = voidRecordId;
-    const linkedRequestIds = (resource.data?.examRequests ?? [])
-      .filter((request) => request.medicalRecordId === recordId && request.status === "EXAMINED")
-      .map((request) => request.id);
-    setSaving(true);
-    try {
-      const result = await medicalService.voidRecord(token!, recordId, voidReason.trim());
-      setVoidRecordId("");
-      setVoidReason("");
-      setReplacementRequestIds((current) => ({ ...current, [recordId]: linkedRequestIds }));
-      await resource.refresh();
-      const message =
-        result.healthOutcome === "REVERTED"
-          ? "Đã hủy lần khám. Sức khỏe ngựa đã trở về trạng thái trước buổi khám."
-          : result.healthOutcome === "KEPT_LATER_CHANGE"
-            ? `Đã hủy lần khám. Sức khỏe hiện tại được giữ nguyên vì có lần cập nhật sau buổi khám${result.laterHealthChange ? ` lúc ${formatDateTime(result.laterHealthChange.changedAt)} bởi ${result.laterHealthChange.changedBy ?? "hệ thống"}` : ""}.`
-            : "Đã hủy lần khám y tế.";
-      Alert.alert("Thành công", message);
-    } catch (error) {
-      Alert.alert("Không thể hủy lần khám", extractErrorMessage(error));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const isOpen = medicalCase?.status === "OPEN";
 
   const openReplacementVisit = (recordId: string) => {
     if (!resource.data) return;
-    const requestIds = replacementRequestIds[recordId] ?? [];
     const replacedVisit = medicalCase?.visits.find((visit) => visit.id === recordId);
     const useOpenCase = Boolean(
       replacedVisit?.caseId && medicalCase?.status === "OPEN",
     );
     const params = new URLSearchParams({
       ...(useOpenCase ? { caseId: medicalCase!.id } : { horseId: resource.data.horse.id }),
-      kind: requestIds.length ? "REQUEST" : "ROUTINE",
+      kind: "ROUTINE",
       replacesRecordId: recordId,
     });
-    if (requestIds.length) params.set("requestIds", requestIds.join(","));
     router.push(`/${role}/medical/visit?${params.toString()}` as Href);
   };
 
@@ -700,7 +664,6 @@ export function MedicalCaseDetailScreen() {
                                 accessibilityRole="button"
                                 accessibilityLabel={t("Sửa chi phí")}
                                 onPress={() => {
-                                  setVoidRecordId("");
                                   setAdjustRecordId(visit.id);
                                   setAdjustCost(visit.cost != null ? String(visit.cost) : "0");
                                   setAdjustReason("");
@@ -722,35 +685,12 @@ export function MedicalCaseDetailScreen() {
                               </Pressable>
                             </View>
 
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={t("Hủy buổi khám")}
-                              onPress={() => {
-                                setAdjustRecordId("");
-                                setVoidRecordId(visit.id);
-                              }}
-                              style={({ pressed }) => [
-                                styles.visitActionBtn,
-                                styles.cancelVisitBtn,
-                                { opacity: pressed ? 0.8 : 1 },
-                              ]}
-                            >
-                              <Ionicons
-                                name="trash-outline"
-                                size={16}
-                                color={isDark ? "#F87171" : "#DC2626"}
-                              />
-                              <Text style={styles.cancelVisitBtnText} numberOfLines={1}>
-                                {t("Hủy buổi khám")}
-                              </Text>
-                            </Pressable>
                           </View>
                         ) : (
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={t("Sửa chi phí")}
                             onPress={() => {
-                              setVoidRecordId("");
                               setAdjustRecordId(visit.id);
                               setAdjustCost(visit.cost != null ? String(visit.cost) : "0");
                               setAdjustReason("");
@@ -823,43 +763,6 @@ export function MedicalCaseDetailScreen() {
                 value={adjustReason}
                 onChangeText={setAdjustReason}
                 placeholder="Nhập lý do điều chỉnh chi phí"
-                multiline
-              />
-            </Field>
-          </BottomSheetModal>
-
-          {/* Modal Bottom Sheet: Hủy buổi khám */}
-          <BottomSheetModal
-            visible={Boolean(voidRecordId)}
-            title="Hủy buổi khám"
-            onClose={() => {
-              setVoidRecordId("");
-              setVoidReason("");
-            }}
-            onSave={() =>
-              Alert.alert(
-                "Hủy buổi khám này?",
-                "Buổi khám vẫn được lưu trong lịch sử nhưng các chỉ số sẽ không còn hiệu lực.",
-                [
-                  { text: "Quay lại", style: "cancel" },
-                  {
-                    text: "Hủy buổi khám",
-                    style: "destructive",
-                    onPress: () => void submitVoid(),
-                  },
-                ],
-              )
-            }
-            saveLoading={saving}
-            saveDisabled={saving || !voidReason.trim()}
-            saveLabel="Xác nhận hủy"
-            cancelLabel="Hủy"
-          >
-            <Field label="Lý do hủy buổi khám (bắt buộc)">
-              <NativeInput
-                value={voidReason}
-                onChangeText={setVoidReason}
-                placeholder="Nhập lý do hủy buổi khám"
                 multiline
               />
             </Field>
@@ -1443,17 +1346,6 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"], isDark = false
     },
     editCostBtnText: {
       color: isDark ? "#34D399" : "#047857",
-      fontSize: 13,
-      fontWeight: "700",
-      textAlign: "center",
-    },
-    cancelVisitBtn: {
-      width: "100%",
-      backgroundColor: isDark ? "rgba(239, 68, 68, 0.1)" : "#FEF2F2",
-      borderColor: isDark ? "rgba(239, 68, 68, 0.3)" : "#FECACA",
-    },
-    cancelVisitBtnText: {
-      color: isDark ? "#F87171" : "#DC2626",
       fontSize: 13,
       fontWeight: "700",
       textAlign: "center",
