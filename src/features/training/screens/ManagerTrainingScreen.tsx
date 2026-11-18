@@ -637,9 +637,9 @@ export function ManagerTrainingScreen() {
                         accessibilityLabel={t("Edit")}
                       >
                         <Ionicons name="create-outline" size={13} color={colors.primary} />
-                        <Text style={[styles.actionChipText, { color: colors.primary }]}>
+                        {/* <Text style={[styles.actionChipText, { color: colors.primary }]}>
                           {t("Edit")}
-                        </Text>
+                        </Text> */}
                       </Pressable>
                       <Pressable
                         style={[styles.actionChip, styles.actionChipDestructive]}
@@ -648,9 +648,9 @@ export function ManagerTrainingScreen() {
                         accessibilityLabel={t("Delete")}
                       >
                         <Ionicons name="trash-outline" size={13} color={colors.destructive} />
-                        <Text style={[styles.actionChipText, { color: colors.destructive }]}>
+                        {/* <Text style={[styles.actionChipText, { color: colors.destructive }]}>
                           {t("Delete")}
-                        </Text>
+                        </Text> */}
                       </Pressable>
                     </View>
                   </View>
@@ -965,7 +965,7 @@ export function ManagerTrainingScreen() {
               <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
               <Text style={styles.handoverNoticeText}>
                 {t(
-                  "The Backend transfers barns, plans and unfinished classes together. This cannot be undone from the mobile app.",
+                  "The handover will transfer barns, training plans, and unfinished classes to the new trainer. Please review the details before confirming.",
                 )}
               </Text>
             </View>

@@ -191,9 +191,9 @@ export function MedicalCaseDetailScreen() {
           ? { deceased: true }
           : activeLock
             ? {
-                lockDecision,
-                ...(lockDecision === "KEEP" && lockExpectedEnd ? { lockExpectedEnd } : {}),
-              }
+              lockDecision,
+              ...(lockDecision === "KEEP" && lockExpectedEnd ? { lockExpectedEnd } : {}),
+            }
             : {}),
       });
       await resource.refresh();
@@ -455,7 +455,7 @@ export function MedicalCaseDetailScreen() {
                 <Text style={styles.costLabel}>Tổng chi phí ca điều trị:</Text>
                 <Text style={styles.costValue}>
                   {medicalCase.totalCost == null
-                    ? "Không hiển thị cho giai đoạn này"
+                    ? "0đ"
                     : formatVnd(medicalCase.totalCost)}
                 </Text>
               </View>
@@ -498,7 +498,7 @@ export function MedicalCaseDetailScreen() {
 
           {/* 3D Injury Mapper if horse has injuries */}
           {(activeTab === "ALL" || activeTab === "3D") &&
-          (resource.data.injuries.length || resource.data.injuryHistoryUnavailable) ? (
+            (resource.data.injuries.length || resource.data.injuryHistoryUnavailable) ? (
             <Injury3DMapper
               horseId={medicalCase.horseId}
               existingInjuries={resource.data.injuries}
@@ -529,202 +529,202 @@ export function MedicalCaseDetailScreen() {
 
           {/* Visits Timeline */}
           {(activeTab === "ALL" || activeTab === "VISITS") ? (
-          <View style={uiStyles.section}>
-            <SectionTitle
-              action={
-                isVet && isOpen ? (
-                  <Pressable
-                    onPress={() =>
-                      router.push(
-                        `/vet/medical/visit?caseId=${medicalCase.id}&horseId=${medicalCase.horseId}` as Href,
-                      )
-                    }
-                    style={styles.addVisitQuickButton}
-                  >
-                    <Ionicons name="add" size={15} color="#ffffff" />
-                    <Text style={styles.addVisitQuickText}>Tái khám</Text>
-                  </Pressable>
-                ) : null
-              }
-            >
-              Lịch sử các lần khám ({visits.length})
-            </SectionTitle>
+            <View style={uiStyles.section}>
+              <SectionTitle
+                action={
+                  isVet && isOpen ? (
+                    <Pressable
+                      onPress={() =>
+                        router.push(
+                          `/vet/medical/visit?caseId=${medicalCase.id}&horseId=${medicalCase.horseId}` as Href,
+                        )
+                      }
+                      style={styles.addVisitQuickButton}
+                    >
+                      <Ionicons name="add" size={15} color="#ffffff" />
+                      <Text style={styles.addVisitQuickText}>Tái khám</Text>
+                    </Pressable>
+                  ) : null
+                }
+              >
+                Lịch sử các lần khám ({visits.length})
+              </SectionTitle>
 
-            {visits.map((visit, index) => {
-              const isNormal = visit.conclusion === "NORMAL";
-              const isIssue = visit.conclusion === "ISSUE";
-              return (
-                <View key={visit.id} style={styles.visitCard}>
-                  <Pressable
-                    onPress={() => router.push(`/${role}/medical/visits/${visit.id}` as Href)}
-                    style={styles.visitCardHeader}
-                  >
-                    <View style={styles.visitHeaderTop}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                        <View style={styles.visitNumberBadge}>
-                          <Text style={styles.visitNumberText}>#{visits.length - index}</Text>
+              {visits.map((visit, index) => {
+                const isNormal = visit.conclusion === "NORMAL";
+                const isIssue = visit.conclusion === "ISSUE";
+                return (
+                  <View key={visit.id} style={styles.visitCard}>
+                    <Pressable
+                      onPress={() => router.push(`/${role}/medical/visits/${visit.id}` as Href)}
+                      style={styles.visitCardHeader}
+                    >
+                      <View style={styles.visitHeaderTop}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                          <View style={styles.visitNumberBadge}>
+                            <Text style={styles.visitNumberText}>#{visits.length - index}</Text>
+                          </View>
+                          <Text style={styles.visitKindText}>
+                            {visit.kind === "ROUTINE"
+                              ? "Khám định kỳ"
+                              : visit.kind === "FOLLOW_UP"
+                                ? "Tái khám"
+                                : "Khám theo yêu cầu"}
+                          </Text>
                         </View>
-                        <Text style={styles.visitKindText}>
-                          {visit.kind === "ROUTINE"
-                            ? "Khám định kỳ"
-                            : visit.kind === "FOLLOW_UP"
-                              ? "Tái khám"
-                              : "Khám theo yêu cầu"}
-                        </Text>
-                      </View>
-                      {visit.conclusion ? (
-                        <View
-                          style={[
-                            styles.conclusionBadge,
-                            isNormal ? styles.conclusionBadgeNormal : styles.conclusionBadgeIssue,
-                          ]}
-                        >
-                          <Text
+                        {visit.conclusion ? (
+                          <View
                             style={[
-                              styles.conclusionBadgeText,
-                              isNormal
-                                ? styles.conclusionBadgeTextNormal
-                                : styles.conclusionBadgeTextIssue,
+                              styles.conclusionBadge,
+                              isNormal ? styles.conclusionBadgeNormal : styles.conclusionBadgeIssue,
                             ]}
                           >
-                            {isIssue ? "CÓ VẤN ĐỀ" : "BÌNH THƯỜNG"}
+                            <Text
+                              style={[
+                                styles.conclusionBadgeText,
+                                isNormal
+                                  ? styles.conclusionBadgeTextNormal
+                                  : styles.conclusionBadgeTextIssue,
+                              ]}
+                            >
+                              {isIssue ? "CÓ VẤN ĐỀ" : "BÌNH THƯỜNG"}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      <Text style={styles.visitDateText}>
+                        Ngày khám: {formatDateTime(visit.examDate)}
+                      </Text>
+
+                      {visit.diagnosis ? (
+                        <Text style={styles.visitDiagnosisText}>Chẩn đoán: {visit.diagnosis}</Text>
+                      ) : null}
+
+                      {visit.careInstructions ? (
+                        <View style={styles.careInstructionBox}>
+                          <Ionicons name="reader-outline" size={14} color={colors.primary} />
+                          <Text style={styles.careInstructionText} numberOfLines={2}>
+                            {visit.careInstructions}
                           </Text>
                         </View>
                       ) : null}
-                    </View>
 
-                    <Text style={styles.visitDateText}>
-                      Ngày khám: {formatDateTime(visit.examDate)}
-                    </Text>
-
-                    {visit.diagnosis ? (
-                      <Text style={styles.visitDiagnosisText}>Chẩn đoán: {visit.diagnosis}</Text>
-                    ) : null}
-
-                    {visit.careInstructions ? (
-                      <View style={styles.careInstructionBox}>
-                        <Ionicons name="reader-outline" size={14} color={colors.primary} />
-                        <Text style={styles.careInstructionText} numberOfLines={2}>
-                          {visit.careInstructions}
+                      {visit.nextVisitAt ? (
+                        <Text style={styles.nextVisitText}>
+                          Hẹn tái khám: {formatDateTime(visit.nextVisitAt)}
                         </Text>
-                      </View>
-                    ) : null}
+                      ) : null}
 
-                    {visit.nextVisitAt ? (
-                      <Text style={styles.nextVisitText}>
-                        Hẹn tái khám: {formatDateTime(visit.nextVisitAt)}
-                      </Text>
-                    ) : null}
-
-                    {visit.voidedAt ? (
-                      <Text style={styles.voidedNoticeText}>
-                        Đã hủy lần khám: {visit.voidReason}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-
-                  {/* Prescriptions mini list */}
-                  {visit.prescriptions.length ? (
-                    <View style={styles.prescriptionsBlock}>
-                      <Text style={styles.subBlockTitle}>Đơn thuốc điều trị:</Text>
-                      {visit.prescriptions.map((prescription) => (
-                        <Text key={prescription.id} style={styles.prescriptionItemText}>
-                          • {prescription.medicine}
-                          {prescription.dosage ? ` · ${prescription.dosage}` : ""}
-                          {prescription.frequency ? ` (${prescription.frequency})` : ""} ·{" "}
-                          {formatDate(prescription.startDate)}
-                          {prescription.endDate ? ` – ${formatDate(prescription.endDate)}` : ""}
+                      {visit.voidedAt ? (
+                        <Text style={styles.voidedNoticeText}>
+                          Đã hủy lần khám: {visit.voidReason}
                         </Text>
-                      ))}
-                    </View>
-                  ) : null}
+                      ) : null}
+                    </Pressable>
 
-                  {/* Injuries tags */}
-                  {visit.injuries.length ? (
-                    <View style={styles.injuriesBlock}>
-                      <Text style={styles.subBlockTitle}>Vị trí chấn thương:</Text>
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                        {visit.injuries.map((injury) => (
-                          <View key={injury.id} style={styles.injuryPill}>
-                            <Text style={styles.injuryPillText}>
-                              {injury.bodyRegion} · {injury.injuryType}
-                            </Text>
-                          </View>
+                    {/* Prescriptions mini list */}
+                    {visit.prescriptions.length ? (
+                      <View style={styles.prescriptionsBlock}>
+                        <Text style={styles.subBlockTitle}>Đơn thuốc điều trị:</Text>
+                        {visit.prescriptions.map((prescription) => (
+                          <Text key={prescription.id} style={styles.prescriptionItemText}>
+                            • {prescription.medicine}
+                            {prescription.dosage ? ` · ${prescription.dosage}` : ""}
+                            {prescription.frequency ? ` (${prescription.frequency})` : ""} ·{" "}
+                            {formatDate(prescription.startDate)}
+                            {prescription.endDate ? ` – ${formatDate(prescription.endDate)}` : ""}
+                          </Text>
                         ))}
                       </View>
+                    ) : null}
+
+                    {/* Injuries tags */}
+                    {visit.injuries.length ? (
+                      <View style={styles.injuriesBlock}>
+                        <Text style={styles.subBlockTitle}>Vị trí chấn thương:</Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                          {visit.injuries.map((injury) => (
+                            <View key={injury.id} style={styles.injuryPill}>
+                              <Text style={styles.injuryPillText}>
+                                {injury.bodyRegion} · {injury.injuryType}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    ) : null}
+
+                    {/* Visit cost display */}
+                    <View style={styles.visitCostRow}>
+                      <Text style={styles.visitCostLabel}>Chi phí lần khám:</Text>
+                      <Text style={styles.visitCostValue}>
+                        {visit.costHidden
+                          ? "Chi phí thuộc chủ khác"
+                          : visit.cost != null
+                            ? formatVnd(Number(visit.cost))
+                            : "0 đ"}
+                      </Text>
                     </View>
-                  ) : null}
 
-                  {/* Visit cost display */}
-                  <View style={styles.visitCostRow}>
-                    <Text style={styles.visitCostLabel}>Chi phí lần khám:</Text>
-                    <Text style={styles.visitCostValue}>
-                      {visit.costHidden
-                        ? "Chi phí thuộc chủ khác"
-                        : visit.cost != null
-                          ? formatVnd(Number(visit.cost))
-                          : "0 đ"}
-                    </Text>
-                  </View>
-
-                  {/* Vet actions on visit */}
-                  {isVet && !visit.voidedAt && visit.vetId === user?.userId ? (
-                    <View style={styles.visitActionsRow}>
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, width: "100%" }}>
-                        {resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
-                        resource.data?.horse.lifecycleStatus !== "DECEASED" ? (
+                    {/* Vet actions on visit */}
+                    {isVet && !visit.voidedAt && visit.vetId === user?.userId ? (
+                      <View style={styles.visitActionsRow}>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, width: "100%" }}>
+                          {resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
+                            resource.data?.horse.lifecycleStatus !== "DECEASED" ? (
+                            <SecondaryButton
+                              label="Sửa buổi khám"
+                              style={{ flexGrow: 1 }}
+                              onPress={() =>
+                                router.push(`/${role}/medical/visits/edit/${visit.id}` as Href)
+                              }
+                            />
+                          ) : null}
                           <SecondaryButton
-                            label="Sửa buổi khám"
-                            style={{ flexGrow: 1 }}
-                            onPress={() =>
-                              router.push(`/${role}/medical/visits/edit/${visit.id}` as Href)
-                            }
-                          />
-                        ) : null}
-                        <SecondaryButton
-                          label="Sửa chi phí"
-                          style={{ flexGrow: 1 }}
-                          onPress={() => {
-                            setVoidRecordId("");
-                            setAdjustRecordId(visit.id);
-                            setAdjustCost(visit.cost != null ? String(visit.cost) : "0");
-                            setAdjustReason("");
-                          }}
-                        />
-                        {resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
-                        resource.data?.horse.lifecycleStatus !== "DECEASED" ? (
-                          <SecondaryButton
-                            label="Hủy buổi khám"
+                            label="Sửa chi phí"
                             style={{ flexGrow: 1 }}
                             onPress={() => {
-                              setAdjustRecordId("");
-                              setVoidRecordId(visit.id);
+                              setVoidRecordId("");
+                              setAdjustRecordId(visit.id);
+                              setAdjustCost(visit.cost != null ? String(visit.cost) : "0");
+                              setAdjustReason("");
                             }}
                           />
-                        ) : null}
+                          {resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
+                            resource.data?.horse.lifecycleStatus !== "DECEASED" ? (
+                            <SecondaryButton
+                              label="Hủy buổi khám"
+                              style={{ flexGrow: 1 }}
+                              onPress={() => {
+                                setAdjustRecordId("");
+                                setVoidRecordId(visit.id);
+                              }}
+                            />
+                          ) : null}
+                        </View>
                       </View>
-                    </View>
-                  ) : null}
-                  {visit.voidedAt ? (
-                    <PrimaryButton
-                      label="Ghi buổi khám thay thế"
-                      icon="medkit-outline"
-                      onPress={() => openReplacementVisit(visit.id)}
-                    />
-                  ) : null}
-                </View>
-              );
-            })}
+                    ) : null}
+                    {visit.voidedAt ? (
+                      <PrimaryButton
+                        label="Ghi buổi khám thay thế"
+                        icon="medkit-outline"
+                        onPress={() => openReplacementVisit(visit.id)}
+                      />
+                    ) : null}
+                  </View>
+                );
+              })}
 
-            {!visits.length ? (
-              <View style={styles.emptyVisitsBox}>
-                <Ionicons name="document-text-outline" size={32} color={colors.mutedForeground} />
-                <Text style={uiStyles.muted}>
-                  Chưa có lần khám nào được ghi nhận cho bệnh án này.
-                </Text>
-              </View>
-            ) : null}
-          </View>
+              {!visits.length ? (
+                <View style={styles.emptyVisitsBox}>
+                  <Ionicons name="document-text-outline" size={32} color={colors.mutedForeground} />
+                  <Text style={uiStyles.muted}>
+                    Chưa có lần khám nào được ghi nhận cho bệnh án này.
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           ) : null}
 
           {/* Modal Bottom Sheet: Sửa chi phí lần khám */}

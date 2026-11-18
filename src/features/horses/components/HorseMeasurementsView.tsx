@@ -620,18 +620,15 @@ export function HorseMeasurementsView({
 
           {/* SECTION 3: LỊCH SỬ ĐO LƯỜNG (HISTORY) */}
           <View style={{ gap: space.sm }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
+            <SectionTitle
+              action={
+                <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
+                  {resource.data.length} bản ghi
+                </Text>
+              }
             >
-              <SectionTitle>Lịch sử ghi nhận</SectionTitle>
-              <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
-                {resource.data.length} bản ghi
-              </Text>
-            </View>
+              Lịch sử ghi nhận
+            </SectionTitle>
 
             {resource.data.length ? (
               <>

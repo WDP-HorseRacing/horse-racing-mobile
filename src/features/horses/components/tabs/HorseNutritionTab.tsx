@@ -120,16 +120,18 @@ export function HorseNutritionTab({
               justifyContent: "space-between",
             }}
           >
-            <SectionTitle>Phụ phí chăm sóc đặc biệt</SectionTitle>
-            <Pressable
-              onPress={() =>
-                router.push(`/${roleId}/horse/${horseId}/stable-care?tab=Surcharges` as Href)
-              }
-            >
-              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
-                Quản lý phụ phí →
-              </Text>
-            </Pressable>
+            <SectionTitle
+              action={<Pressable
+                onPress={() =>
+                  router.push(`/${roleId}/horse/${horseId}/stable-care?tab=Surcharges` as Href)
+                }
+              >
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                  Quản lý phụ phí →
+                </Text>
+              </Pressable>}>
+              Phụ phí chăm sóc đặc biệt</SectionTitle>
+
           </View>
 
           <AsyncStateView

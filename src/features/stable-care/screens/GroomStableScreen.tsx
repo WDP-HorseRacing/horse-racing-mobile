@@ -24,6 +24,7 @@ import { horseService, type HorseHealthStatusDto } from "@/services/horse.servic
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
 import type { GroomTodayDto } from "@/adapters/groom.adapter";
 import { formatEnum, formatQuantity } from "@/utils/formatters";
+import { formatToDdMmYyyy } from "@/utils/horse-validation";
 import { radius, space } from "@/config/theme";
 
 type StablePayload = {
@@ -509,7 +510,7 @@ export function GroomStableScreen() {
 
           {/* Feeding Round Section */}
           <View style={[uiStyles.section, { marginTop: space.md }]}>
-            <SectionTitle>Feeding round · {payload.today.date}</SectionTitle>
+            <SectionTitle>Feeding round · {formatToDdMmYyyy(payload.today.date)}</SectionTitle>
             {payload.today.horses
               .filter((horse) => horse.feedingPlan?.meals.length)
               .map((horse) => (
@@ -527,7 +528,7 @@ export function GroomStableScreen() {
                   </View>
                   {horse.feedingPlan?.meals.map((meal) => (
                     <View key={`${horse.horseId}:${meal.meal}`} style={styles.meal}>
-                      <Text style={uiStyles.label}>{meal.meal.replaceAll("_", " ")}</Text>
+                      <Text style={uiStyles.label}>{formatEnum(meal.meal)}</Text>
                       <Text style={uiStyles.muted}>
                         {meal.items
                           .map((item) => `${item.name} ${formatQuantity(item.quantity, item.unit)}`)

@@ -25,7 +25,7 @@ import { mediaService, type LocalMediaAsset } from "@/services/media.service";
 import { ChecklistEvidenceSheet } from "@/features/stable-care/ChecklistEvidenceSheet";
 import { extractErrorMessage } from "@/utils/errorHandler";
 import type { TrainingSessionView } from "@/adapters/training.adapter";
-import type { SupplyItemDto, SupplyRequestDto } from "@/adapters/supplies.adapter";
+import type { SupplyItemDto } from "@/adapters/supplies.adapter";
 import type { HorseListItemDto } from "@/adapters/horse.adapter";
 import type { StaffDto } from "@/adapters/staff.adapter";
 
@@ -38,7 +38,6 @@ type WorkPayload =
       horses: HorseListItemDto[];
       staff: StaffDto[];
       items: SupplyItemDto[];
-      requests: SupplyRequestDto[];
     };
 
 export function RoleWorkScreen() {
@@ -114,7 +113,6 @@ export function RoleWorkScreen() {
           horses={resource.data.horses}
           staff={resource.data.staff}
           items={resource.data.items}
-          requests={resource.data.requests}
         />
       ) : null}
       <ChecklistEvidenceSheet
@@ -136,13 +134,12 @@ async function loadRoleWork(token: string, role: RoleId): Promise<WorkPayload> {
     case "vet":
       return { role, dashboard: await medicalService.getDashboard(token) };
     case "manager": {
-      const [horses, staff, items, requests] = await Promise.all([
+      const [horses, staff, items] = await Promise.all([
         horseService.list(token),
         usersService.list(token),
         suppliesService.listItems(token),
-        suppliesService.listRequests(token),
       ]);
-      return { role, horses, staff, items, requests };
+      return { role, horses, staff, items };
     }
     default:
       throw new Error("Unsupported role for work dashboard.");
@@ -367,16 +364,13 @@ function ManagerWork({
   horses,
   staff,
   items,
-  requests,
 }: {
   horses: HorseListItemDto[];
   staff: StaffDto[];
   items: SupplyItemDto[];
-  requests: SupplyRequestDto[];
 }) {
   const uiStyles = getUiStyles(useTheme().colors);
   const lowStock = items.filter((item) => item.lowStock);
-  const pendingRequests = requests.filter((request) => request.status === "PENDING");
   return (
     <>
       <View style={uiStyles.metricGrid}>
@@ -409,21 +403,13 @@ function ManagerWork({
             </View>
           </Panel>
         ))}
-        {pendingRequests.map((request) => (
-          <Panel key={`request:${request.id}`}>
-            <Text style={uiStyles.value}>{request.item.name} · supply request</Text>
-            <Text style={uiStyles.muted}>
-              {request.quantity} {request.item.unit} requested by {request.requester.fullName}
-            </Text>
-          </Panel>
-        ))}
-        {!lowStock.length && !pendingRequests.length ? (
+        {!lowStock.length ? (
           <AsyncStateView
             isLoading={false}
             error={null}
             onRetry={() => undefined}
             empty
-            emptyLabel="No inventory exceptions or pending supply requests."
+            emptyLabel="No low-stock supplies."
           />
         ) : null}
       </View>

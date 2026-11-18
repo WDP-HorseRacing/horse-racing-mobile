@@ -16,8 +16,8 @@ export function AccessControlScreen() {
     >
       <Panel>
         <Text style={uiStyles.muted}>
-          Backend chưa cung cấp API để đọc hoặc cập nhật cấu hình quyền. Màn hình này sẽ hiển thị
-          dữ liệu khi backend hỗ trợ.
+          Access is currently determined by the role assigned to each account. Viewing or changing
+          individual permissions is not available on this screen yet.
         </Text>
       </Panel>
     </Screen>

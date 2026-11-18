@@ -395,7 +395,7 @@ export function HorseOverviewTab({
           </Field>
           <PrimaryButton
             style={{ marginTop: space.xs }}
-            label={savingAptitude ? "Saving…" : "Save distance focus"}
+            label={savingAptitude ? t("Saving…") : t("Save distance focus")}
             icon="checkmark"
             disabled={savingAptitude || !raceAptitudeValue}
             onPress={() => void saveDistanceFocus()}

@@ -147,8 +147,8 @@ export function HorseMedicalTab({
               horseData.eligibility.trainingEligible
                 ? "Đủ điều kiện"
                 : horseData.eligibility.trainingReasons
-                    .map((reason: string) => formatEnum(t(reason)))
-                    .join(", ") || "Hạn chế",
+                  .map((reason: string) => formatEnum(t(reason)))
+                  .join(", ") || "Hạn chế",
             ],
           ]}
         />
@@ -278,12 +278,15 @@ export function HorseMedicalTab({
           <View style={{ gap: space.md, marginTop: space.xs }}>
             {/* SECTION: Bệnh án điều trị (Medical Cases) */}
             <View style={uiStyles.section}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <SectionTitle>Bệnh án điều trị</SectionTitle>
-                <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
-                  {medicalResource.data.cases.items.length} ca bệnh
-                </Text>
-              </View>
+              <SectionTitle
+                action={
+                  <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
+                    {medicalResource.data.cases.items.length} ca bệnh
+                  </Text>
+                }
+              >
+                Bệnh án điều trị
+              </SectionTitle>
 
               {medicalResource.data.cases.items.length ? (
                 medicalResource.data.cases.items.map((medicalCase: any) => {
@@ -314,7 +317,14 @@ export function HorseMedicalTab({
                                 color={isOpen ? colors.destructive : colors.fit}
                               />
                             </View>
-                            <Text style={[uiStyles.value, { fontSize: 15, fontWeight: "700" }]} numberOfLines={1}>
+                            <Text
+                              style={[
+                                uiStyles.value,
+                                { flex: 1, minWidth: 0, fontSize: 15, fontWeight: "700" },
+                              ]}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
                               {medicalCase.initialDiagnosis}
                             </Text>
                           </View>
@@ -324,6 +334,7 @@ export function HorseMedicalTab({
                               paddingHorizontal: 8,
                               paddingVertical: 2,
                               borderRadius: radius.pill,
+                              flexShrink: 0,
                               backgroundColor: isOpen ? "rgba(239, 68, 68, 0.12)" : colors.elevated,
                             }}
                           >
@@ -380,12 +391,15 @@ export function HorseMedicalTab({
 
             {/* SECTION: Lịch sử các lần khám (Medical Visits) */}
             <View style={uiStyles.section}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <SectionTitle>Lịch sử các lần khám</SectionTitle>
-                <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
-                  {medicalResource.data.records.length} lần khám
-                </Text>
-              </View>
+              <SectionTitle
+                action={
+                  <Text style={{ fontSize: 12, color: colors.mutedForeground }}>
+                    {medicalResource.data.records.length} lần khám
+                  </Text>
+                }
+              >
+                Lịch sử các lần khám
+              </SectionTitle>
 
               {medicalResource.data.records.length ? (
                 medicalResource.data.records.slice(0, 12).map((record: any) => {
@@ -414,7 +428,14 @@ export function HorseMedicalTab({
                                 color={isIssue ? colors.destructive : colors.primary}
                               />
                             </View>
-                            <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "700" }]} numberOfLines={1}>
+                            <Text
+                              style={[
+                                uiStyles.value,
+                                { flex: 1, minWidth: 0, fontSize: 14, fontWeight: "700" },
+                              ]}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
                               {record.conclusion === "ISSUE"
                                 ? (record.diagnosis || "Phát hiện vấn đề sức khỏe")
                                 : (record.diagnosis || record.kind?.replaceAll("_", " ") || "Khám định kỳ bình thường")}
@@ -426,6 +447,7 @@ export function HorseMedicalTab({
                               paddingHorizontal: 8,
                               paddingVertical: 2,
                               borderRadius: radius.pill,
+                              flexShrink: 0,
                               backgroundColor: isIssue ? "rgba(239, 68, 68, 0.12)" : colors.fitSoft,
                             }}
                           >
@@ -492,29 +514,37 @@ export function HorseMedicalTab({
 
             {/* SECTION: Lịch chăm sóc & điều trị */}
             <View style={uiStyles.section}>
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <SectionTitle>Lịch trình chăm sóc y tế</SectionTitle>
-                <Pressable
-                  onPress={() => router.push(`/${roleId}/medical/care?horseId=${horseData.id}` as Href)}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
-                    Mở chi tiết →
-                  </Text>
-                </Pressable>
-              </View>
+              <SectionTitle
+                action={
+                  <Pressable
+                    onPress={() => router.push(`/${roleId}/medical/care?horseId=${horseData.id}` as Href)}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
+                      Mở chi tiết →
+                    </Text>
+                  </Pressable>
+                }
+              >
+                Lịch trình chăm sóc y tế
+              </SectionTitle>
 
               {(medicalResource.data.careSchedules ?? []).length ? (
                 (medicalResource.data.careSchedules ?? []).map((schedule: any) => (
                   <Panel key={schedule.id} style={{ gap: space.xs, padding: space.md }}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <Text style={[uiStyles.value, { fontSize: 14, fontWeight: "700", flex: 1 }]} numberOfLines={1}>
-                        {schedule.type.replaceAll("_", " ")}
+                      <Text
+                        style={[uiStyles.value, { fontSize: 14, fontWeight: "700", flex: 1, minWidth: 0 }]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {formatEnum(schedule.type)}
                       </Text>
                       <View
                         style={{
                           paddingHorizontal: 8,
                           paddingVertical: 2,
                           borderRadius: radius.pill,
+                          flexShrink: 0,
                           backgroundColor:
                             schedule.status === "COMPLETED"
                               ? colors.fitSoft
@@ -535,7 +565,7 @@ export function HorseMedicalTab({
                                   : "#F59E0B",
                           }}
                         >
-                          {schedule.status.replaceAll("_", " ")}
+                          {formatEnum(schedule.status)}
                         </Text>
                       </View>
                     </View>

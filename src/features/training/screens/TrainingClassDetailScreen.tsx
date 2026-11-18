@@ -21,6 +21,7 @@ import {
   BottomSheetModal,
   Chips,
   DatePickerField,
+  DangerButton,
   Field,
   NativeInput,
   Panel,
@@ -254,13 +255,13 @@ export function TrainingClassDetailScreen() {
     const query = horseSearch.trim().toLowerCase();
     const filtered = query
       ? list.filter((h) => {
-          const profile = horseMap.get(h.horseId);
-          return (
-            h.horseName.toLowerCase().includes(query) ||
-            h.horseId.toLowerCase().includes(query) ||
-            (profile?.microchipId ?? "").toLowerCase().includes(query)
-          );
-        })
+        const profile = horseMap.get(h.horseId);
+        return (
+          h.horseName.toLowerCase().includes(query) ||
+          h.horseId.toLowerCase().includes(query) ||
+          (profile?.microchipId ?? "").toLowerCase().includes(query)
+        );
+      })
       : [...list];
 
     if (horseSort === "name_asc") {
@@ -421,42 +422,57 @@ export function TrainingClassDetailScreen() {
                 </Text>
               </Panel>
               {payload.trainingClass.status === "ACTIVE" ? (
-                <View style={styles.twoButtonRow}>
-                  <SecondaryButton
-                    label="Edit class"
-                    icon="create-outline"
-                    style={styles.flexButton}
-                    onPress={() => {
-                      setEditName(payload.trainingClass.name);
-                      setEditCode(payload.trainingClass.code);
-                      setEditStartDate(payload.trainingClass.startDate);
-                      setEditCapacity(String(payload.trainingClass.maxHorses));
-                      setEditClass(true);
-                    }}
-                  />
-                  <SecondaryButton
-                    label="Complete class"
-                    icon="checkmark-done-outline"
-                    style={styles.flexButton}
+                <View style={styles.classActionsPanel}>
+                  <SectionTitle>Class actions</SectionTitle>
+                  <View style={styles.twoButtonRow}>
+                    <SecondaryButton
+                      label="Edit class"
+                      icon="create-outline"
+                      style={[styles.flexButton, styles.classActionButton]}
+                      disabled={pending !== ""}
+                      onPress={() => {
+                        setEditName(payload.trainingClass.name);
+                        setEditCode(payload.trainingClass.code);
+                        setEditStartDate(payload.trainingClass.startDate);
+                        setEditCapacity(String(payload.trainingClass.maxHorses));
+                        setEditClass(true);
+                      }}
+                    />
+                    <PrimaryButton
+                      label="Complete class"
+                      icon="checkmark-done-outline"
+                      style={[
+                        styles.flexButton,
+                        styles.classActionButton,
+                        styles.completeClassButton,
+                      ]}
+                      disabled={pending !== ""}
+                      onPress={() =>
+                        Alert.alert(
+                          "Complete class?",
+                          "The Backend will close this class; future session changes will no longer be available.",
+                          [
+                            { text: "Keep active", style: "cancel" },
+                            {
+                              text: "Complete",
+                              onPress: () =>
+                                void perform("complete", () =>
+                                  trainingService.setClassStatus(token!, classId, {
+                                    status: "COMPLETED",
+                                  }),
+                                ),
+                            },
+                          ],
+                        )
+                      }
+                    />
+                  </View>
+                  <DangerButton
+                    label="Cancel class"
+                    icon="close-circle-outline"
+                    style={[styles.flexButton, styles.cancelClassButton]}
                     disabled={pending !== ""}
-                    onPress={() =>
-                      Alert.alert(
-                        "Complete class?",
-                        "The Backend will close this class; future session changes will no longer be available.",
-                        [
-                          { text: "Keep active", style: "cancel" },
-                          {
-                            text: "Complete",
-                            onPress: () =>
-                              void perform("complete", () =>
-                                trainingService.setClassStatus(token!, classId, {
-                                  status: "COMPLETED",
-                                }),
-                              ),
-                          },
-                        ],
-                      )
-                    }
+                    onPress={() => setShowCancelForm(true)}
                   />
                 </View>
               ) : null}
@@ -498,11 +514,6 @@ export function TrainingClassDetailScreen() {
 
               {payload.trainingClass.status === "ACTIVE" ? (
                 <>
-                  <SecondaryButton
-                    label={t("Hủy lớp")}
-                    icon="close-circle-outline"
-                    onPress={() => setShowCancelForm(true)}
-                  />
                   {/* Bottom Sheet Modal: Hủy lớp học */}
                   <BottomSheetModal
                     visible={showCancelForm}
@@ -1368,6 +1379,29 @@ const getStyles = (colors: any) =>
       alignItems: "stretch",
       gap: 10,
       width: "100%",
+    },
+    classActionsPanel: {
+      gap: space.sm,
+      marginTop: space.xs,
+      padding: space.md,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    classActionButton: {
+      minHeight: 50,
+      marginVertical: 0,
+      borderRadius: radius.md,
+    },
+    completeClassButton: {
+      backgroundColor: colors.fit,
+      borderColor: colors.fit,
+    },
+    cancelClassButton: {
+      minHeight: 50,
+      marginVertical: 0,
+      borderRadius: radius.md,
     },
     flexButton: {
       flex: 1,

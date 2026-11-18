@@ -30,7 +30,6 @@ export type ManagerTrainerDashboardData = {
   stable: {
     incidents: IncidentDto[];
     lowStock: SupplyItemDto[];
-    pendingSupply: number;
   };
   classes: TrainingClassDto[];
   sessions: TrainingSessionDto[];
@@ -217,18 +216,6 @@ export function ManagerTrainerDashboard({
       });
     });
 
-    // Pending Supply Requests (WARN - Manager only)
-    if (data.stable.pendingSupply > 0) {
-      list.push({
-        key: "supply-pending-requests",
-        level: "warn",
-        title: `${data.stable.pendingSupply} ${t("supply requests pending review")}`,
-        detail: t("Awaiting manager authorization"),
-        to: `/${role}/inventory` as Href,
-        cta: t("Review"),
-      });
-    }
-
     // Barns with no room (INFO)
     barns
       .filter((b) => b.status === "ACTIVE" && b.hasActiveHeadTrainer && b.availableStallCount <= 0)
@@ -308,7 +295,6 @@ export function ManagerTrainerDashboard({
   }, [
     urgentRequests,
     data.stable.incidents,
-    data.stable.pendingSupply,
     data.stable.lowStock,
     pendingBarnHorses,
     pendingStallHorses,
@@ -655,17 +641,22 @@ export function ManagerTrainerDashboard({
       {/* 3. HOẠT ĐỘNG HUẤN LUYỆN (TRAINING ACTIVITIES)             */}
       {/* ======================================================== */}
       <View style={uiStyles.section}>
-        <View style={uiStyles.row}>
-          <SectionTitle>Lớp huấn luyện</SectionTitle>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push(`/${role}/training` as Href)}
-            style={styles.headerActionLink}
-          >
-            <Text style={styles.headerActionLinkText}>{t("Training schedule")}</Text>
-            <Ionicons name="arrow-forward" size={13} color={colors.primary} />
-          </Pressable>
-        </View>
+        <SectionTitle
+          action={
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push(`/${role}/training` as Href)}
+              style={styles.headerActionLink}
+            >
+              <Text numberOfLines={1} style={styles.headerActionLinkText}>
+                {t("Training schedule")}
+              </Text>
+              <Ionicons name="arrow-forward" size={13} color={colors.primary} />
+            </Pressable>
+          }
+        >
+          Lớp huấn luyện
+        </SectionTitle>
 
         {/* Classes Status Summary Grid */}
         <View style={styles.trainingClassesRow}>
@@ -791,17 +782,22 @@ export function ManagerTrainerDashboard({
       {/* 4. SỨC KHỎE VÀ Y TẾ (HERD HEALTH & MEDICAL)               */}
       {/* ======================================================== */}
       <View style={uiStyles.section}>
-        <View style={uiStyles.row}>
-          <SectionTitle>Sức khỏe</SectionTitle>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push(`/${role}/medical` as Href)}
-            style={styles.headerActionLink}
-          >
-            <Text style={styles.headerActionLinkText}>{t("Medical overview")}</Text>
-            <Ionicons name="arrow-forward" size={13} color={colors.primary} />
-          </Pressable>
-        </View>
+        <SectionTitle
+          action={
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push(`/${role}/medical` as Href)}
+              style={styles.headerActionLink}
+            >
+              <Text numberOfLines={1} style={styles.headerActionLinkText}>
+                {t("Medical overview")}
+              </Text>
+              <Ionicons name="arrow-forward" size={13} color={colors.primary} />
+            </Pressable>
+          }
+        >
+          Sức khỏe
+        </SectionTitle>
 
         {role === "trainer" ? (
           <View style={{ marginBottom: space.sm }}>
@@ -942,17 +938,23 @@ export function ManagerTrainerDashboard({
       {/* Chi phí y tế 6 tháng (Chỉ Manager hoặc khi có dữ liệu) */}
       {role === "manager" && data.costs && data.costs.length > 0 ? (
         <View style={uiStyles.section}>
-          <View style={uiStyles.row}>
-            <SectionTitle>Chi phí y tế 6 tháng</SectionTitle>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push(`/${role}/medical/costs` as Href)}
-              style={styles.headerActionLink}
-            >
-              <Text style={styles.headerActionLinkText}>{t("Cost report")}</Text>
-              <Ionicons name="arrow-forward" size={13} color={colors.primary} />
-            </Pressable>
-          </View>
+          <SectionTitle
+            action={
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push(`/${role}/medical/costs` as Href)}
+                style={styles.headerActionLink}
+              >
+                <Text numberOfLines={1} style={styles.headerActionLinkText}>
+                  {t("Cost report")}
+                </Text>
+                <Ionicons name="arrow-forward" size={13} color={colors.primary} />
+              </Pressable>
+            }
+          >
+            Chi phí y tế 6 tháng
+          </SectionTitle>
+
 
           <Panel>
             <View style={[uiStyles.row, { alignItems: "flex-start", marginBottom: space.md }]}>

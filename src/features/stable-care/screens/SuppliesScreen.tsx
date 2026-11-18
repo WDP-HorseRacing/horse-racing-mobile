@@ -90,6 +90,8 @@ const EMPTY_ITEMS: SupplyItemDto[] = [];
 const EMPTY_REQUESTS: SupplyRequestDto[] = [];
 
 const USE_QUICK_AMOUNTS = [1, 2, 5, 10];
+// Keep stock-in and restock-request UI hidden until stock lots support expiry dates.
+const STOCK_IN_UI_ENABLED = false;
 const USE_NOTE_SUGGESTIONS = [
   "Breakfast",
   "Dinner",
@@ -108,8 +110,10 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
 
   const isManager = role === "manager";
   const canUse = EMPLOYEE_ROLES.includes(role as (typeof EMPLOYEE_ROLES)[number]);
-  const canRequest = role === "trainer" || role === "groom" || role === "vet";
-  const canViewRequests = isManager || canRequest;
+  const canCreateSupply = isManager && STOCK_IN_UI_ENABLED;
+  const canRequest =
+    STOCK_IN_UI_ENABLED && (role === "trainer" || role === "groom" || role === "vet");
+  const canViewRequests = STOCK_IN_UI_ENABLED && (isManager || canRequest);
 
   const [category, setCategory] = useState("All");
   const [search, setSearch] = useState("");
@@ -245,7 +249,6 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
     <Screen
       role={role}
       title="Supplies"
-      subtitle="Shared club stock and restock requests"
       refreshing={resource.isRefreshing}
       onRefresh={() => void resource.refresh()}
     >
@@ -304,9 +307,9 @@ export function SuppliesScreen({ role }: { role: RoleId }) {
       ) : null}
 
       {/* TAB 1: STOCK LIST */}
-      {tab === "Stock" ? (
+      {tab === "Stock" || !canViewRequests ? (
         <>
-          {isManager ? (
+          {canCreateSupply ? (
             <ManagerSuppliesView mode="add" onAdd={() => openItemForm()} />
           ) : null}
 

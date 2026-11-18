@@ -48,7 +48,6 @@ export function RoleDashboardScreen() {
         costs,
         incidents,
         lowStock,
-        pendingSupplyRequests,
         classes,
       ] = await Promise.all([
         horseService.list(token),
@@ -78,7 +77,6 @@ export function RoleDashboardScreen() {
             ),
           )
           .catch(() => []),
-        suppliesService.listRequests(token, { status: "PENDING" }).catch(() => []),
         trainingService.listClasses(token).catch(() => []),
       ]);
 
@@ -99,7 +97,6 @@ export function RoleDashboardScreen() {
           stable: {
             incidents,
             lowStock,
-            pendingSupply: pendingSupplyRequests.length,
           },
           classes,
           sessions: sessionGroups.flat(),
@@ -143,7 +140,6 @@ export function RoleDashboardScreen() {
           stable: {
             incidents,
             lowStock,
-            pendingSupply: 0,
           },
           classes,
           sessions: sessionGroups.flat(),
