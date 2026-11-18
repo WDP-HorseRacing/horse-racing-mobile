@@ -898,7 +898,7 @@ export function TrainingSessionDetailScreen() {
                               ]}
                             >
                               <Text style={styles.attendanceBtnText} numberOfLines={1}>
-                                {t(participant.status === "ABSENT" ? "Check in again" : "Check in")}
+                                {t("Điểm danh")}
                               </Text>
                               <Ionicons name="checkmark-circle-outline" size={16} color="#FFFFFF" />
                             </Pressable>
@@ -920,7 +920,7 @@ export function TrainingSessionDetailScreen() {
                               ]}
                             >
                               <Text style={styles.attendanceBtnText} numberOfLines={1}>
-                                {t("Mark ready")}
+                                {t("Sẵn sàng")}
                               </Text>
                               <Ionicons name="walk-outline" size={16} color="#FFFFFF" />
                             </Pressable>
@@ -942,7 +942,7 @@ export function TrainingSessionDetailScreen() {
                               ]}
                             >
                               <Text style={styles.attendanceBtnText} numberOfLines={1}>
-                                {t("Start training")}
+                                {t("Bắt đầu")}
                               </Text>
                               <Ionicons name="play" size={16} color="#FFFFFF" />
                             </Pressable>
@@ -973,7 +973,7 @@ export function TrainingSessionDetailScreen() {
                                 ]}
                               >
                                 <Text style={styles.attendanceBtnText} numberOfLines={1}>
-                                  {t("Complete training")}
+                                  {t("Hoàn tất")}
                                 </Text>
                                 <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
                               </Pressable>
@@ -993,7 +993,7 @@ export function TrainingSessionDetailScreen() {
                                 ]}
                               >
                                 <Text style={styles.dangerActionBtnText} numberOfLines={1}>
-                                  {t("Dừng sớm lượt tập")}
+                                  {t("Dừng sớm")}
                                 </Text>
                                 <Ionicons
                                   name="stop-circle-outline"
@@ -1021,7 +1021,7 @@ export function TrainingSessionDetailScreen() {
                               ]}
                             >
                               <Text style={styles.absentBtnText} numberOfLines={1}>
-                                {t("Report absent")}
+                                {t("Báo vắng")}
                               </Text>
                               <Ionicons
                                 name="person-remove-outline"
@@ -1033,7 +1033,7 @@ export function TrainingSessionDetailScreen() {
                         </View>
                       ) : null}
 
-                      {/* Row 2: Management & Telemetry (Đổi Groom + Hiệu suất & Biểu đồ IoT) */}
+                      {/* Row 2: Management & Telemetry (Đổi Groom + Hiệu suất) */}
                       <View style={styles.actionRow}>
                         {canAssignGroom ? (
                           <Pressable
@@ -1050,11 +1050,7 @@ export function TrainingSessionDetailScreen() {
                             ]}
                           >
                             <Text style={styles.groomBtnText} numberOfLines={1}>
-                              {t(
-                                participant.assignedGroomId
-                                  ? "Change assigned Groom"
-                                  : "Assign Groom",
-                              )}
+                              {t(participant.assignedGroomId ? "Đổi Groom" : "Gán Groom")}
                             </Text>
                             <Ionicons
                               name="people-outline"
@@ -1088,7 +1084,7 @@ export function TrainingSessionDetailScreen() {
                           ]}
                         >
                           <Text style={styles.telemetryBtnText} numberOfLines={1}>
-                            {t("Hiệu suất & Biểu đồ IoT")}
+                            {t("Hiệu suất")}
                           </Text>
                           <Ionicons
                             name="pulse-outline"
@@ -1378,7 +1374,7 @@ export function TrainingSessionDetailScreen() {
         onSave={() => void submitTrialComplete(Boolean(trialTimeInput.trim()))}
         saveLoading={pending === `complete:${trialCompletionParticipantId}`}
         saveDisabled={pending !== ""}
-        saveLabel={trialTimeInput.trim() ? "Hoàn thành & Lưu kết quả" : "Chỉ hoàn thành (Ghi sau)"}
+        saveLabel="Xong"
         cancelLabel="Hủy"
       >
         <Text style={ui.muted}>
@@ -1419,12 +1415,12 @@ const getStyles = (colors: any, isDark: boolean) =>
       flex: 1,
       minHeight: 44,
       borderRadius: radius.md,
-      paddingHorizontal: 10,
+      paddingHorizontal: 8,
       paddingVertical: 8,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 6,
+      gap: 5,
       borderWidth: 1,
     },
     attendanceBtn: {

@@ -170,7 +170,7 @@ export function BottomSheetModal({
               </Text>
             </Pressable>
 
-            <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={2}>
               {title}
             </Text>
 
@@ -260,15 +260,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     textAlign: "center",
     marginHorizontal: 8,
   },
   saveBtn: {
-    minWidth: 70,
+    minWidth: 64,
     minHeight: 36,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRadius: radius.pill,
     justifyContent: "center",
     alignItems: "center",

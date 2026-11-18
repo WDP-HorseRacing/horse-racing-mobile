@@ -104,17 +104,22 @@ export function ParticipantPerformanceView({
     }
   }, [initialSummary]);
 
-  // Cleanup simulation on unmount
-  useEffect(() => {
-    return () => {
-      stopSimulation(participantId);
-    };
-  }, [participantId]);
+  // Simulation is managed globally across session and detail screens.
+  // Do NOT stop simulation on unmount so telemetry continues running smoothly in the background.
 
   // Recalculate summary whenever points arrive
   const updateMetricsAndSummary = useCallback(
     (newPoint: PerformanceMetricPointDto) => {
       setMetrics((prev) => {
+        // Prevent duplicate telemetry point (same timestamp or within 600ms with matching BPM)
+        const isDuplicate = prev.some(
+          (p) =>
+            p.recordedAt === newPoint.recordedAt ||
+            (Math.abs(new Date(p.recordedAt).getTime() - new Date(newPoint.recordedAt).getTime()) < 600 &&
+              Math.abs(p.heartRateBpm - newPoint.heartRateBpm) < 2),
+        );
+        if (isDuplicate) return prev;
+
         const next = [...prev, newPoint];
         // Recalculate summary live
         const hrVals = next.map((p) => p.heartRateBpm);
