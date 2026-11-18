@@ -45,9 +45,9 @@ export function MedicalCaseDetailScreen() {
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const { token, user } = useAuth();
   const { t } = useI18n();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const uiStyles = getUiStyles(colors);
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const styles = useMemo(() => getStyles(colors, isDark), [colors, isDark]);
 
   const [finalConclusion, setFinalConclusion] = useState("");
   const [correctionOpen, setCorrectionOpen] = useState(false);
@@ -670,39 +670,107 @@ export function MedicalCaseDetailScreen() {
                     {/* Vet actions on visit */}
                     {isVet && !visit.voidedAt && visit.vetId === user?.userId ? (
                       <View style={styles.visitActionsRow}>
-                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm, width: "100%" }}>
-                          {resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
-                            resource.data?.horse.lifecycleStatus !== "DECEASED" ? (
-                            <SecondaryButton
-                              label="Sửa buổi khám"
-                              style={{ flexGrow: 1 }}
-                              onPress={() =>
-                                router.push(`/${role}/medical/visits/edit/${visit.id}` as Href)
-                              }
-                            />
-                          ) : null}
-                          <SecondaryButton
-                            label="Sửa chi phí"
-                            style={{ flexGrow: 1 }}
+                        {resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
+                        resource.data?.horse.lifecycleStatus !== "DECEASED" ? (
+                          <View style={styles.visitActionsGrid}>
+                            <View style={styles.visitActionRowTop}>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t("Sửa buổi khám")}
+                                onPress={() =>
+                                  router.push(`/${role}/medical/visits/edit/${visit.id}` as Href)
+                                }
+                                style={({ pressed }) => [
+                                  styles.visitActionBtn,
+                                  styles.editVisitBtn,
+                                  { opacity: pressed ? 0.8 : 1 },
+                                ]}
+                              >
+                                <Ionicons
+                                  name="create-outline"
+                                  size={16}
+                                  color={isDark ? "#60A5FA" : "#1D4ED8"}
+                                />
+                                <Text style={styles.editVisitBtnText} numberOfLines={1}>
+                                  {t("Sửa buổi khám")}
+                                </Text>
+                              </Pressable>
+
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t("Sửa chi phí")}
+                                onPress={() => {
+                                  setVoidRecordId("");
+                                  setAdjustRecordId(visit.id);
+                                  setAdjustCost(visit.cost != null ? String(visit.cost) : "0");
+                                  setAdjustReason("");
+                                }}
+                                style={({ pressed }) => [
+                                  styles.visitActionBtn,
+                                  styles.editCostBtn,
+                                  { opacity: pressed ? 0.8 : 1 },
+                                ]}
+                              >
+                                <Ionicons
+                                  name="cash-outline"
+                                  size={16}
+                                  color={isDark ? "#34D399" : "#047857"}
+                                />
+                                <Text style={styles.editCostBtnText} numberOfLines={1}>
+                                  {t("Sửa chi phí")}
+                                </Text>
+                              </Pressable>
+                            </View>
+
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={t("Hủy buổi khám")}
+                              onPress={() => {
+                                setAdjustRecordId("");
+                                setVoidRecordId(visit.id);
+                              }}
+                              style={({ pressed }) => [
+                                styles.visitActionBtn,
+                                styles.cancelVisitBtn,
+                                { opacity: pressed ? 0.8 : 1 },
+                              ]}
+                            >
+                              <Ionicons
+                                name="trash-outline"
+                                size={16}
+                                color={isDark ? "#F87171" : "#DC2626"}
+                              />
+                              <Text style={styles.cancelVisitBtnText} numberOfLines={1}>
+                                {t("Hủy buổi khám")}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        ) : (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={t("Sửa chi phí")}
                             onPress={() => {
                               setVoidRecordId("");
                               setAdjustRecordId(visit.id);
                               setAdjustCost(visit.cost != null ? String(visit.cost) : "0");
                               setAdjustReason("");
                             }}
-                          />
-                          {resource.data?.horse.lifecycleStatus !== "TRANSFERRED" &&
-                            resource.data?.horse.lifecycleStatus !== "DECEASED" ? (
-                            <SecondaryButton
-                              label="Hủy buổi khám"
-                              style={{ flexGrow: 1 }}
-                              onPress={() => {
-                                setAdjustRecordId("");
-                                setVoidRecordId(visit.id);
-                              }}
+                            style={({ pressed }) => [
+                              styles.visitActionBtn,
+                              styles.editCostBtn,
+                              { width: "100%", opacity: pressed ? 0.8 : 1 },
+                            ]}
+                          >
+                            <Ionicons
+                              name="cash-outline"
+                              size={16}
+                              color={isDark ? "#34D399" : "#047857"}
                             />
-                          ) : null}
-                        </View>
+                            <Text style={styles.editCostBtnText} numberOfLines={1}>
+                              {t("Sửa chi phí")}
+                            </Text>
+                          </Pressable>
+                        )}
                       </View>
                     ) : null}
                     {visit.voidedAt ? (
@@ -1040,7 +1108,7 @@ export function MedicalCaseDetailScreen() {
   );
 }
 
-function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
+function getStyles(colors: ReturnType<typeof useTheme>["colors"], isDark = false) {
   return StyleSheet.create({
     patientCard: {
       backgroundColor: colors.surface,
@@ -1331,11 +1399,64 @@ function getStyles(colors: ReturnType<typeof useTheme>["colors"]) {
       color: colors.primary,
     },
     visitActionsRow: {
-      padding: space.md,
-      paddingTop: 0,
+      paddingHorizontal: space.md,
+      paddingVertical: space.sm,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
       marginTop: space.xs,
+      backgroundColor: isDark ? "rgba(255, 255, 255, 0.02)" : "rgba(0, 0, 0, 0.015)",
+    },
+    visitActionsGrid: {
+      gap: 8,
+      width: "100%",
+    },
+    visitActionRowTop: {
+      flexDirection: "row",
+      gap: 8,
+      width: "100%",
+    },
+    visitActionBtn: {
+      flex: 1,
+      minHeight: 42,
+      borderRadius: radius.md,
+      paddingHorizontal: space.sm,
+      paddingVertical: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      borderWidth: 1,
+    },
+    editVisitBtn: {
+      backgroundColor: isDark ? "rgba(59, 130, 246, 0.12)" : "#EFF6FF",
+      borderColor: isDark ? "rgba(59, 130, 246, 0.3)" : "#BFDBFE",
+    },
+    editVisitBtnText: {
+      color: isDark ? "#60A5FA" : "#1D4ED8",
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+    editCostBtn: {
+      backgroundColor: isDark ? "rgba(16, 185, 129, 0.12)" : "#ECFDF5",
+      borderColor: isDark ? "rgba(16, 185, 129, 0.3)" : "#A7F3D0",
+    },
+    editCostBtnText: {
+      color: isDark ? "#34D399" : "#047857",
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+    cancelVisitBtn: {
+      width: "100%",
+      backgroundColor: isDark ? "rgba(239, 68, 68, 0.1)" : "#FEF2F2",
+      borderColor: isDark ? "rgba(239, 68, 68, 0.3)" : "#FECACA",
+    },
+    cancelVisitBtnText: {
+      color: isDark ? "#F87171" : "#DC2626",
+      fontSize: 13,
+      fontWeight: "700",
+      textAlign: "center",
     },
     emptyVisitsBox: {
       alignItems: "center",
